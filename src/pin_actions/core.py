@@ -24,10 +24,16 @@ def _is_already_pinned(ref: str) -> bool:
 
 
 def _parse_uses(uses_str: str) -> tuple[str, str] | None:
-    """Parse 'owner/repo[/path]@ref' into (repo, ref) tuple.
+    """Parse 'owner/repo[/path]@ref' into (repo, ref).
+
+    ``uses_str`` is the bare scalar value as returned by ``doc.walk()``,
+    which never includes a genuine trailing YAML comment (yamlrocks strips
+    those from the walked value; see ``doc.locate(path).comment`` in
+    :func:`pin_file` for the tag recorded on an already-pinned entry).
 
     Args:
-        uses_str: Uses string (e.g., 'actions/checkout@v4').
+        uses_str: Uses string (e.g., 'actions/checkout@v4' or
+            'actions/checkout@<sha>').
 
     Returns:
         (repo, ref) tuple, or None if parsing fails.
@@ -35,7 +41,9 @@ def _parse_uses(uses_str: str) -> tuple[str, str] | None:
     if "@" not in uses_str:
         return None
     repo, ref = uses_str.rsplit("@", 1)
-    return (repo, ref) if repo and ref else None
+    if not repo or not ref:
+        return None
+    return repo, ref
 
 
 def _walk_uses_keys(obj: Any, path: str = "") -> list[tuple[Any, str, str]]:  # noqa: ANN401
@@ -122,29 +130,45 @@ async def pin_file(
     except Exception as exc:
         raise YAMLParseError(path, str(exc)) from exc
 
-    # Gather all unique mutable refs to resolve, keyed by (repo, ref) -> list of item paths.
-    uses_refs: dict[tuple[str, str], list[tuple[Any, ...]]] = {}
+    # Gather all unique refs to resolve, keyed by (repo, tag) -> list of (item_path, current_sha).
+    # ``current_sha`` is the SHA already in the file (None if this entry isn't pinned yet), so
+    # we can tell after resolution whether the tag has moved and a rewrite is actually needed.
+    uses_refs: dict[tuple[str, str], list[tuple[tuple[Any, ...], str | None]]] = {}
     for item_path, uses_str in _find_uses_paths(doc):
         parsed = _parse_uses(uses_str)
         if not parsed:
             continue
 
         repo, ref = parsed
-        if _is_local_action(repo) or _is_already_pinned(ref):
+        if _is_local_action(repo):
             continue
 
-        uses_refs.setdefault((repo, ref), []).append(item_path)
+        if _is_already_pinned(ref):
+            # Already-pinned entry: re-resolve against the tag/branch recorded in the
+            # trailing comment (mirrors mheap/pin-github-action's default behavior). A
+            # bare SHA with no comment has nothing to re-resolve against, so it's skipped.
+            comment = doc.locate(item_path).comment
+            tag = comment.strip() if comment else ""
+            if not tag:
+                continue
+            uses_refs.setdefault((repo, tag), []).append((item_path, ref))
+        else:
+            uses_refs.setdefault((repo, ref), []).append((item_path, None))
 
     # Batch resolve all unique refs. Any GitHubAPIError propagates to the caller,
     # who decides whether to skip, retry, or abort (library-friendly: no swallowing).
     resolved: dict[tuple[str, str], str] = {}
-    for repo, ref in uses_refs:
-        resolved[(repo, ref)] = await client.resolve_sha(repo, ref)
+    for repo, tag in uses_refs:
+        resolved[(repo, tag)] = await client.resolve_sha(repo, tag)
 
-    # Rewrite entries with resolved SHAs
-    for (repo, ref), sha in resolved.items():
-        for item_path in uses_refs.get((repo, ref), []):
-            _set_path(doc, item_path, f"{repo}@{sha}  # {ref}")
+    # Rewrite entries whose resolved SHA differs from what's already there (new pins
+    # always differ; already-pinned entries only differ if the tag has moved).
+    for (repo, tag), new_sha in resolved.items():
+        for item_path, current_sha in uses_refs.get((repo, tag), []):
+            if new_sha == current_sha:
+                continue
+            _set_path(doc, item_path, f"{repo}@{new_sha}")
+            doc.locate(item_path).comment = tag
 
     # Write if changed
     new_content = doc.to_yaml()

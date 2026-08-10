@@ -147,11 +147,12 @@ jobs:
 
 Features:
 - ✅ Resolves mutable refs (branches, tags, short SHAs) to full commit SHAs
-- ✅ Skips already-pinned refs (40-char hex SHAs)
+- ✅ Updates already-pinned refs: re-resolves the tag/branch recorded in the trailing comment on every run and rewrites the SHA if it has moved (mirrors [`mheap/pin-github-action`](https://github.com/mheap/pin-github-action)'s default behavior) — a bare SHA with no comment is left untouched since there's no tag to re-resolve against
 - ✅ Skips local actions (`./...`) and Docker actions (`docker://...`)
 - ✅ Thread-safe async/concurrent request handling with rate-limit backoff
-- ✅ Idempotent (running twice produces same result)
+- ✅ No-op when nothing has changed (re-running with unmoved tags produces identical output)
 - ✅ Preserves comments and formatting (round-trip YAML via `yamlrocks`)
+
 
 ## Performance
 

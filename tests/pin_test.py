@@ -254,8 +254,8 @@ class TestPinFile:
         assert "actions/setup-python@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" in content
 
     @pytest.mark.asyncio
-    async def test_pin_file_skips_already_pinned(self, tmp_path: Path) -> None:
-        """Don't rewrite already-pinned refs."""
+    async def test_pin_file_skips_bare_sha_without_comment(self, tmp_path: Path) -> None:
+        """Don't rewrite a bare SHA that has no '# tag' comment to re-resolve against."""
         client = GitHubClient(token="test")
 
         workflow_file = tmp_path / "workflow.yml"
@@ -271,6 +271,54 @@ class TestPinFile:
 
         modified = await pin_file(client, workflow_file, dry_run=False)
         assert not modified
+        assert workflow_file.read_text() == original_content
+
+    @pytest.mark.asyncio
+    async def test_pin_file_updates_already_pinned_ref(self, tmp_path: Path) -> None:
+        """Re-resolve an already-pinned 'sha  # tag' entry and update the SHA if it moved.
+
+        Mirrors mheap/pin-github-action's default behavior: pinning is not a
+        one-way, idempotent operation. Every run re-resolves the tag/branch
+        recorded in the trailing comment, so a tag that has since moved to a
+        new commit gets its SHA updated on the next run.
+        """
+        client = GitHubClient(token="test", concurrency=1)
+
+        old_sha = "a" * 40
+        new_sha = "b" * 40
+        workflow_file = tmp_path / "workflow.yml"
+        workflow_file.write_text(
+            f"name: Test\njobs:\n  build:\n    steps:\n      - uses: actions/checkout@{old_sha}  # v4\n",
+        )
+
+        async def mock_resolve_sha(_repo: str, _ref: str) -> str:
+            return new_sha
+
+        with patch.object(client, "resolve_sha", new=AsyncMock(side_effect=mock_resolve_sha)):
+            modified = await pin_file(client, workflow_file, dry_run=False)
+            assert modified
+
+        content = workflow_file.read_text()
+        assert new_sha in content
+        assert old_sha not in content
+        assert "# v4" in content
+
+    @pytest.mark.asyncio
+    async def test_pin_file_already_pinned_ref_unchanged_when_sha_same(self, tmp_path: Path) -> None:
+        """No file modification if re-resolving an already-pinned tag returns the same SHA."""
+        client = GitHubClient(token="test", concurrency=1)
+
+        sha = "a" * 40
+        workflow_file = tmp_path / "workflow.yml"
+        original_content = f"name: Test\njobs:\n  build:\n    steps:\n      - uses: actions/checkout@{sha}  # v4\n"
+        workflow_file.write_text(original_content)
+
+        async def mock_resolve_sha(_repo: str, _ref: str) -> str:
+            return sha
+
+        with patch.object(client, "resolve_sha", new=AsyncMock(side_effect=mock_resolve_sha)):
+            modified = await pin_file(client, workflow_file, dry_run=False)
+            assert not modified
         assert workflow_file.read_text() == original_content
 
     @pytest.mark.asyncio

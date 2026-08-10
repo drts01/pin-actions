@@ -91,18 +91,22 @@ run(Settings)
   │   └─ pin_file(client, path)
   │       ├─ read bytes, yamlrocks.loads(..., OPT_ROUND_TRIP)
   │       ├─ doc.walk() → collect all "uses" key paths + values
-  │       ├─ parse repo@ref, skip local/docker/already-pinned
-  │       ├─ batch resolve unique (repo, ref) pairs:
+  │       ├─ parse repo@ref, skip local/docker; if ref is already a SHA, read the
+  │       │  trailing comment via doc.locate(path).comment and re-resolve against
+  │       │  that tag instead (skip only if no comment is present)
+  │       ├─ batch resolve unique (repo, tag) pairs:
   │       │   └─ for each ref:
   │       │       ├─ check cache (lock)
   │       │       ├─ if miss: resolve_sha(repo, ref)
   │       │       │   └─ GET /repos/{repo}/commits/{ref}
   │       │       │       └─ retry with backoff on 429/403
   │       │       └─ store in cache (lock)
-  │       ├─ apply resolved SHAs via _set_path (path-based, doc-rooted assignment)
+  │       ├─ apply resolved SHAs (only where changed) via _set_path, and set the
+  │       │  tag as a genuine comment via doc.locate(path).comment = tag
   │       ├─ doc.to_yaml() → compare to original bytes
   │       └─ write file (unless dry_run) if changed
   └─ return list of modified files
+
 ```
 
 ## Key Design Decisions
@@ -115,18 +119,19 @@ run(Settings)
 | **Semaphore (not global rate limiter)** | Async-native; respects GitHub API concurrency limits without blocking |
 | **Batch ref resolution** | Deduplicate refs before API calls; faster for workflows with repeated actions |
 | **Path-tuples instead of object references** | yamlrocks views lack stable identity across `__getitem__` calls; paths are stable and replayable against `doc` |
-
-| **Skip already-pinned SHAs** | Idempotent: running twice = no changes second time |
-| **Preserve comments** | Rewrite pattern: `uses: owner/repo@sha  # original-ref`, combined with yamlrocks round-trip preservation of all other content |
+| **Re-resolve already-pinned refs against their comment** | Mirrors `mheap/pin-github-action`'s default: a `sha` with a trailing `# tag` comment is re-resolved on every run, and the SHA is rewritten if the tag has moved. A bare SHA with no comment has nothing to re-resolve against and is left untouched |
+| **Preserve comments** | Rewrite pattern: `uses: owner/repo@sha # original-ref` — comment is set via `doc.locate(path).comment`, not embedded in the string, so it round-trips as a genuine (unquoted) YAML comment. Combined with yamlrocks round-trip preservation of all other content |
 | **Dry-run mode** | Resolve & validate refs without writing files |
+
 
 ## Safety Invariants
 
-1. **Idempotency**: Running twice on same workflows produces identical result
-2. **No modification of already-pinned refs**: Only rewrites mutable (non-SHA) refs
+1. **Stable no-op**: Running twice on the same workflows, with no tags having moved on the remote, produces an identical result (re-resolution happens every time, but the file is only rewritten if the resolved SHA differs from what's already there)
+2. **Already-pinned refs are re-resolved, not frozen**: A `sha  # tag` entry is re-resolved against `tag` on every run and updated if the tag now points elsewhere; a bare SHA with no comment is left untouched (nothing to re-resolve against)
 3. **No modification of local actions**: `./...` actions skipped entirely
 4. **Cache consistency**: Lock guards all reads/writes to response cache
 5. **Retry limits**: Max `max_retries` attempts; fails gracefully with informative errors
+
 
 ## Performance Characteristics
 
