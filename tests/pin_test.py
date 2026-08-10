@@ -13,6 +13,11 @@ from pin_actions.core import (
     pin_file,
     run,
 )
+from pin_actions.errors import (
+    InvalidRefError,
+    RateLimitExhaustedError,
+    YAMLParseError,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -136,15 +141,15 @@ class TestGitHubClient:
 
     @pytest.mark.asyncio
     async def test_resolve_sha_404_raises(self) -> None:
-        """Raise ValueError on 404."""
+        """Raise InvalidRefError on 404."""
         client = GitHubClient(token="test", concurrency=1)
 
         async def mock_request_with_backoff(repo: str, ref: str) -> str:
-            raise ValueError(f"Ref not found: {repo}@{ref}")
+            raise InvalidRefError(repo, ref)
 
         with (
             patch.object(client, "_request_with_backoff", side_effect=mock_request_with_backoff),
-            pytest.raises(ValueError, match="Ref not found"),
+            pytest.raises(InvalidRefError, match="Ref not found"),
         ):
             await client.resolve_sha("owner/repo", "nonexistent")
 
@@ -162,15 +167,54 @@ class TestGitHubClient:
 
     @pytest.mark.asyncio
     async def test_resolve_sha_429_exhausted(self) -> None:
-        """Raise ValueError after max retries on 429."""
+        """Raise RateLimitExhaustedError after max retries on 429."""
         client = GitHubClient(token="test", concurrency=1, max_retries=2)
 
         async def mock_request_with_backoff(repo: str, ref: str) -> str:
-            raise ValueError(f"Failed to resolve {repo}@{ref}")
+            raise RateLimitExhaustedError(repo, ref, 2)
 
         with (
             patch.object(client, "_request_with_backoff", side_effect=mock_request_with_backoff),
-            pytest.raises(ValueError, match="Failed to resolve"),
+            pytest.raises(RateLimitExhaustedError, match="Failed to resolve"),
+        ):
+            await client.resolve_sha("owner/repo", "v4")
+
+    @pytest.mark.asyncio
+    async def test_resolve_sha_404_real_backoff_path(self) -> None:
+        """Exercise real _request_with_backoff 404 handling via mocked httpx2 client."""
+        client = GitHubClient(token="test", concurrency=1)
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 404
+
+        mock_http_client = MagicMock()
+        mock_http_client.get = AsyncMock(return_value=mock_resp)
+        mock_http_client.__aenter__ = AsyncMock(return_value=mock_http_client)
+        mock_http_client.__aexit__ = AsyncMock(return_value=None)
+
+        with (
+            patch("pin_actions.client.httpx2.AsyncClient", return_value=mock_http_client),
+            pytest.raises(InvalidRefError, match="Ref not found"),
+        ):
+            await client.resolve_sha("owner/repo", "nonexistent")
+
+    @pytest.mark.asyncio
+    async def test_resolve_sha_429_real_backoff_exhausted(self) -> None:
+        """Exercise real _request_with_backoff 429-exhausted handling via mocked httpx2 client."""
+        client = GitHubClient(token="test", concurrency=1, max_retries=2)
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 429
+        mock_resp.headers = {"Retry-After": "0"}
+
+        mock_http_client = MagicMock()
+        mock_http_client.get = AsyncMock(return_value=mock_resp)
+        mock_http_client.__aenter__ = AsyncMock(return_value=mock_http_client)
+        mock_http_client.__aexit__ = AsyncMock(return_value=None)
+
+        with (
+            patch("pin_actions.client.httpx2.AsyncClient", return_value=mock_http_client),
+            pytest.raises(RateLimitExhaustedError, match="Failed to resolve"),
         ):
             await client.resolve_sha("owner/repo", "v4")
 
@@ -295,6 +339,34 @@ class TestPinFile:
         # Pinned ref should be there
         assert "actions/checkout@aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" in content
 
+    @pytest.mark.asyncio
+    async def test_pin_file_malformed_yaml_raises(self, tmp_path: Path) -> None:
+        """Raise YAMLParseError on malformed YAML."""
+        client = GitHubClient(token="test")
+
+        workflow_file = tmp_path / "workflow.yml"
+        workflow_file.write_text("jobs:\n  build:\n    steps:\n    - uses: actions/checkout@v4\n  bad indent: [\n")
+
+        with pytest.raises(YAMLParseError, match="Failed to parse YAML"):
+            await pin_file(client, workflow_file, dry_run=False)
+
+    @pytest.mark.asyncio
+    async def test_pin_file_propagates_github_api_error(self, tmp_path: Path) -> None:
+        """Propagate GitHubAPIError from client.resolve_sha without swallowing."""
+        client = GitHubClient(token="test", concurrency=1)
+
+        workflow_file = tmp_path / "workflow.yml"
+        workflow_file.write_text("jobs:\n  build:\n    steps:\n      - uses: actions/checkout@nonexistent\n")
+
+        async def mock_resolve_sha(repo: str, ref: str) -> str:
+            raise InvalidRefError(repo, ref)
+
+        with (
+            patch.object(client, "resolve_sha", new=AsyncMock(side_effect=mock_resolve_sha)),
+            pytest.raises(InvalidRefError, match="Ref not found"),
+        ):
+            await pin_file(client, workflow_file, dry_run=False)
+
 
 class TestRun:
     """Test main run logic."""
@@ -361,3 +433,33 @@ class TestRun:
 
         with pytest.raises(ValueError, match="Path does not exist"):
             await run(settings)
+
+    @pytest.mark.asyncio
+    async def test_run_raises_exception_group_on_partial_failure(self, tmp_path: Path) -> None:
+        """Raise ExceptionGroup[PinActionsError] when one file fails but others succeed."""
+        workflows_dir = tmp_path / ".github" / "workflows"
+        workflows_dir.mkdir(parents=True)
+
+        good_file = workflows_dir / "ci.yml"
+        good_file.write_text("name: CI\njobs:\n  test:\n    steps:\n      - uses: actions/checkout@v4\n")
+
+        bad_file = workflows_dir / "broken.yml"
+        bad_file.write_text("jobs:\n  build:\n    steps:\n    - uses: actions/checkout@v4\n  bad: [\n")
+
+        from pin_actions.config import Settings
+
+        settings = Settings(path=workflows_dir, token=None, dry_run=False, concurrency=1)
+
+        async def mock_resolve_sha(_repo: str, ref: str) -> str:
+            return "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" if ref == "v4" else ref
+
+        with patch("pin_actions.core.GitHubClient") as mock_client_class:
+            mock_client = MagicMock()
+            mock_client.resolve_sha = AsyncMock(side_effect=mock_resolve_sha)
+            mock_client_class.return_value = mock_client
+
+            with pytest.raises(ExceptionGroup) as exc_info:
+                await run(settings)
+
+        assert len(exc_info.value.exceptions) == 1
+        assert isinstance(exc_info.value.exceptions[0], YAMLParseError)

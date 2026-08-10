@@ -1,13 +1,13 @@
 """Core parsing and pinning logic."""
 
 import asyncio
-import sys
 from typing import TYPE_CHECKING, Any
 
 import yamlrocks
 
 from pin_actions.client import GitHubClient
 from pin_actions.config import Settings
+from pin_actions.errors import PinActionsError, YAMLParseError
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -110,14 +110,17 @@ async def pin_file(
         True if file was modified, False otherwise.
 
     Raises:
-        OSError: If file cannot be read or written.
+        YAMLParseError: If the file cannot be parsed as YAML.
+        GitHubAPIError: If a ref cannot be resolved (invalid ref, rate limit
+            exhausted, or network failure). Subclass of ``PinActionsError``.
+        OSError: If the file cannot be read or written.
     """
     content = path.read_bytes()  # noqa: ASYNC240 -- sync IO on Path, no async equivalent needed
+
     try:
         doc = yamlrocks.loads(content, option=yamlrocks.OPT_ROUND_TRIP)
     except Exception as exc:
-        print(f"[WARN] {path}: Failed to parse YAML: {exc}", file=sys.stderr)
-        return False
+        raise YAMLParseError(path, str(exc)) from exc
 
     # Gather all unique mutable refs to resolve, keyed by (repo, ref) -> list of item paths.
     uses_refs: dict[tuple[str, str], list[tuple[Any, ...]]] = {}
@@ -132,19 +135,14 @@ async def pin_file(
 
         uses_refs.setdefault((repo, ref), []).append(item_path)
 
-    # Batch resolve all unique refs
+    # Batch resolve all unique refs. Any GitHubAPIError propagates to the caller,
+    # who decides whether to skip, retry, or abort (library-friendly: no swallowing).
     resolved: dict[tuple[str, str], str] = {}
     for repo, ref in uses_refs:
-        try:
-            sha = await client.resolve_sha(repo, ref)
-            resolved[(repo, ref)] = sha
-        except ValueError as exc:
-            print(f"[WARN] {path}: {exc}", file=sys.stderr)
+        resolved[(repo, ref)] = await client.resolve_sha(repo, ref)
 
     # Rewrite entries with resolved SHAs
     for (repo, ref), sha in resolved.items():
-        if not sha:
-            continue
         for item_path in uses_refs.get((repo, ref), []):
             _set_path(doc, item_path, f"{repo}@{sha}  # {ref}")
 
@@ -154,7 +152,7 @@ async def pin_file(
         return False
 
     if not dry_run:
-        path.write_bytes(new_content)  # noqa: ASYNC240
+        path.write_bytes(new_content)  # noqa: ASYNC240 -- sync IO on Path, no async equivalent needed
 
     return True
 
@@ -162,12 +160,25 @@ async def pin_file(
 async def run(settings: Settings) -> list[Path]:
     """Scan workflows/actions and pin all mutable refs to commit SHAs.
 
+    Per-file errors (YAML parse failures, unresolvable refs, I/O errors) are
+    collected rather than aborting the whole batch; callers that need
+    per-file detail should inspect the raised ``ExceptionGroup`` or call
+    :func:`pin_file` directly for single-file control.
+
     Args:
         settings: Configuration (path, token, etc.).
 
     Returns:
         List of modified file paths.
+
+    Raises:
+        ValueError: If ``settings.path`` does not exist.
+        ExceptionGroup[PinActionsError]: If one or more files failed to
+            process; no partial results are returned in that case. Callers
+            needing per-file results despite failures should call
+            :func:`pin_file` directly for each file.
     """
+
     if not settings.path.exists():
         raise ValueError(f"Path does not exist: {settings.path}")
 
@@ -191,13 +202,43 @@ async def run(settings: Settings) -> list[Path]:
     tasks = [pin_file(client, f, dry_run=settings.dry_run) for f in files]
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
+    errors = [(f, r) for f, r in zip(files, results, strict=True) if isinstance(r, Exception)]
+    if errors:
+        raise ExceptionGroup(
+            f"{len(errors)} file(s) failed to process",
+            [PinActionsError(f"{f}: {exc}") if not isinstance(exc, PinActionsError) else exc for f, exc in errors],
+        )
+
     return [f for f, r in zip(files, results, strict=True) if r is True]
 
 
 def main() -> None:
-    """CLI entry point."""
-    settings = Settings()
-    modified = asyncio.run(run(settings))
+    """CLI entry point.
+
+    Parses ``sys.argv`` via pydantic-settings (supports ``--help``), runs the
+    pin operation, and reports results. Exits with status 1 on any error.
+    """
+    import sys
+
+    try:
+        settings = Settings(
+            _cli_parse_args=True,
+            _cli_kebab_case=True,
+            _cli_implicit_flags=True,
+            _cli_prog_name="pin-actions",
+        )
+        modified = asyncio.run(run(settings))
+    except PinActionsError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        sys.exit(1)
+    except ExceptionGroup as eg:
+        print(f"Error: {eg}", file=sys.stderr)
+        for exc in eg.exceptions:
+            print(f"  - {exc}", file=sys.stderr)
+        sys.exit(1)
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        sys.exit(1)
 
     if modified:
         print(f"Pinned {len(modified)} file(s):")

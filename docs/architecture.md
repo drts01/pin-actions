@@ -141,13 +141,49 @@ run(Settings)
 
 ## Error Handling
 
-- **Invalid ref (404)**: Logged to stderr, file continues processing other refs
-- **Rate limit exhausted (429x5)**: Logged to stderr, file continues
-- **Network error (timeout, DNS)**: Retry with backoff; raise after `max_retries`
-- **File I/O error (permission, disk full)**: Propagate as exception
-- **YAML parse error**: Logged to stderr, file skipped (returns `False`, not raised)
+Contract: **library raises, caller handles**. No function in `client.py`/`core.py` prints-and-continues or returns a sentinel on failure — every failure mode is a typed exception (`pin_actions.errors`). The CLI (`main()`) is the *only* place that catches these and converts them to stderr + exit code.
+
+```
+PinActionsError                  # base for all pin-actions errors
+├── YAMLParseError               # file cannot be parsed as YAML (path, reason)
+└── GitHubAPIError               # base for GitHub API failures
+    ├── InvalidRefError          # 404: repo@ref doesn't exist
+    ├── RateLimitExhaustedError  # retries exhausted on 429/403 (repo, ref, attempts)
+    └── NetworkError             # unrecoverable network failure (DNS, timeout, connection)
+```
+
+| Failure | Where raised | Type |
+|---|---|---|
+| Invalid ref (404) | `GitHubClient._request_with_backoff` | `InvalidRefError` |
+| Rate limit exhausted (429/403 × `max_retries`) | `GitHubClient._request_with_backoff` | `RateLimitExhaustedError` |
+| Network error (timeout, DNS, connection) | `GitHubClient._request_with_backoff` (via `httpx2.RequestError`) | `NetworkError` |
+| Malformed YAML | `pin_file()` (via `yamlrocks.loads`) | `YAMLParseError` |
+| File I/O error (permission, disk full) | `pin_file()` (`path.read_bytes`/`write_bytes`) | `OSError` (unwrapped — not pin-actions-specific) |
+| Nonexistent scan path | `run()` | `ValueError` |
+| One or more files fail during a batch `run()` | `run()` (via `asyncio.gather(..., return_exceptions=True)`) | `ExceptionGroup[PinActionsError]` — no partial results returned in that case |
+
+`pin_file()` and `GitHubClient.resolve_sha()` never catch `GitHubAPIError`/`YAMLParseError` internally — they propagate straight to the caller, who chooses to skip/retry/abort. `run()` is the one place that catches per-file exceptions (via `return_exceptions=True`) so a single bad file doesn't abort the whole batch, but it still surfaces every failure by re-raising them together in an `ExceptionGroup` rather than silently dropping them.
+
+
+## CLI (`--help` via pydantic-settings)
+
+`Settings` (in `config.py`) is a normal `pydantic_settings.BaseSettings` with **no CLI options baked into `model_config`**. CLI parsing is opt-in per call site:
+
+```python
+settings = Settings(
+    _cli_parse_args=True,     # parse sys.argv
+    _cli_kebab_case=True,     # dry_run -> --dry-run
+    _cli_implicit_flags=True, # --dry-run / --no-dry-run instead of --dry-run bool
+    _cli_prog_name="pin-actions",
+)
+```
+
+This is only done inside `main()`. **Why not `model_config = SettingsConfigDict(cli_parse_args=True, ...)`**: baking it into `model_config` makes *every* `Settings(...)` instantiation parse `sys.argv` — including direct instantiation in tests and library code, which breaks immediately under pytest (`unrecognized arguments: -v ...`) since pytest's own argv doesn't match the model's fields. Keeping it as call-time kwargs isolates CLI parsing to the one code path that actually wants it.
+
+`token`'s field uses `validation_alias=AliasChoices("PIN_ACTIONS_TOKEN", "GITHUB_TOKEN")` (with `populate_by_name=True`) so both the prefixed and the conventional unprefixed `GITHUB_TOKEN` env var populate it — pydantic-settings' CLI layer also derives `--token`/`--github-token` flag aliases from the same `AliasChoices`.
 
 ## Testing Strategy
+
 
 **Unit tests** (no network):
 - Helper functions (`_is_local_action`, `_is_already_pinned`, `_parse_uses`, `_walk_uses_keys`)

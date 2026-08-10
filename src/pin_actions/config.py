@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from pydantic import Field, SecretStr
+from pydantic import AliasChoices, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="PIN_ACTIONS_",
         case_sensitive=False,
+        populate_by_name=True,
     )
 
     path: Path = Field(
@@ -20,8 +21,10 @@ class Settings(BaseSettings):
     )
     token: SecretStr | None = Field(
         default=None,
+        validation_alias=AliasChoices("PIN_ACTIONS_TOKEN", "GITHUB_TOKEN"),
         description="GitHub API token (env: GITHUB_TOKEN or PIN_ACTIONS_TOKEN)",
     )
+
     dry_run: bool = Field(
         default=False,
         description="Print changes without writing",

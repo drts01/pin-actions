@@ -6,6 +6,8 @@ import threading
 
 import httpx2
 
+from pin_actions.errors import InvalidRefError, NetworkError, RateLimitExhaustedError
+
 
 class GitHubClient:
     """Async GitHub API client with thread-safe caching, rate limiting, and backoff."""
@@ -43,7 +45,9 @@ class GitHubClient:
             40-character commit SHA.
 
         Raises:
-            ValueError: If ref is invalid or API returns error.
+            InvalidRefError: If the ref does not exist on the remote repository (404).
+            RateLimitExhaustedError: If retries are exhausted while rate-limited.
+            NetworkError: On unrecoverable network errors.
         """
         # Fast path: already a full SHA
         if len(ref) == 40 and all(c in "0123456789abcdefABCDEF" for c in ref):
@@ -76,7 +80,9 @@ class GitHubClient:
             40-character commit SHA.
 
         Raises:
-            ValueError: If all retries exhausted or non-retryable error.
+            InvalidRefError: If the ref does not exist on the remote repository (404).
+            RateLimitExhaustedError: If retries are exhausted while rate-limited.
+            NetworkError: On unrecoverable network errors.
         """
         headers = {}
         if self.token:
@@ -98,7 +104,7 @@ class GitHubClient:
                         continue
 
                     if resp.status_code == 404:
-                        raise ValueError(f"Ref not found: {repo}@{ref}")
+                        raise InvalidRefError(repo, ref)
 
                     if resp.status_code >= 500:
                         await self._backoff(resp, attempt)
@@ -110,9 +116,9 @@ class GitHubClient:
                     if attempt < self.max_retries - 1:
                         await self._backoff(None, attempt)
                         continue
-                    raise ValueError(f"Network error resolving {repo}@{ref}") from exc
+                    raise NetworkError(f"Network error resolving {repo}@{ref}") from exc
 
-        raise ValueError(f"Failed to resolve {repo}@{ref} after {self.max_retries} retries")
+        raise RateLimitExhaustedError(repo, ref, self.max_retries)
 
     async def _backoff(
         self,
