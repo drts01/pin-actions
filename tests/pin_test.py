@@ -218,6 +218,31 @@ class TestGitHubClient:
         ):
             await client.resolve_sha("owner/repo", "v4")
 
+    @pytest.mark.asyncio
+    async def test_resolve_sha_composite_action_subpath_strips_subdir(self) -> None:
+        """Composite action ('owner/repo/subdir') hits commits API on 'owner/repo' only.
+
+        Regression: previously the full 'owner/repo/subdir' string was used as the repo
+        segment of the commits URL, causing a spurious 404 for any 'uses: owner/repo/subdir@ref'.
+        """
+        client = GitHubClient(token="test", concurrency=1)
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {"sha": "abc1234def5678abc1234def5678abc1234def56"}
+
+        mock_http_client = MagicMock()
+        mock_http_client.get = AsyncMock(return_value=mock_resp)
+        mock_http_client.__aenter__ = AsyncMock(return_value=mock_http_client)
+        mock_http_client.__aexit__ = AsyncMock(return_value=None)
+
+        with patch("pin_actions.client.httpx2.AsyncClient", return_value=mock_http_client):
+            result = await client.resolve_sha("uhg-pipelines/epl-jf/saas-setup", "v5")
+
+        assert result == "abc1234def5678abc1234def5678abc1234def56"
+        called_url = mock_http_client.get.call_args.args[0]
+        assert called_url.endswith("/repos/uhg-pipelines/epl-jf/commits/v5")
+
 
 class TestPinFile:
     """Test file pinning logic."""

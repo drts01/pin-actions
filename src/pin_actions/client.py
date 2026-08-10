@@ -88,7 +88,11 @@ class GitHubClient:
         if self.token:
             headers["Authorization"] = f"token {self.token}"
 
-        url = f"{self.base_url}/repos/{repo}/commits/{ref}"
+        # `repo` may include a composite-action subpath (e.g. 'owner/repo/subdir'
+        # from 'uses: owner/repo/subdir@ref'); the commits API only accepts
+        # 'owner/repo', so strip anything past the second path segment.
+        owner_repo = "/".join(repo.split("/")[:2])
+        url = f"{self.base_url}/repos/{owner_repo}/commits/{ref}"
 
         async with httpx2.AsyncClient() as client:
             for attempt in range(self.max_retries):
