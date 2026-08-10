@@ -91,6 +91,8 @@ run(Settings)
   │   └─ pin_file(client, path, update_to_latest_major, update_to_latest_minor, update_branches)
   │       ├─ read bytes, yamlrocks.loads(..., OPT_ROUND_TRIP)
   │       ├─ doc.walk() → collect all "uses" key paths + values
+  │       ├─ also collect all "with.ref" + "with.repository" pairs for actions/checkout steps
+  │       │  (skip if with.repository sibling missing, or if uses is not actions/checkout)
   │       ├─ parse repo@ref, skip local/docker; if ref is already a SHA, read the
   │       │  trailing comment via doc.locate(path).comment (skip only if no comment)
   │       │   ├─ if a version-constraint flag is set AND the comment parses as semver:
@@ -110,6 +112,7 @@ run(Settings)
   │       │       └─ store in cache (lock)
   │       ├─ apply resolved SHAs (only where changed) via _set_path, and set the
   │       │  tag as a genuine comment via doc.locate(path).comment = tag
+  │       │  (for uses: write "repo@sha", for with.ref: write bare "sha")
   │       ├─ doc.to_yaml() → compare to original bytes
   │       └─ write file (unless dry_run) if changed
   └─ return list of modified files

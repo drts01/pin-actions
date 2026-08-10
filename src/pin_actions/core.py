@@ -92,6 +92,58 @@ def _find_uses_paths(doc: Any) -> list[tuple[tuple[Any, ...], str]]:  # noqa: AN
     ]
 
 
+def _find_with_ref_paths(doc: Any) -> list[tuple[tuple[Any, ...], str, str, bool]]:  # noqa: ANN401
+    """Find all with.ref + with.repository pairs for actions/checkout.
+
+    Scans for steps using actions/checkout, then checks if they have both
+    with.repository (string) and with.ref (string) siblings. Only returns
+    results for checkout actions with both fields present.
+
+    Returns:
+        List of (ref_path_tuple, repo, ref, is_uses=False) where ref_path_tuple[-1] == "ref".
+    """
+    # Collect all uses/with.repository/with.ref by step container
+    step_uses: dict[tuple[Any, ...], str] = {}
+    step_repository: dict[tuple[Any, ...], str] = {}
+    step_ref: dict[tuple[Any, ...], tuple[tuple[Any, ...], str]] = {}  # step_path -> (ref_path, ref_value)
+
+    for item_path, value in doc.walk():
+        if not item_path:
+            continue
+
+        if item_path[-1] == "uses" and isinstance(value, str):
+            # uses is at (..., "uses")
+            step_uses[item_path[:-1]] = value
+        elif (
+            len(item_path) >= 2 and item_path[-2] == "with" and item_path[-1] == "repository" and isinstance(value, str)
+        ):
+            # with.repository is at (..., "with", "repository")
+            step_path = item_path[:-2]
+            step_repository[step_path] = value
+        elif len(item_path) >= 2 and item_path[-2] == "with" and item_path[-1] == "ref" and isinstance(value, str):
+            # with.ref is at (..., "with", "ref")
+            step_path = item_path[:-2]
+            step_ref[step_path] = (item_path, value)
+
+    results: list[tuple[tuple[Any, ...], str, str, bool]] = []
+
+    # For each step with with.ref, check if it has both with.repository and uses=checkout
+    for step_path, (ref_path, ref_value) in step_ref.items():
+        if step_path not in step_repository or step_path not in step_uses:
+            continue
+
+        # Verify uses is actions/checkout
+        uses_value = step_uses[step_path]
+        parsed_uses = _parse_uses(uses_value)
+        if not parsed_uses or not parsed_uses[0].startswith("actions/checkout"):
+            continue
+
+        repo = step_repository[step_path]
+        results.append((ref_path, repo, ref_value, False))
+
+    return results
+
+
 def _set_path(doc: Any, item_path: tuple[Any, ...], value: str) -> None:  # noqa: ANN401
     """Assign ``value`` at ``item_path`` within ``doc``, writing through to the AST.
 
@@ -138,10 +190,13 @@ async def pin_file(
     except Exception as exc:
         raise YAMLParseError(path, str(exc)) from exc
 
-    # Gather all unique refs to resolve, keyed by (repo, tag) -> list of (item_path, current_sha).
+    # Gather all unique refs to resolve, keyed by (repo, tag) -> list of (item_path, current_sha, is_uses).
     # ``current_sha`` is the SHA already in the file (None if this entry isn't pinned yet), so
     # we can tell after resolution whether the tag has moved and a rewrite is actually needed.
-    uses_refs: dict[tuple[str, str], list[tuple[tuple[Any, ...], str | None]]] = {}
+    # ``is_uses`` distinguishes uses: (write as repo@sha) from with.ref (write as bare sha).
+    refs_to_resolve: dict[tuple[str, str], list[tuple[tuple[Any, ...], str | None, bool]]] = {}
+
+    # Process uses: entries
     for item_path, uses_str in _find_uses_paths(doc):
         parsed = _parse_uses(uses_str)
         if not parsed:
@@ -152,7 +207,7 @@ async def pin_file(
             continue
 
         if not _is_already_pinned(ref):
-            uses_refs.setdefault((repo, ref), []).append((item_path, None))
+            refs_to_resolve.setdefault((repo, ref), []).append((item_path, None, True))
             continue
 
         # Already-pinned entry: re-resolve against the tag/branch recorded in the
@@ -172,25 +227,57 @@ async def pin_file(
                 tag,
                 ref,
                 update=update,
+                is_uses=True,
             )
             continue
 
         # Regardless of update mode, always re-resolve any non-semver comment (branch ref)
-        uses_refs.setdefault((repo, tag), []).append((item_path, ref))
+        refs_to_resolve.setdefault((repo, tag), []).append((item_path, ref, True))
+
+    # Process with.ref entries (checkout-only, requires with.repository)
+    for ref_path, repo, ref, _is_uses in _find_with_ref_paths(doc):
+        if not _is_already_pinned(ref):
+            refs_to_resolve.setdefault((repo, ref), []).append((ref_path, None, False))
+            continue
+
+        # Already-pinned with.ref: same re-resolve logic
+        comment = doc.locate(ref_path).comment
+        tag = comment.strip() if comment else ""
+        if not tag:
+            continue
+
+        if update and parse_tag_version(tag) is not None:
+            await _apply_version_constrained_tag(
+                doc,
+                client,
+                ref_path,
+                repo,
+                tag,
+                ref,
+                update=update,
+                is_uses=False,
+            )
+            continue
+
+        refs_to_resolve.setdefault((repo, tag), []).append((ref_path, ref, False))
 
     # Batch resolve all unique refs. Any GitHubAPIError propagates to the caller,
     # who decides whether to skip, retry, or abort (library-friendly: no swallowing).
     resolved: dict[tuple[str, str], str] = {}
-    for repo, tag in uses_refs:
+    for repo, tag in refs_to_resolve:
         resolved[(repo, tag)] = await client.resolve_sha(repo, tag)
 
     # Rewrite entries whose resolved SHA differs from what's already there (new pins
     # always differ; already-pinned entries only differ if the tag has moved).
     for (repo, tag), new_sha in resolved.items():
-        for item_path, current_sha in uses_refs.get((repo, tag), []):
+        for item_path, current_sha, is_uses in refs_to_resolve.get((repo, tag), []):
             if new_sha == current_sha:
                 continue
-            _set_path(doc, item_path, f"{repo}@{new_sha}")
+            # Write format depends on whether this is uses: or with.ref
+            if is_uses:
+                _set_path(doc, item_path, f"{repo}@{new_sha}")
+            else:
+                _set_path(doc, item_path, new_sha)
             doc.locate(item_path).comment = tag
 
     # Write if changed
@@ -213,11 +300,15 @@ async def _apply_version_constrained_tag(
     current_sha: str,
     *,
     update: Literal["major", "minor", "patch"],
+    is_uses: bool = True,
 ) -> None:
     """Rewrite a single already-pinned semver tag to the latest version within constraint.
 
     Warns to stderr (and leaves the entry untouched) if no tag on the remote
     satisfies the constraint relative to ``tag``.
+
+    Args:
+        is_uses: If True, write as 'repo@sha' (uses:); if False, write as bare 'sha' (with.ref).
     """
     tags = await client.list_tags(repo)
     match = select_latest_tag(
@@ -238,7 +329,10 @@ async def _apply_version_constrained_tag(
     if new_sha == current_sha and new_tag == tag:
         return
 
-    _set_path(doc, item_path, f"{repo}@{new_sha}")
+    if is_uses:
+        _set_path(doc, item_path, f"{repo}@{new_sha}")
+    else:
+        _set_path(doc, item_path, new_sha)
     doc.locate(item_path).comment = new_tag
 
 

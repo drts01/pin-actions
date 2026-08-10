@@ -441,6 +441,154 @@ class TestPinFile:
         ):
             await pin_file(client, workflow_file, dry_run=False)
 
+    @pytest.mark.asyncio
+    async def test_pin_file_with_ref_new_pin(self, tmp_path: Path) -> None:
+        """Pin a fresh with.ref: v3.0.0 (no SHA yet) → resolves and writes bare sha + comment."""
+        client = GitHubClient(token="test", concurrency=1)
+
+        workflow_file = tmp_path / "workflow.yml"
+        workflow_file.write_text(
+            "name: Test\n"
+            "jobs:\n"
+            "  build:\n"
+            "    steps:\n"
+            "      - name: Checkout other repo\n"
+            "        uses: actions/checkout@v4\n"
+            "        with:\n"
+            "          repository: other/repo\n"
+            "          ref: v3.0.0\n"
+        )
+
+        async def mock_resolve_sha(repo: str, ref: str) -> str:
+            if repo == "other/repo" and ref == "v3.0.0":
+                return "cccccccccccccccccccccccccccccccccccccccc"
+            return "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+
+        with patch.object(client, "resolve_sha", new=AsyncMock(side_effect=mock_resolve_sha)):
+            modified = await pin_file(client, workflow_file, dry_run=False)
+            assert modified
+
+        content = workflow_file.read_text()
+        assert "ref: cccccccccccccccccccccccccccccccccccccccc # v3.0.0" in content
+        assert "repository: other/repo" in content
+
+    @pytest.mark.asyncio
+    async def test_pin_file_with_ref_already_pinned_updates_if_moved(self, tmp_path: Path) -> None:
+        """Re-resolve already-pinned with.ref with comment; update SHA if tag moved."""
+        client = GitHubClient(token="test", concurrency=1)
+
+        old_sha = "d" * 40
+        new_sha = "e" * 40
+        workflow_file = tmp_path / "workflow.yml"
+        workflow_file.write_text(
+            "name: Test\n"
+            "jobs:\n"
+            "  build:\n"
+            "    steps:\n"
+            "      - name: Checkout prek\n"
+            "        uses: actions/checkout@v4\n"
+            "        with:\n"
+            f"          repository: j178/prek-action\n"
+            f"          ref: {old_sha}  # v3.0.0\n"
+        )
+
+        async def mock_resolve_sha(_repo: str, _ref: str) -> str:
+            return new_sha
+
+        with patch.object(client, "resolve_sha", new=AsyncMock(side_effect=mock_resolve_sha)):
+            modified = await pin_file(client, workflow_file, dry_run=False)
+            assert modified
+
+        content = workflow_file.read_text()
+        assert f"ref: {new_sha} # v3.0.0" in content
+        assert old_sha not in content
+
+    @pytest.mark.asyncio
+    async def test_pin_file_with_ref_missing_repository_skipped(self, tmp_path: Path) -> None:
+        """Skip with.ref if no with.repository sibling (can't resolve without knowing repo)."""
+        client = GitHubClient(token="test")
+
+        workflow_file = tmp_path / "workflow.yml"
+        pinned_sha = "a" * 40
+        original_content = (
+            "name: Test\n"
+            "jobs:\n"
+            "  build:\n"
+            "    steps:\n"
+            "      - name: Checkout current repo\n"
+            f"        uses: actions/checkout@{pinned_sha}\n"
+            "        with:\n"
+            "          ref: v3.0.0\n"
+        )
+        workflow_file.write_text(original_content)
+
+        modified = await pin_file(client, workflow_file, dry_run=False)
+        assert not modified
+        assert workflow_file.read_text() == original_content
+
+    @pytest.mark.asyncio
+    async def test_pin_file_with_ref_non_checkout_action_skipped(self, tmp_path: Path) -> None:
+        """Skip with.ref on non-checkout actions (only checkout has meaningful with.ref)."""
+        client = GitHubClient(token="test")
+
+        workflow_file = tmp_path / "workflow.yml"
+        pinned_sha = "b" * 40
+        original_content = (
+            "name: Test\n"
+            "jobs:\n"
+            "  build:\n"
+            "    steps:\n"
+            "      - name: Setup Python\n"
+            f"        uses: actions/setup-python@{pinned_sha}\n"
+            "        with:\n"
+            "          repository: other/repo\n"
+            "          ref: v3.0.0\n"
+        )
+        workflow_file.write_text(original_content)
+
+        modified = await pin_file(client, workflow_file, dry_run=False)
+        assert not modified
+        assert workflow_file.read_text() == original_content
+
+    @pytest.mark.asyncio
+    async def test_pin_file_with_ref_version_constraint_major(self, tmp_path: Path) -> None:
+        """Apply version-constraint flags to with.ref (--update-to-latest-major)."""
+        client = GitHubClient(token="test", concurrency=1)
+
+        old_sha = "f" * 40
+        new_sha = "c" * 40
+        checkout_sha = "e" * 40
+        workflow_file = tmp_path / "workflow.yml"
+        workflow_file.write_text(
+            "name: Test\n"
+            "jobs:\n"
+            "  build:\n"
+            "    steps:\n"
+            f"      - uses: actions/checkout@{checkout_sha}\n"
+            "        with:\n"
+            f"          repository: other/repo\n"
+            f"          ref: {old_sha}  # v3.0.0\n"
+        )
+
+        async def mock_list_tags(repo: str) -> list[tuple[str, str]]:
+            if repo == "other/repo":
+                return [("v3.0.0", old_sha), ("v9.0.0", new_sha)]
+            return []
+
+        async def mock_resolve_sha(_repo: str, _ref: str) -> str:
+            return old_sha  # Only used for non-version-constraint paths
+
+        with (
+            patch.object(client, "list_tags", new=AsyncMock(side_effect=mock_list_tags)),
+            patch.object(client, "resolve_sha", new=AsyncMock(side_effect=mock_resolve_sha)),
+        ):
+            modified = await pin_file(client, workflow_file, dry_run=False, update="major")
+            assert modified
+
+        content = workflow_file.read_text()
+        assert f"ref: {new_sha} # v9" in content
+        assert old_sha not in content
+
 
 class TestRun:
     """Test main run logic."""

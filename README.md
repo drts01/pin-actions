@@ -204,9 +204,44 @@ jobs:
       - uses: ./local-action@v1
 ```
 
+### Checkout Another Repo (`with.ref`)
+
+`actions/checkout` steps that check out a different repo (via `with.repository`) can also have their `with.ref` pinned:
+
+Before:
+```yaml
+jobs:
+  build:
+    steps:
+      - name: Checkout this repo
+        uses: actions/checkout@v4
+      - name: Checkout another repo at a tag
+        uses: actions/checkout@v4
+        with:
+          repository: owner/other-repo
+          ref: v3.0.0
+```
+
+After:
+```yaml
+jobs:
+  build:
+    steps:
+      - name: Checkout this repo
+        uses: actions/checkout@a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b  # v4
+      - name: Checkout another repo at a tag
+        uses: actions/checkout@a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b  # v4
+        with:
+          repository: owner/other-repo
+          ref: d9e8f7g6h5i4j3k2l1m0n9o8p7q6r5s4t3u2v1w0  # v3.0.0
+```
+
+**Scope**: Only `actions/checkout` steps with **both** `with.repository` and `with.ref` fields present are pinned. Steps without a `with.repository` sibling are skipped (current-repo context is not available to the tool).
+
 Features:
 - ✅ Resolves mutable refs (branches, tags, short SHAs) to full commit SHAs
 - ✅ Updates already-pinned refs: re-resolves the tag/branch recorded in the trailing comment on every run and rewrites the SHA if it has moved (mirrors [`mheap/pin-github-action`](https://github.com/mheap/pin-github-action)'s default behavior) — a bare SHA with no comment is left untouched since there's no tag to re-resolve against
+- ✅ Pins `actions/checkout` `with.ref` parameters (checkout-another-repo workflows) alongside `uses:` values
 - ✅ Skips local actions (`./...`) and Docker actions (`docker://...`)
 - ✅ Thread-safe async/concurrent request handling with rate-limit backoff
 - ✅ No-op when nothing has changed (re-running with unmoved tags produces identical output)
