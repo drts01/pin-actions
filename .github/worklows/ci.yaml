@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_call: {}
+
+jobs:
+  precommit:
+    runs-on: uhg-runner
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v7
+      - name: Get Artifactory Access Token
+        id: setup-jfrog-saas
+        uses: uhg-pipelines/epl-jf/saas-setup@bcb0f969d59220d311b31a859482d69c8a2ac4d5  # v5
+        with:
+          pip-setup: true
+      - name: Checkout prek
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v7
+        with:
+          repository: j178/prek-action
+          ref: 4e14d07f9231acabce116ccfca13b13dd9755ece  # v3.0.0
+          path: .github/actions/prek
+      - name: Run pre-commit
+        uses: ./.github/actions/prek

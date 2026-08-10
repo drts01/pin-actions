@@ -1,0 +1,54 @@
+# Commitlint configuration for Conventional Commits
+# See: https://commitlint.js.org/
+
+extends:
+  - '@commitlint/config-conventional'
+
+rules:
+  # Type enforcement - must be one of these
+  type-enum:
+    - 2  # Error level
+    - always
+    - - feat      # New feature
+      - fix       # Bug fix
+      - docs      # Documentation only
+      - style     # Code style (formatting, etc)
+      - refactor  # Code refactoring
+      - perf      # Performance improvement
+      - test      # Adding/updating tests
+      - build     # Build system changes
+      - ci        # CI/CD changes
+      - chore     # Maintenance tasks
+      - revert    # Revert previous commit
+
+  # Scope is optional and can be anything (not enforced)
+  scope-enum:
+    - 0  # Disabled - allow any scope
+
+  # Subject (description) rules
+  subject-case:
+    - 2
+    - never
+    - - upper-case    # Don't allow uppercase start
+      - pascal-case   # Don't allow PascalCase
+  subject-empty:
+    - 2
+    - never  # Subject is required
+  subject-full-stop:
+    - 2
+    - never
+    - .  # No period at end of subject
+
+  # Header (first line) rules
+  header-max-length:
+    - 2
+    - always
+    - 72  # Max 72 characters
+
+  # Body and footer formatting
+  body-leading-blank:
+    - 2
+    - always  # Blank line before body
+  footer-leading-blank:
+    - 2
+    - always  # Blank line before footer
