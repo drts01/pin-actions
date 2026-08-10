@@ -37,6 +37,7 @@ def select_latest_tag(
     latest_patch: bool = False,
     latest_minor: bool = False,
     latest_major: bool = False,
+    full_version: bool = False,
 ) -> tuple[str, str] | None:
     """Pick the highest-version tag satisfying the constraint relative to ``current_tag``.
 
@@ -51,6 +52,7 @@ def select_latest_tag(
     The returned tag name preserves the precision (number of dot-separated
     version components) and 'v'-prefix style of ``current_tag`` — e.g. a 'v4'
     comment stays 'v9' even though the winning remote tag is 'v9.1.2'.
+    If ``full_version`` is True, uses the full precision of the winning tag instead.
 
     Args:
         tags: All (tag_name, commit_sha) pairs available on the remote repo.
@@ -59,12 +61,14 @@ def select_latest_tag(
         latest_patch: Constrain candidates to the same major.minor version.
         latest_minor: Constrain candidates to the same major version.
         latest_major: No constraint — consider every semver tag on the repo.
+        full_version: If True, use the full precision of the winning tag instead
+            of truncating to match ``current_tag``'s precision.
 
     Returns:
         (tag_name, commit_sha) of the winning tag, re-rendered to match
-        ``current_tag``'s precision, or None if no constraint is set,
-        ``current_tag`` isn't a valid version, or no candidate satisfies
-        the constraint.
+        ``current_tag``'s precision (or full precision if ``full_version`` is True),
+        or None if no constraint is set, ``current_tag`` isn't a valid version,
+        or no candidate satisfies the constraint.
     """
     if not latest_patch and not latest_minor and not latest_major:
         return None
@@ -90,4 +94,5 @@ def select_latest_tag(
 
     best_version, _best_name, best_sha = max(candidates, key=lambda c: c[0])
     prefix = current_tag[0] if current_tag[:1].lower() == "v" and len(current_tag) > 1 else ""
-    return _render_tag(best_version, precision, prefix), best_sha
+    output_precision = len(best_version.release) if full_version else precision
+    return _render_tag(best_version, output_precision, prefix), best_sha

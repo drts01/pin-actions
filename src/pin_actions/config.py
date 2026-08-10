@@ -51,3 +51,8 @@ class Settings(BaseSettings):
         "or 'patch' (stay within same major.minor, e.g. v4.2.3 -> v4.2.9). None = re-resolve "
         "the exact tag/branch recorded in the comment",
     )
+    full_version: bool = Field(
+        default=False,
+        description="When --update is used, record the full resolved tag version in the comment "
+        "(e.g. v4.1.7) instead of truncating to match the original precision (e.g. v4)",
+    )

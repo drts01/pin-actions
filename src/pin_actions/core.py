@@ -162,6 +162,7 @@ async def pin_file(
     path: Path,
     dry_run: bool = False,
     update: Literal["major", "minor", "patch"] | None = None,
+    full_version: bool = False,
 ) -> bool:
     """Pin mutable action refs in a workflow or action file to their commit SHAs.
 
@@ -173,6 +174,8 @@ async def pin_file(
             crossing majors, e.g. v4.0.5 -> v9.1.2), 'minor' (same major, e.g.
             v4.0.5 -> v4.9.0), 'patch' (same major.minor, e.g. v4.2.3 -> v4.2.9),
             or None (re-resolve exact tag/branch recorded in the comment).
+        full_version: If True, record the full resolved tag version in the comment
+            instead of truncating to match the original precision.
 
     Returns:
         True if file was modified, False otherwise.
@@ -228,6 +231,7 @@ async def pin_file(
                 ref,
                 update=update,
                 is_uses=True,
+                full_version=full_version,
             )
             continue
 
@@ -256,6 +260,7 @@ async def pin_file(
                 ref,
                 update=update,
                 is_uses=False,
+                full_version=full_version,
             )
             continue
 
@@ -301,6 +306,7 @@ async def _apply_version_constrained_tag(
     *,
     update: Literal["major", "minor", "patch"],
     is_uses: bool = True,
+    full_version: bool = False,
 ) -> None:
     """Rewrite a single already-pinned semver tag to the latest version within constraint.
 
@@ -309,6 +315,8 @@ async def _apply_version_constrained_tag(
 
     Args:
         is_uses: If True, write as 'repo@sha' (uses:); if False, write as bare 'sha' (with.ref).
+        full_version: If True, use the full precision of the winning tag instead of
+            truncating to match the original tag's precision.
     """
     tags = await client.list_tags(repo)
     match = select_latest_tag(
@@ -317,6 +325,7 @@ async def _apply_version_constrained_tag(
         latest_patch=(update == "patch"),
         latest_minor=(update == "minor"),
         latest_major=(update == "major"),
+        full_version=full_version,
     )
     if match is None:
         print(
@@ -384,6 +393,7 @@ async def run(settings: Settings) -> list[Path]:
             f,
             dry_run=settings.dry_run,
             update=settings.update,
+            full_version=settings.full_version,
         )
         for f in files
     ]

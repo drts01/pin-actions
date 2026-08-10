@@ -753,3 +753,24 @@ class TestVersioning:
         # Should pick v9.0.0 (rendered as v9)
         assert tag_name == "v9"
         assert sha == "sha_v9_0_0"
+
+    def test_select_latest_tag_full_version_preserves_precision(self) -> None:
+        """With full_version=True, preserve full resolved tag precision instead of truncating."""
+        tags = [
+            ("v4.0.1", "sha_v4_0_1"),
+            ("v4.9.2", "sha_v4_9_2"),
+            ("v5.0.0", "sha_v5_0_0"),
+        ]
+        # Without full_version: v4 -> picks v4.9.2 but renders as v4 (original precision)
+        result = select_latest_tag(tags, "v4", latest_minor=True, full_version=False)
+        assert result is not None
+        tag_name, sha = result
+        assert tag_name == "v4"
+        assert sha == "sha_v4_9_2"
+
+        # With full_version: v4 -> picks v4.9.2 and renders as v4.9.2 (full precision)
+        result = select_latest_tag(tags, "v4", latest_minor=True, full_version=True)
+        assert result is not None
+        tag_name, sha = result
+        assert tag_name == "v4.9.2"
+        assert sha == "sha_v4_9_2"
