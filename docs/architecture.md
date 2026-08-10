@@ -143,7 +143,7 @@ run(Settings)
 | Batch with 429 retry | ~60s worst-case (exponential backoff cap) |
 
 **Optimization tips:**
-- Set `--token $GITHUB_TOKEN` for higher rate limits (60 req/min unauthenticated → 5000 req/hr authenticated)
+- Set `--github-token $GITHUB_TOKEN` for higher rate limits (60 req/min unauthenticated → 5000 req/hr authenticated)
 - Increase `--concurrency` (e.g., 10) if have sufficient GitHub API quota
 - Use dry-run mode first to validate workflows without writing
 
@@ -188,7 +188,7 @@ settings = Settings(
 
 This is only done inside `main()`. **Why not `model_config = SettingsConfigDict(cli_parse_args=True, ...)`**: baking it into `model_config` makes *every* `Settings(...)` instantiation parse `sys.argv` — including direct instantiation in tests and library code, which breaks immediately under pytest (`unrecognized arguments: -v ...`) since pytest's own argv doesn't match the model's fields. Keeping it as call-time kwargs isolates CLI parsing to the one code path that actually wants it.
 
-`token`'s field uses `validation_alias=AliasChoices("PIN_ACTIONS_TOKEN", "GITHUB_TOKEN")` (with `populate_by_name=True`) so both the prefixed and the conventional unprefixed `GITHUB_TOKEN` env var populate it — pydantic-settings' CLI layer also derives `--token`/`--github-token` flag aliases from the same `AliasChoices`.
+`github_token`'s field uses `validation_alias=AliasChoices("PIN_ACTIONS_TOKEN", "GITHUB_TOKEN")` (with `populate_by_name=True`) so both the prefixed and the conventional unprefixed `GITHUB_TOKEN` env var populate it — pydantic-settings' CLI layer also derives `--github-token`/`--pin-actions-token` flag aliases from the same `AliasChoices`.
 
 ## Testing Strategy
 

@@ -214,7 +214,7 @@ async def run(settings: Settings) -> list[Path]:
     if not files:
         return []
 
-    token = settings.token.get_secret_value() if settings.token else None
+    token = settings.github_token.get_secret_value() if settings.github_token else None
     client = GitHubClient(
         token=token,
         base_url=settings.github_api,

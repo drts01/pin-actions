@@ -19,7 +19,7 @@ class Settings(BaseSettings):
         default=Path(".github/workflows"),
         description="Path to scan for workflow/action files",
     )
-    token: SecretStr | None = Field(
+    github_token: SecretStr | None = Field(
         default=None,
         validation_alias=AliasChoices("PIN_ACTIONS_TOKEN", "GITHUB_TOKEN"),
         description="GitHub API token (env: GITHUB_TOKEN or PIN_ACTIONS_TOKEN)",

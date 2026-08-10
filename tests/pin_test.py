@@ -435,7 +435,7 @@ class TestRun:
 
         settings = Settings(
             path=workflows_dir,
-            token=None,
+            github_token=None,
             dry_run=False,
             concurrency=1,
         )
@@ -466,7 +466,7 @@ class TestRun:
         workflows_dir = tmp_path / ".github" / "workflows"
         workflows_dir.mkdir(parents=True)
 
-        settings = Settings(path=workflows_dir, token=None, dry_run=False)
+        settings = Settings(path=workflows_dir, github_token=None, dry_run=False)
         modified = await run(settings)
 
         assert modified == []
@@ -477,7 +477,7 @@ class TestRun:
         from pin_actions.config import Settings
 
         nonexistent = tmp_path / "nonexistent"
-        settings = Settings(path=nonexistent, token=None)
+        settings = Settings(path=nonexistent, github_token=None)
 
         with pytest.raises(ValueError, match="Path does not exist"):
             await run(settings)
@@ -496,7 +496,7 @@ class TestRun:
 
         from pin_actions.config import Settings
 
-        settings = Settings(path=workflows_dir, token=None, dry_run=False, concurrency=1)
+        settings = Settings(path=workflows_dir, github_token=None, dry_run=False, concurrency=1)
 
         async def mock_resolve_sha(_repo: str, ref: str) -> str:
             return "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" if ref == "v4" else ref
