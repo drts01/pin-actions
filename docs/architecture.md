@@ -31,6 +31,8 @@ with self._cache_lock:
 - **Purpose**: Satisfies spec requirement for thread-safe caching
 - **Use case**: If `pin_actions` is imported and called from multiple async loops (e.g., via `asyncio.to_thread`), the lock ensures cache dict consistency
 - **Performance**: Eliminates duplicate API requests for same `owner/repo@ref` within a run (common: many workflows use `actions/checkout@v4`)
+- **Future**: [Hishel](https://github.com/karpetrosyan/hishel) (HTTP-level response caching) will replace this manual cache once Hishel adds `httpx2` support
+
 
 ## Rate-Limit Backoff Strategy
 
@@ -109,10 +111,11 @@ run(Settings)
 |----------|-----------|
 | **httpx2 (not httpx)** | Spec requirement; avoids hishel compat issues |
 | **yamlrocks (not regex/ruamel.yaml)** | Round-trip AST preserves comments/formatting on untouched lines; Rust-backed, faster than pure-Python ruamel.yaml. Trade-off: pre-1.0 alpha API, non-obvious mutation semantics (see above) |
-| **Manual lock-guarded cache** | Explicit thread-safety per spec; simple & fast |
+| **Manual lock-guarded cache** | Explicit thread-safety per spec; simple & fast. Will migrate to Hishel-based HTTP caching once Hishel supports `httpx2` |
 | **Semaphore (not global rate limiter)** | Async-native; respects GitHub API concurrency limits without blocking |
 | **Batch ref resolution** | Deduplicate refs before API calls; faster for workflows with repeated actions |
 | **Path-tuples instead of object references** | yamlrocks views lack stable identity across `__getitem__` calls; paths are stable and replayable against `doc` |
+
 | **Skip already-pinned SHAs** | Idempotent: running twice = no changes second time |
 | **Preserve comments** | Rewrite pattern: `uses: owner/repo@sha  # original-ref`, combined with yamlrocks round-trip preservation of all other content |
 | **Dry-run mode** | Resolve & validate refs without writing files |

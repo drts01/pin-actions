@@ -159,8 +159,10 @@ Features:
 - **Caching**: In-process cache prevents duplicate API calls for same ref within a run
 - **Rate-limit handling**: Exponential backoff on 429/403 with `Retry-After` header support
 - **Dry-run**: Parse and resolve refs without writing files
+- **Caching (future)**: Response-level caching via [Hishel](https://github.com/karpetrosyan/hishel) will be added once Hishel supports `httpx2`; the manual lock-guarded cache handles ref-resolution dedup in the meantime
 
 ## Design
+
 
 | Component | Purpose |
 |-----------|---------|
