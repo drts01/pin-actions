@@ -18,6 +18,7 @@ from pin_actions.errors import (
     RateLimitExhaustedError,
     YAMLParseError,
 )
+from pin_actions.versioning import select_latest_tag
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -536,3 +537,71 @@ class TestRun:
 
         assert len(exc_info.value.exceptions) == 1
         assert isinstance(exc_info.value.exceptions[0], YAMLParseError)
+
+
+class TestVersioning:
+    """Test semver tag selection logic."""
+
+    def test_select_latest_tag_patch_downgrade_regression(self) -> None:
+        """Patch constraint on major-only comment should not downgrade to minor==0.
+
+        Regression: `# v4` with `--update patch` should pick the true latest
+        v4.x tag (e.g. v4.9.0), not spuriously narrow to v4.0.x by treating
+        minor as a fixed constraint. The issue: v4 parses to Version('4') with
+        release=(4,), so precision=1; the old code checked `version.minor != 0`
+        (failing to match v4.9.0), even though minor is meaningless for a
+        major-only comment.
+        """
+        tags = [
+            ("v4.0.1", "sha_v4_0_1"),
+            ("v4.9.0", "sha_v4_9_0"),
+            ("v5.1.0", "sha_v5_1_0"),
+        ]
+        result = select_latest_tag(tags, "v4", latest_patch=True)
+        assert result is not None
+        tag_name, sha = result
+        # Should pick v4.9.0 (rendered as v4 to match precision)
+        assert tag_name == "v4"
+        assert sha == "sha_v4_9_0"
+
+    def test_select_latest_tag_patch_with_full_precision(self) -> None:
+        """Patch constraint with full major.minor.patch precision works correctly."""
+        tags = [
+            ("v4.2.1", "sha_v4_2_1"),
+            ("v4.2.9", "sha_v4_2_9"),
+            ("v4.3.0", "sha_v4_3_0"),
+        ]
+        result = select_latest_tag(tags, "v4.2.3", latest_patch=True)
+        assert result is not None
+        tag_name, sha = result
+        # Should pick v4.2.9 (constrained to v4.2.x)
+        assert tag_name == "v4.2.9"
+        assert sha == "sha_v4_2_9"
+
+    def test_select_latest_tag_minor_only(self) -> None:
+        """Minor constraint picks highest v4.x but not v5.x."""
+        tags = [
+            ("v4.0.1", "sha_v4_0_1"),
+            ("v4.9.5", "sha_v4_9_5"),
+            ("v5.0.0", "sha_v5_0_0"),
+        ]
+        result = select_latest_tag(tags, "v4", latest_minor=True)
+        assert result is not None
+        tag_name, sha = result
+        # Should pick v4.9.5 (rendered as v4)
+        assert tag_name == "v4"
+        assert sha == "sha_v4_9_5"
+
+    def test_select_latest_tag_major_no_constraint(self) -> None:
+        """Major constraint picks globally highest tag."""
+        tags = [
+            ("v4.0.1", "sha_v4_0_1"),
+            ("v4.9.5", "sha_v4_9_5"),
+            ("v9.0.0", "sha_v9_0_0"),
+        ]
+        result = select_latest_tag(tags, "v4", latest_major=True)
+        assert result is not None
+        tag_name, sha = result
+        # Should pick v9.0.0 (rendered as v9)
+        assert tag_name == "v9"
+        assert sha == "sha_v9_0_0"

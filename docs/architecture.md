@@ -88,13 +88,20 @@ This two-phase approach (collect paths, then resolve SHAs, then apply mutations 
 run(Settings)
   ├─ glob *.yml/*.yaml in path
   ├─ for each file:
-  │   └─ pin_file(client, path)
+  │   └─ pin_file(client, path, update_to_latest_major, update_to_latest_minor, update_branches)
   │       ├─ read bytes, yamlrocks.loads(..., OPT_ROUND_TRIP)
   │       ├─ doc.walk() → collect all "uses" key paths + values
   │       ├─ parse repo@ref, skip local/docker; if ref is already a SHA, read the
-  │       │  trailing comment via doc.locate(path).comment and re-resolve against
-  │       │  that tag instead (skip only if no comment is present)
-  │       ├─ batch resolve unique (repo, tag) pairs:
+  │       │  trailing comment via doc.locate(path).comment (skip only if no comment)
+  │       │   ├─ if a version-constraint flag is set AND the comment parses as semver:
+  │       │   │   └─ _apply_version_constrained_tag(): list_tags(repo), select_latest_tag()
+  │       │   │       ├─ match found & differs → rewrite SHA + comment to new tag
+  │       │   │       ├─ match found & same → no-op
+  │       │   │       └─ no match → warn to stderr, leave entry untouched
+  │       │   ├─ elif a version-constraint flag is set AND comment is non-semver (a branch):
+  │       │   │   └─ frozen unless update_branches is set (then re-resolved normally, below)
+  │       │   └─ else: re-resolve against the tag/branch recorded in the comment (default path)
+  │       ├─ batch resolve unique (repo, tag) pairs (default-path entries only):
   │       │   └─ for each ref:
   │       │       ├─ check cache (lock)
   │       │       ├─ if miss: resolve_sha(repo, ref)
@@ -109,6 +116,7 @@ run(Settings)
 
 ```
 
+
 ## Key Design Decisions
 
 | Decision | Rationale |
@@ -122,6 +130,12 @@ run(Settings)
 | **Re-resolve already-pinned refs against their comment** | Mirrors `mheap/pin-github-action`'s default: a `sha` with a trailing `# tag` comment is re-resolved on every run, and the SHA is rewritten if the tag has moved. A bare SHA with no comment has nothing to re-resolve against and is left untouched |
 | **Preserve comments** | Rewrite pattern: `uses: owner/repo@sha # original-ref` — comment is set via `doc.locate(path).comment`, not embedded in the string, so it round-trips as a genuine (unquoted) YAML comment. Combined with yamlrocks round-trip preservation of all other content |
 | **Dry-run mode** | Resolve & validate refs without writing files |
+| **`packaging.version` for semver parsing** | Battle-tested PEP 440-based parser already a transitive dep of the packaging ecosystem; tolerates a leading `v` via a thin wrapper (`parse_tag_version`) rather than hand-rolling semver regex |
+| **`--update-to-latest-major` means "no constraint" (crosses majors); `--update-to-latest-minor` means "same major"** | Explicit user directive, refined from an initial same-major-for-both design: `--update-to-latest-major` picks the single absolute-latest semver tag on the repo (e.g. `v4.0.5` → `v9.1.2`), while `--update-to-latest-minor` constrains to the current major but is free within it (e.g. `v4.0.5` → `v4.9.0`, never `v5.x`). When both are set, `--update-to-latest-minor`'s narrower constraint still wins |
+| **Rewritten tag comment preserves the original comment's precision** | User directive: a comment like `v4` (major-only) should stay `v4` even if the winning remote tag is `v9.1.2` — rewriting to full precision would be a surprising, unrequested style change. `versioning._render_tag()` truncates/zero-pads the winning `Version.release` tuple to `len(current.release)` components before re-rendering with the original tag's `v`-prefix style |
+| **Tags frozen by default under a version constraint; `--update-branches` opts branches back in** | A version constraint only makes sense for semver tags; branch refs (comment doesn't parse as a version) are left untouched unless the user explicitly opts in, avoiding surprise branch-ref rewrites when the user's intent was "move my tags forward" |
+| **Warn-and-skip on no matching tag** | No tag on the remote satisfies the major/minor constraint (e.g. that major was never re-tagged) — printing a stderr warning and leaving the entry untouched is safer than raising (would abort the whole file/batch) or silently no-op'ing (user wouldn't know why nothing moved) |
+| **Separate `list_tags()`/per-repo tags cache from `resolve_sha()`/`_cache`** | Different GitHub endpoint (`GET .../tags` vs `GET .../commits/{ref}`), different cache key shape (repo-only vs `(repo, ref)`) — kept as two independent lock-guarded caches rather than overloading one |
 
 
 ## Safety Invariants
@@ -131,6 +145,9 @@ run(Settings)
 3. **No modification of local actions**: `./...` actions skipped entirely
 4. **Cache consistency**: Lock guards all reads/writes to response cache
 5. **Retry limits**: Max `max_retries` attempts; fails gracefully with informative errors
+6. **Version constraints never silently drop a pin**: if `--update-to-latest-major`/`--update-to-latest-minor` finds no candidate tag, the entry is left exactly as-is and a warning is printed to stderr — never removed, never left in a half-written state
+7. **Branch refs are frozen by default under a version constraint**: only re-resolved if `--update-branches` is explicitly passed, preventing an unrelated branch pin from moving as a side effect of a tag-focused flag
+
 
 
 ## Performance Characteristics
@@ -199,9 +216,12 @@ This is only done inside `main()`. **Why not `model_config = SettingsConfigDict(
 
 **Integration tests** (mocked HTTP):
 - Client retry logic (429, 403, backoff)
+- `GitHubClient.list_tags()` pagination, caching, and 404/429 error paths
 - File rewriting (before/after comparison), including comment/formatting preservation
 - Batch resolution (deduplication)
 - Dry-run mode
+- Version-constrained selection (`versioning.py`) and the `pin_file()` branches it feeds: `--update-to-latest-major`/`--update-to-latest-minor` (including minor-takes-precedence), `--update-branches`, and the no-match stderr warning
+
 
 **Fixtures:**
 - `unittest.mock.AsyncMock(side_effect=...)`: mocks async client methods (`pytest-httpx` does not intercept `httpx2`)

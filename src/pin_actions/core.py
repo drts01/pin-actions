@@ -1,13 +1,15 @@
 """Core parsing and pinning logic."""
 
 import asyncio
-from typing import TYPE_CHECKING, Any
+import sys
+from typing import TYPE_CHECKING, Any, Literal
 
 import yamlrocks
 
 from pin_actions.client import GitHubClient
 from pin_actions.config import Settings
 from pin_actions.errors import PinActionsError, YAMLParseError
+from pin_actions.versioning import parse_tag_version, select_latest_tag
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -15,6 +17,7 @@ if TYPE_CHECKING:
 
 def _is_local_action(repo: str) -> bool:
     """Check if action is local (./...) or docker (docker://)."""
+
     return repo.startswith("./") or repo.startswith("docker://")
 
 
@@ -106,6 +109,7 @@ async def pin_file(
     client: GitHubClient,
     path: Path,
     dry_run: bool = False,
+    update: Literal["major", "minor", "patch"] | None = None,
 ) -> bool:
     """Pin mutable action refs in a workflow or action file to their commit SHAs.
 
@@ -113,6 +117,10 @@ async def pin_file(
         client: GitHub API client.
         path: Path to .yaml/.yml file.
         dry_run: If True, don't write changes.
+        update: Update strategy for pinned semver tags: 'major' (absolute latest,
+            crossing majors, e.g. v4.0.5 -> v9.1.2), 'minor' (same major, e.g.
+            v4.0.5 -> v4.9.0), 'patch' (same major.minor, e.g. v4.2.3 -> v4.2.9),
+            or None (re-resolve exact tag/branch recorded in the comment).
 
     Returns:
         True if file was modified, False otherwise.
@@ -143,17 +151,32 @@ async def pin_file(
         if _is_local_action(repo):
             continue
 
-        if _is_already_pinned(ref):
-            # Already-pinned entry: re-resolve against the tag/branch recorded in the
-            # trailing comment (mirrors mheap/pin-github-action's default behavior). A
-            # bare SHA with no comment has nothing to re-resolve against, so it's skipped.
-            comment = doc.locate(item_path).comment
-            tag = comment.strip() if comment else ""
-            if not tag:
-                continue
-            uses_refs.setdefault((repo, tag), []).append((item_path, ref))
-        else:
+        if not _is_already_pinned(ref):
             uses_refs.setdefault((repo, ref), []).append((item_path, None))
+            continue
+
+        # Already-pinned entry: re-resolve against the tag/branch recorded in the
+        # trailing comment (mirrors mheap/pin-github-action's default behavior). A
+        # bare SHA with no comment has nothing to re-resolve against, so it's skipped.
+        comment = doc.locate(item_path).comment
+        tag = comment.strip() if comment else ""
+        if not tag:
+            continue
+
+        if update and parse_tag_version(tag) is not None:
+            await _apply_version_constrained_tag(
+                doc,
+                client,
+                item_path,
+                repo,
+                tag,
+                ref,
+                update=update,
+            )
+            continue
+
+        # Regardless of update mode, always re-resolve any non-semver comment (branch ref)
+        uses_refs.setdefault((repo, tag), []).append((item_path, ref))
 
     # Batch resolve all unique refs. Any GitHubAPIError propagates to the caller,
     # who decides whether to skip, retry, or abort (library-friendly: no swallowing).
@@ -179,6 +202,44 @@ async def pin_file(
         path.write_bytes(new_content)  # noqa: ASYNC240 -- sync IO on Path, no async equivalent needed
 
     return True
+
+
+async def _apply_version_constrained_tag(
+    doc: Any,  # noqa: ANN401
+    client: GitHubClient,
+    item_path: tuple[Any, ...],
+    repo: str,
+    tag: str,
+    current_sha: str,
+    *,
+    update: Literal["major", "minor", "patch"],
+) -> None:
+    """Rewrite a single already-pinned semver tag to the latest version within constraint.
+
+    Warns to stderr (and leaves the entry untouched) if no tag on the remote
+    satisfies the constraint relative to ``tag``.
+    """
+    tags = await client.list_tags(repo)
+    match = select_latest_tag(
+        tags,
+        tag,
+        latest_patch=(update == "patch"),
+        latest_minor=(update == "minor"),
+        latest_major=(update == "major"),
+    )
+    if match is None:
+        print(
+            f"pin-actions: warning: no tag matching version constraint for {repo}@{tag}; leaving pinned as-is",
+            file=sys.stderr,
+        )
+        return
+
+    new_tag, new_sha = match
+    if new_sha == current_sha and new_tag == tag:
+        return
+
+    _set_path(doc, item_path, f"{repo}@{new_sha}")
+    doc.locate(item_path).comment = new_tag
 
 
 async def run(settings: Settings) -> list[Path]:
@@ -223,7 +284,15 @@ async def run(settings: Settings) -> list[Path]:
     )
 
     # Process all files concurrently (semaphore in client bounds API calls)
-    tasks = [pin_file(client, f, dry_run=settings.dry_run) for f in files]
+    tasks = [
+        pin_file(
+            client,
+            f,
+            dry_run=settings.dry_run,
+            update=settings.update,
+        )
+        for f in files
+    ]
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
     errors = [(f, r) for f, r in zip(files, results, strict=True) if isinstance(r, Exception)]
@@ -242,8 +311,6 @@ def main() -> None:
     Parses ``sys.argv`` via pydantic-settings (supports ``--help``), runs the
     pin operation, and reports results. Exits with status 1 on any error.
     """
-    import sys
-
     try:
         settings = Settings(
             _cli_parse_args=True,

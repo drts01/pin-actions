@@ -1,6 +1,7 @@
 """Configuration & CLI settings."""
 
 from pathlib import Path
+from typing import Literal
 
 from pydantic import AliasChoices, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -42,4 +43,11 @@ class Settings(BaseSettings):
     github_api: str = Field(
         default="https://api.github.com",
         description="GitHub API base URL",
+    )
+    update: Literal["major", "minor", "patch"] | None = Field(
+        default=None,
+        description="Update strategy for pinned semver tags: 'major' (cross major boundaries, "
+        "e.g. v4.0.5 -> v9.1.2), 'minor' (stay within same major, e.g. v4.0.5 -> v4.9.0), "
+        "or 'patch' (stay within same major.minor, e.g. v4.2.3 -> v4.2.9). None = re-resolve "
+        "the exact tag/branch recorded in the comment",
     )

@@ -6,7 +6,9 @@ import threading
 
 import httpx2
 
-from pin_actions.errors import InvalidRefError, NetworkError, RateLimitExhaustedError
+from pin_actions.errors import GitHubAPIError, InvalidRefError, NetworkError, RateLimitExhaustedError
+
+_MAX_TAG_PAGES = 10  # 100 tags/page cap; guards against runaway pagination on huge repos
 
 
 class GitHubClient:
@@ -33,6 +35,79 @@ class GitHubClient:
         self._semaphore = asyncio.Semaphore(concurrency)
         self._cache: dict[tuple[str, str], str] = {}
         self._cache_lock = threading.Lock()
+        self._tags_cache: dict[str, list[tuple[str, str]]] = {}
+        self._tags_cache_lock = threading.Lock()
+
+    async def list_tags(self, repo: str) -> list[tuple[str, str]]:
+        """List all tags for a repo as (tag_name, commit_sha) pairs.
+
+        Results are cached per-repo for the lifetime of the client (guarded
+        by a dedicated lock, mirroring the ref-resolution cache).
+
+        Args:
+            repo: Repository in 'owner/repo' format (sub-paths stripped).
+
+        Returns:
+            All tags on the remote repository.
+
+        Raises:
+            RateLimitExhaustedError: If retries are exhausted while rate-limited.
+            NetworkError: On unrecoverable network errors.
+        """
+        owner_repo = "/".join(repo.split("/")[:2])
+
+        with self._tags_cache_lock:
+            if owner_repo in self._tags_cache:
+                return self._tags_cache[owner_repo]
+
+        async with self._semaphore:
+            tags = await self._fetch_all_tags(owner_repo)
+
+        with self._tags_cache_lock:
+            self._tags_cache[owner_repo] = tags
+
+        return tags
+
+    async def _fetch_all_tags(self, owner_repo: str) -> list[tuple[str, str]]:
+        """Paginate ``GET /repos/{owner_repo}/tags`` and collect all (name, sha) pairs."""
+        headers = {}
+        if self.token:
+            headers["Authorization"] = f"token {self.token}"
+
+        tags: list[tuple[str, str]] = []
+        async with httpx2.AsyncClient() as client:
+            for page in range(1, _MAX_TAG_PAGES + 1):
+                url = f"{self.base_url}/repos/{owner_repo}/tags"
+                params = {"per_page": 100, "page": page}
+
+                for attempt in range(self.max_retries):
+                    try:
+                        resp = await client.get(url, headers=headers, params=params, timeout=10.0)
+                    except httpx2.RequestError as exc:
+                        if attempt < self.max_retries - 1:
+                            await self._backoff(None, attempt)
+                            continue
+                        raise NetworkError(f"Network error listing tags for {owner_repo}") from exc
+
+                    if resp.status_code == 200:
+                        break
+                    if resp.status_code in (403, 429) or resp.status_code >= 500:
+                        await self._backoff(resp, attempt)
+                        continue
+                    if resp.status_code == 404:
+                        raise GitHubAPIError(f"Repository not found: {owner_repo}")
+                    resp.raise_for_status()
+                else:
+                    raise RateLimitExhaustedError(owner_repo, "tags", self.max_retries)
+
+                data = resp.json()
+                if not data:
+                    break
+                tags.extend((entry["name"], entry["commit"]["sha"]) for entry in data)
+                if len(data) < 100:
+                    break
+
+        return tags
 
     async def resolve_sha(self, repo: str, ref: str) -> str:
         """Resolve a mutable ref (branch/tag) to its immutable commit SHA.

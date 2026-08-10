@@ -18,7 +18,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Get Artifactory Access Token
         id: setup-jfrog-saas
-        uses: uhg-pipelines/epl-jf/saas-setup@1152b773c8d4b55c0bb5b2a15c82981fe0b3db35 # v5
+        uses: uhg-pipelines/epl-jf/saas-setup@1152b773c8d4b55c0bb5b2a15c82981fe0b3db35 # v5.4
         with:
           pip-setup: true
       - name: Checkout prek
