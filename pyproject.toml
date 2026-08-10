@@ -16,7 +16,7 @@ dependencies = [
   "httpx2>=0.28",
   "pydantic>=2",
   "pydantic-settings>=2",
-  "yamlrocks>=0.6.1",
+  "yamlrocks~=0.6.1",
 ]
 scripts.pin-actions = "pin_actions.core:main"
 
