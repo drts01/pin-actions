@@ -19,6 +19,7 @@ dependencies = [
   "pydantic-settings>=2",
   "yamlrocks~=0.6.1",
 ]
+optional-dependencies.cache = [ "diskcache-rs>=0.4" ]
 scripts.pin-actions = "pin_actions.core:main"
 
 [dependency-groups]

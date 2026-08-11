@@ -3,12 +3,25 @@
 import asyncio
 import random
 import threading
+from typing import Protocol
 
 import httpx2
 
 from pin_actions.errors import GitHubAPIError, InvalidRefError, NetworkError, RateLimitExhaustedError
 
 _MAX_TAG_PAGES = 10  # 100 tags/page cap; guards against runaway pagination on huge repos
+
+
+class _DiskCache(Protocol):
+    """Minimal disk cache interface (duck-typed for diskcache_rs.Cache)."""
+
+    def get(self, key: str, default: object = None) -> object:
+        """Get cached value or default."""
+        ...
+
+    def set(self, key: str, value: object, expire: int | None = None) -> None:
+        """Set cached value with optional TTL."""
+        ...
 
 
 class GitHubClient:
@@ -20,6 +33,8 @@ class GitHubClient:
         base_url: str = "https://api.github.com",
         concurrency: int = 5,
         max_retries: int = 5,
+        disk_cache: _DiskCache | None = None,
+        cache_ttl: int = 3600,
     ) -> None:
         """Initialize GitHub client.
 
@@ -28,10 +43,14 @@ class GitHubClient:
             base_url: GitHub API base URL.
             concurrency: Max concurrent requests via asyncio.Semaphore.
             max_retries: Max retry attempts on 403/429 errors.
+            disk_cache: Optional diskcache_rs.Cache instance for persistent caching.
+            cache_ttl: TTL in seconds for disk cache entries.
         """
         self.base_url = base_url.rstrip("/")
         self.token = token
         self.max_retries = max_retries
+        self.disk_cache = disk_cache
+        self.cache_ttl = cache_ttl
         self._semaphore = asyncio.Semaphore(concurrency)
         self._cache: dict[tuple[str, str], str] = {}
         self._cache_lock = threading.Lock()
@@ -56,6 +75,15 @@ class GitHubClient:
         """
         owner_repo = "/".join(repo.split("/")[:2])
 
+        # Disk cache key
+        disk_cache_key = f"list_tags:{self.base_url}:{owner_repo}"
+
+        # Check disk cache first
+        if self.disk_cache:
+            cached_tags = self.disk_cache.get(disk_cache_key)
+            if cached_tags:
+                return cached_tags
+
         with self._tags_cache_lock:
             if owner_repo in self._tags_cache:
                 return self._tags_cache[owner_repo]
@@ -65,6 +93,10 @@ class GitHubClient:
 
         with self._tags_cache_lock:
             self._tags_cache[owner_repo] = tags
+
+        # Store in disk cache
+        if self.disk_cache:
+            self.disk_cache.set(disk_cache_key, tags, expire=self.cache_ttl)
 
         return tags
 
@@ -128,7 +160,16 @@ class GitHubClient:
         if len(ref) == 40 and all(c in "0123456789abcdefABCDEF" for c in ref):
             return ref
 
-        # Check cache (thread-safe)
+        # Disk cache key: (base_url, repo, ref)
+        disk_cache_key = f"resolve_sha:{self.base_url}:{repo}:{ref}"
+
+        # Check disk cache first
+        if self.disk_cache:
+            cached_sha = self.disk_cache.get(disk_cache_key)
+            if cached_sha:
+                return cached_sha
+
+        # Check in-memory cache (thread-safe)
         cache_key = (repo, ref)
         with self._cache_lock:
             if cache_key in self._cache:
@@ -138,9 +179,11 @@ class GitHubClient:
         async with self._semaphore:
             sha = await self._request_with_backoff(repo, ref)
 
-        # Store in cache (thread-safe)
+        # Store in both caches
         with self._cache_lock:
             self._cache[cache_key] = sha
+        if self.disk_cache:
+            self.disk_cache.set(disk_cache_key, sha, expire=self.cache_ttl)
 
         return sha
 

@@ -379,11 +379,26 @@ async def run(settings: Settings) -> list[Path]:
         return []
 
     token = settings.github_token.get_secret_value() if settings.github_token else None
+
+    # Initialize disk cache if enabled (can be disabled via --no-cache)
+    disk_cache = None
+    if settings.cache:
+        try:
+            from diskcache_rs import Cache  # type: ignore[import-not-found]
+        except ImportError:
+            # diskcache-rs not installed; caching silently disabled
+            pass
+        else:
+            settings.cache_dir.mkdir(parents=True, exist_ok=True)
+            disk_cache = Cache(str(settings.cache_dir))
+
     client = GitHubClient(
         token=token,
         base_url=settings.github_api,
         concurrency=settings.concurrency,
         max_retries=settings.max_retries,
+        disk_cache=disk_cache,
+        cache_ttl=settings.cache_ttl,
     )
 
     # Process all files concurrently (semaphore in client bounds API calls)
