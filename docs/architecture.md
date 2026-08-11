@@ -78,6 +78,46 @@ await asyncio.sleep(delay)
 
 **Retry limit:** `max_retries` (default 5)
 
+## Logging
+
+Module-level loggers in `client.py` and `core.py` provide visibility into cache behavior, retries, and file processing. Enabled via repeated `-v` CLI flags (count-style):
+
+| Verbosity | pin_actions level | httpx2 level | httpcore level | Use case |
+|---|---|---|---|---|
+| `0` (default) | WARNING | WARNING | WARNING | Quiet — only retries/no-match warnings |
+| `1` (`-v 1` or `-v`) | INFO | WARNING | WARNING | See important events (e.g., per-file pin summaries) |
+| `2` (`-v 2`) | DEBUG | INFO | INFO | Full cache visibility + HTTP request logging |
+| `3` (`-v 3`) | DEBUG | DEBUG | DEBUG | Firehose — all internal details |
+
+**Log points:**
+- `pin_actions.client`: Cache hits/misses (DEBUG), retry attempts (WARNING) with status code & delay
+- `pin_actions.core`: Version constraint no-match warnings (WARNING)
+- `httpx2`, `httpcore`: HTTP request/response details (INFO/DEBUG)
+
+**Usage:**
+```bash
+# Default: only retries and constraint mismatches
+pin-actions .github/workflows
+
+# See per-file pins and important events (short flag or long)
+pin-actions -v 1 .github/workflows
+pin-actions --verbose 1 .github/workflows
+
+# Full cache visibility + HTTP request logging
+pin-actions -v 2 .github/workflows
+
+# Firehose — all internal details
+pin-actions -v 3 .github/workflows
+```
+
+**Format:** `%(levelname)s: %(message)s` (minimal, stderr)
+
+**Design:**
+- Per-namespace configuration via `_configure_logging()`: `pin_actions`, `httpx2`, `httpcore` can have independent levels
+- No stdlib logging config side effects on library imports: `logging.basicConfig()` only called in `main()`, not at module init
+- Zero overhead if unused: stdlib logging no-ops without handlers
+- Library-friendly: importers of `pin_actions` as a library are not surprised by handler side effects; downstream apps can set their own levels via `logging.getLogger("pin_actions").setLevel(...)`
+
 ## YAML Round-Trip Editing (yamlrocks)
 
 `pin_file()` parses each file with `yamlrocks.loads(content, option=yamlrocks.OPT_ROUND_TRIP)`, which returns a `YAMLRocksDocument` backed by a Rust AST that preserves comments, blank lines, and key ordering.
@@ -233,7 +273,9 @@ settings = Settings(
 
 This is only done inside `main()`. **Why not `model_config = SettingsConfigDict(cli_parse_args=True, ...)`**: baking it into `model_config` makes *every* `Settings(...)` instantiation parse `sys.argv` — including direct instantiation in tests and library code, which breaks immediately under pytest (`unrecognized arguments: -v ...`) since pytest's own argv doesn't match the model's fields. Keeping it as call-time kwargs isolates CLI parsing to the one code path that actually wants it.
 
-`github_token`'s field uses `validation_alias=AliasChoices("PIN_ACTIONS_TOKEN", "GITHUB_TOKEN")` (with `populate_by_name=True`) so both the prefixed and the conventional unprefixed `GITHUB_TOKEN` env var populate it — pydantic-settings' CLI layer also derives `--github-token`/`--pin-actions-token` flag aliases from the same `AliasChoices`.
+`github_token` field uses `validation_alias=AliasChoices("PIN_ACTIONS_TOKEN", "GITHUB_TOKEN")` (with `populate_by_name=True`) so both the prefixed and the conventional unprefixed `GITHUB_TOKEN` env var populate it — pydantic-settings' CLI layer also derives `--github-token`/`--pin-actions-token` flag aliases from the same `AliasChoices`.
+
+`verbose` field uses `validation_alias=AliasChoices("verbose", "v")` to register both `-v` and `--verbose` as CLI options, enabling short-flag usage like `pin-actions -v 2`.
 
 ## Testing Strategy
 

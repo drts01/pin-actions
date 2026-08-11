@@ -69,3 +69,10 @@ class Settings(BaseSettings):
         default=True,
         description="Enable persistent disk caching",
     )
+    verbose: int = Field(
+        default=0,
+        ge=0,
+        le=3,
+        validation_alias=AliasChoices("verbose", "v"),
+        description="Increase verbosity (-v, -vv, -vvv); higher counts enable DEBUG/dependency logging",
+    )

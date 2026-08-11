@@ -1,6 +1,7 @@
 """Core parsing and pinning logic."""
 
 import asyncio
+import logging
 import sys
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -11,6 +12,8 @@ from pin_actions.client import GitHubClient
 from pin_actions.config import Settings
 from pin_actions.errors import PinActionsError, YAMLParseError
 from pin_actions.versioning import parse_tag_version, select_latest_tag
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -309,10 +312,7 @@ async def _apply_version_constrained_tag(
         full_version=full_version,
     )
     if match is None:
-        print(
-            f"pin-actions: warning: no tag matching version constraint for {repo}@{tag}; leaving pinned as-is",
-            file=sys.stderr,
-        )
+        logger.warning(f"no tag matching version constraint for {repo}@{tag}; leaving pinned as-is")
         return
 
     new_tag, new_sha = match
@@ -404,6 +404,31 @@ async def run(settings: Settings) -> list[Path]:
         return [f for f, r in zip(files, results, strict=True) if r is True]
 
 
+# Verbosity → per-namespace logging levels
+# 0 (default): pin_actions=WARNING, httpx2/httpcore=WARNING
+# 1 (-v):      pin_actions=INFO, httpx2/httpcore=WARNING
+# 2 (-vv):     pin_actions=DEBUG, httpx2/httpcore=INFO
+# 3+ (-vvv):   pin_actions=DEBUG, httpx2/httpcore=DEBUG
+_LEVELS_BY_VERBOSITY: list[dict[str, int]] = [
+    {"pin_actions": logging.WARNING, "httpx2": logging.WARNING, "httpcore": logging.WARNING},
+    {"pin_actions": logging.INFO, "httpx2": logging.WARNING, "httpcore": logging.WARNING},
+    {"pin_actions": logging.DEBUG, "httpx2": logging.INFO, "httpcore": logging.INFO},
+    {"pin_actions": logging.DEBUG, "httpx2": logging.DEBUG, "httpcore": logging.DEBUG},
+]
+
+
+def _configure_logging(verbose: int) -> None:
+    """Configure logging levels per namespace based on verbosity count.
+
+    Args:
+        verbose: Verbosity count (0-3+).
+    """
+    logging.basicConfig(format="%(levelname)s: %(message)s")
+    levels = _LEVELS_BY_VERBOSITY[min(verbose, 3)]
+    for namespace, level in levels.items():
+        logging.getLogger(namespace).setLevel(level)
+
+
 def main() -> None:
     """CLI entry point.
 
@@ -417,6 +442,7 @@ def main() -> None:
             _cli_implicit_flags=True,
             _cli_prog_name="pin-actions",
         )
+        _configure_logging(settings.verbose)
         modified = asyncio.run(run(settings))
     except PinActionsError as exc:
         print(f"Error: {exc}", file=sys.stderr)

@@ -1,6 +1,7 @@
 """Async GitHub API client with rate limiting and caching."""
 
 import asyncio
+import logging
 import random
 import threading
 from collections import OrderedDict
@@ -13,6 +14,8 @@ import httpx2
 
 from pin_actions._util import is_full_sha
 from pin_actions.errors import GitHubAPIError, InvalidRefError, NetworkError, RateLimitExhaustedError
+
+logger = logging.getLogger(__name__)
 
 _MAX_TAG_PAGES = 10  # 100 tags/page cap; guards against runaway pagination on huge repos
 
@@ -114,14 +117,17 @@ class GitHubClient:
         """
         # Check disk cache first
         if self.disk_cache and (cached := self.disk_cache.get(disk_cache_key)) is not None:
+            logger.debug(f"Disk cache hit: {disk_cache_key}")
             return cached  # type: ignore[return-value]
 
         # Check in-memory cache (LRU: touch on hit)
         with mem_lock:
             if mem_key in mem_cache:
                 mem_cache.move_to_end(mem_key)
+                logger.debug(f"Memory cache hit: {mem_key}")
                 return mem_cache[mem_key]
 
+        logger.debug(f"Cache miss (fetching): {mem_key}")
         # Fetch under semaphore (rate limiting)
         async with self._semaphore:
             value = await fetch()
@@ -307,4 +313,6 @@ class GitHubClient:
             # Exponential backoff with jitter: 2^attempt + random(0, 1)
             delay = 2**attempt + random.random()  # noqa: S311 -- jitter, not crypto
 
+        status = f"(status {response.status_code})" if response else "(network error)"
+        logger.warning(f"Retry attempt {attempt + 1}; backing off {delay:.1f}s {status}")
         await asyncio.sleep(min(delay, 60.0))  # Cap at 60 seconds
