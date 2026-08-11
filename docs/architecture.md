@@ -30,28 +30,29 @@ async with self._semaphore:
 
 ### Thread-Safe Cache
 ```python
-_cache: dict[(repo, ref), str]  # guarded by threading.Lock
-_tags_cache: dict[str, list[tuple[str, str]]]  # guarded by threading.Lock
+_cache: OrderedDict[(repo, ref), str]  # guarded by threading.Lock; LRU-ordered
+_tags_cache: OrderedDict[str, list[tuple[str, str]]]  # guarded by threading.Lock; LRU-ordered
 ```
 
-Both caches follow a unified **disk-cache → in-memory cache → fetch (semaphore-gated) → write-through both caches** pattern, implemented via the generic `_cached_fetch()` helper:
+Both caches follow a unified **disk-cache → in-memory cache → fetch (semaphore-gated) → write-through both caches** pattern, implemented via the generic `_cached_fetch[T]()` helper:
 
 ```python
-async def _cached_fetch(
+async def _cached_fetch[T](
     self,
     disk_cache_key: str,
-    mem_cache: dict[Any, Any],
+    mem_cache: OrderedDict[Any, T],
     mem_key: Any,
     mem_lock: threading.Lock,
-    fetch: Callable[[], Awaitable[Any]],
-) -> Any:
-    """Check disk cache → in-memory cache → fetch (gated by semaphore) → write-through both."""
+    fetch: Callable[[], Awaitable[T]],
+) -> T:
+    """Check disk cache → in-memory cache → fetch (gated by semaphore) → write-through both; LRU eviction."""
 ```
 
 - **Purpose**: Satisfies spec requirement for thread-safe caching
 - **Use case**: If `pin_actions` is imported and called from multiple async loops (e.g., via `asyncio.to_thread`), the lock ensures cache dict consistency
 - **Performance**: Eliminates duplicate API requests for same `owner/repo@ref` within a run (common: many workflows use `actions/checkout@v4`)
 - **Truthiness fix**: Uses `is not None` check instead of walrus operator, correctly caching empty lists (e.g., repos with zero tags)
+- **LRU eviction**: `OrderedDict` + `move_to_end()` on hit; auto-evict oldest entry when `len(cache) > max_cache_size`. Default `max_cache_size=1000` (safe for CLI; configurable for long-lived server/lib use)
 - **Callers**: `list_tags()` and `resolve_sha()` delegate all caching logic to `_cached_fetch()`, passing lambdas for fetch operations
 - **Future**: [Hishel](https://github.com/karpetrosyan/hishel) (HTTP-level response caching) will replace this manual cache once Hishel adds `httpx2` support
 

@@ -3,6 +3,7 @@
 import asyncio
 import random
 import threading
+from collections import OrderedDict
 from typing import TYPE_CHECKING, Any, Protocol
 
 if TYPE_CHECKING:
@@ -39,6 +40,7 @@ class GitHubClient:
         max_retries: int = 5,
         disk_cache: _DiskCache | None = None,
         cache_ttl: int = 3600,
+        max_cache_size: int = 1000,
     ) -> None:
         """Initialize GitHub client.
 
@@ -49,16 +51,18 @@ class GitHubClient:
             max_retries: Max retry attempts on 403/429 errors.
             disk_cache: Optional diskcache_rs.Cache instance for persistent caching.
             cache_ttl: TTL in seconds for disk cache entries.
+            max_cache_size: Max entries in in-memory cache before LRU eviction (0 = unbounded).
         """
         self.base_url = base_url.rstrip("/")
         self.token = token
         self.max_retries = max_retries
         self.disk_cache = disk_cache
         self.cache_ttl = cache_ttl
+        self.max_cache_size = max_cache_size
         self._semaphore = asyncio.Semaphore(concurrency)
-        self._cache: dict[tuple[str, str], str] = {}
+        self._cache: OrderedDict[tuple[str, str], str] = OrderedDict()
         self._cache_lock = threading.Lock()
-        self._tags_cache: dict[str, list[tuple[str, str]]] = {}
+        self._tags_cache: OrderedDict[str, list[tuple[str, str]]] = OrderedDict()
         self._tags_cache_lock = threading.Lock()
         self._http_client: httpx2.AsyncClient | None = None
         self._http_client_lock = asyncio.Lock()
@@ -91,7 +95,7 @@ class GitHubClient:
     async def _cached_fetch[T](
         self,
         disk_cache_key: str,
-        mem_cache: dict[Any, T],
+        mem_cache: OrderedDict[Any, T],
         mem_key: Any,  # noqa: ANN401
         mem_lock: threading.Lock,
         fetch: Callable[[], Awaitable[T]],
@@ -112,18 +116,21 @@ class GitHubClient:
         if self.disk_cache and (cached := self.disk_cache.get(disk_cache_key)) is not None:
             return cached  # type: ignore[return-value]
 
-        # Check in-memory cache
+        # Check in-memory cache (LRU: touch on hit)
         with mem_lock:
             if mem_key in mem_cache:
+                mem_cache.move_to_end(mem_key)
                 return mem_cache[mem_key]
 
         # Fetch under semaphore (rate limiting)
         async with self._semaphore:
             value = await fetch()
 
-        # Write to in-memory cache
+        # Write to in-memory cache with LRU eviction
         with mem_lock:
             mem_cache[mem_key] = value
+            if self.max_cache_size and len(mem_cache) > self.max_cache_size:
+                mem_cache.popitem(last=False)
 
         # Write to disk cache
         if self.disk_cache:
