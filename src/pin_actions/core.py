@@ -246,11 +246,12 @@ async def pin_file(
 
         refs_to_resolve.setdefault((repo, tag), []).append((ref_path, ref, False))
 
-    # Batch resolve all unique refs. Any GitHubAPIError propagates to the caller,
-    # who decides whether to skip, retry, or abort (library-friendly: no swallowing).
-    resolved: dict[tuple[str, str], str] = {}
-    for repo, tag in refs_to_resolve:
-        resolved[(repo, tag)] = await client.resolve_sha(repo, tag)
+    # Batch resolve all unique refs in parallel (semaphore bounds concurrency).
+    # Any GitHubAPIError propagates to the caller, who decides whether to skip,
+    # retry, or abort (library-friendly: no swallowing).
+    keys = list(refs_to_resolve)
+    values = await asyncio.gather(*(client.resolve_sha(repo, tag) for repo, tag in keys))
+    resolved = dict(zip(keys, values, strict=True))
 
     # Rewrite entries whose resolved SHA differs from what's already there (new pins
     # always differ; already-pinned entries only differ if the tag has moved).

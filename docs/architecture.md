@@ -126,13 +126,14 @@ run(Settings)
   │       │   ├─ elif a version-constraint flag is set AND comment is non-semver (a branch):
   │       │   │   └─ frozen unless update_branches is set (then re-resolved normally, below)
   │       │   └─ else: re-resolve against the tag/branch recorded in the comment (default path)
-  │       ├─ batch resolve unique (repo, tag) pairs (default-path entries only):
-  │       │   └─ for each ref:
-  │       │       ├─ check cache (lock)
-  │       │       ├─ if miss: resolve_sha(repo, ref)
-  │       │       │   └─ GET /repos/{repo}/commits/{ref}
-  │       │       │       └─ retry with backoff on 429/403
-  │       │       └─ store in cache (lock)
+  │       ├─ batch resolve unique (repo, tag) pairs in parallel via asyncio.gather (default-path entries only):
+  │       │   └─ semaphore-gated concurrent calls to resolve_sha(repo, ref) for all unique (repo, tag) keys
+  │       │       └─ each call:
+  │       │           ├─ check cache (lock)
+  │       │           ├─ if miss: resolve_sha(repo, ref)
+  │       │           │   └─ GET /repos/{repo}/commits/{ref}
+  │       │           │       └─ retry with backoff on 429/403
+  │       │           └─ store in cache (lock)
   │       ├─ apply resolved SHAs (only where changed) via _set_path, and set the
   │       │  tag as a genuine comment via doc.locate(path).comment = tag
   │       │  (for uses: write "repo@sha", for with.ref: write bare "sha")
