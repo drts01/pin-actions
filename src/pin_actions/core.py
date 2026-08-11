@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 import yamlrocks
 
+from pin_actions._util import is_full_sha
 from pin_actions.client import GitHubClient
 from pin_actions.config import Settings
 from pin_actions.errors import PinActionsError, YAMLParseError
@@ -13,6 +14,11 @@ from pin_actions.versioning import parse_tag_version, select_latest_tag
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+# PEP 695 type aliases for clarity
+type UsesWithRefTuple = tuple[tuple[Any, ...], str | None, bool]
+type RefsToResolve = dict[tuple[str, str], list[UsesWithRefTuple]]
+type ResolvedSHAs = dict[tuple[str, str], str]
 
 
 def _is_local_action(repo: str) -> bool:
@@ -23,7 +29,7 @@ def _is_local_action(repo: str) -> bool:
 
 def _is_already_pinned(ref: str) -> bool:
     """Check if ref is already a 40-character commit SHA."""
-    return len(ref) == 40 and all(c in "0123456789abcdefABCDEF" for c in ref)
+    return is_full_sha(ref)
 
 
 def _parse_uses(uses_str: str) -> tuple[str, str] | None:
@@ -47,32 +53,6 @@ def _parse_uses(uses_str: str) -> tuple[str, str] | None:
     if not repo or not ref:
         return None
     return repo, ref
-
-
-def _walk_uses_keys(obj: Any, path: str = "") -> list[tuple[Any, str, str]]:  # noqa: ANN401
-    """Recursively find all 'uses' keys in a plain-dict YAML structure.
-
-    Used by tests against plain dicts. yamlrocks documents are walked
-    separately via ``doc.walk()`` in :func:`pin_file` since their list
-    values are ``YAMLRocksDocumentView`` objects, not ``list``.
-
-    Returns:
-        List of (parent_obj, key_or_index, current_path) tuples where 'uses' exists.
-    """
-    results: list[tuple[Any, str, str]] = []
-
-    if isinstance(obj, dict):
-        for key, value in obj.items():
-            child_path = f"{path}.{key}" if path else key
-            if key == "uses" and isinstance(value, str):
-                results.append((obj, key, child_path))
-            results.extend(_walk_uses_keys(value, child_path))
-    elif isinstance(obj, list):
-        for idx, value in enumerate(obj):
-            child_path = f"{path}[{idx}]"
-            results.extend(_walk_uses_keys(value, child_path))
-
-    return results
 
 
 def _find_uses_paths(doc: Any) -> list[tuple[tuple[Any, ...], str]]:  # noqa: ANN401

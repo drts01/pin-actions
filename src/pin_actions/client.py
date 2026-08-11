@@ -7,6 +7,7 @@ from typing import Protocol
 
 import httpx2
 
+from pin_actions._util import is_full_sha
 from pin_actions.errors import GitHubAPIError, InvalidRefError, NetworkError, RateLimitExhaustedError
 
 _MAX_TAG_PAGES = 10  # 100 tags/page cap; guards against runaway pagination on huge repos
@@ -74,15 +75,11 @@ class GitHubClient:
             NetworkError: On unrecoverable network errors.
         """
         owner_repo = "/".join(repo.split("/")[:2])
-
-        # Disk cache key
         disk_cache_key = f"list_tags:{self.base_url}:{owner_repo}"
 
         # Check disk cache first
-        if self.disk_cache:
-            cached_tags = self.disk_cache.get(disk_cache_key)
-            if cached_tags:
-                return cached_tags
+        if self.disk_cache and (cached_tags := self.disk_cache.get(disk_cache_key)):
+            return cached_tags
 
         with self._tags_cache_lock:
             if owner_repo in self._tags_cache:
@@ -94,7 +91,6 @@ class GitHubClient:
         with self._tags_cache_lock:
             self._tags_cache[owner_repo] = tags
 
-        # Store in disk cache
         if self.disk_cache:
             self.disk_cache.set(disk_cache_key, tags, expire=self.cache_ttl)
 
@@ -156,30 +152,22 @@ class GitHubClient:
             RateLimitExhaustedError: If retries are exhausted while rate-limited.
             NetworkError: On unrecoverable network errors.
         """
-        # Fast path: already a full SHA
-        if len(ref) == 40 and all(c in "0123456789abcdefABCDEF" for c in ref):
+        if is_full_sha(ref):
             return ref
 
-        # Disk cache key: (base_url, repo, ref)
         disk_cache_key = f"resolve_sha:{self.base_url}:{repo}:{ref}"
 
-        # Check disk cache first
-        if self.disk_cache:
-            cached_sha = self.disk_cache.get(disk_cache_key)
-            if cached_sha:
-                return cached_sha
+        if self.disk_cache and (cached_sha := self.disk_cache.get(disk_cache_key)):
+            return cached_sha
 
-        # Check in-memory cache (thread-safe)
         cache_key = (repo, ref)
         with self._cache_lock:
             if cache_key in self._cache:
                 return self._cache[cache_key]
 
-        # Request with rate-limit backoff
         async with self._semaphore:
             sha = await self._request_with_backoff(repo, ref)
 
-        # Store in both caches
         with self._cache_lock:
             self._cache[cache_key] = sha
         if self.disk_cache:

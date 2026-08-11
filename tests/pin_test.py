@@ -1,6 +1,6 @@
 """Test suite for pin-actions."""
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -9,7 +9,6 @@ from pin_actions.core import (
     _is_already_pinned,
     _is_local_action,
     _parse_uses,
-    _walk_uses_keys,
     pin_file,
     run,
 )
@@ -22,6 +21,27 @@ from pin_actions.versioning import parse_tag_version, select_latest_tag
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+
+def _walk_uses_keys(obj: Any, path: str = "") -> list[tuple[Any, str, str]]:
+    """Recursively find all 'uses' keys in a plain-dict YAML structure.
+
+    Local test helper for testing against plain dicts.
+    """
+    results: list[tuple[Any, str, str]] = []
+
+    if isinstance(obj, dict):
+        for key, value in obj.items():
+            child_path = f"{path}.{key}" if path else key
+            if key == "uses" and isinstance(value, str):
+                results.append((obj, key, child_path))
+            results.extend(_walk_uses_keys(value, child_path))
+    elif isinstance(obj, list):
+        for idx, value in enumerate(obj):
+            child_path = f"{path}[{idx}]"
+            results.extend(_walk_uses_keys(value, child_path))
+
+    return results
 
 
 class TestHelpers:
