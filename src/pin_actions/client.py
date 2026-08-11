@@ -25,11 +25,11 @@ class _DiskCache(Protocol):
 
     def get(self, key: str, default: object = None) -> object:
         """Get cached value or default."""
-        ...
+        ...  # pragma: no cover
 
     def set(self, key: str, value: object, expire: int | None = None) -> None:
         """Set cached value with optional TTL."""
-        ...
+        ...  # pragma: no cover
 
 
 class GitHubClient:
