@@ -18,7 +18,7 @@ from pin_actions.errors import (
     RateLimitExhaustedError,
     YAMLParseError,
 )
-from pin_actions.versioning import select_latest_tag
+from pin_actions.versioning import parse_tag_version, select_latest_tag
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -774,3 +774,126 @@ class TestVersioning:
         tag_name, sha = result
         assert tag_name == "v4.9.2"
         assert sha == "sha_v4_9_2"
+
+    def test_parse_tag_version_calver_dot_separated(self) -> None:
+        """Parse CalVer with dot separators (2023.10.15)."""
+        v = parse_tag_version("2023.10.15")
+        assert v is not None
+        assert v.release == (2023, 10, 15)
+
+    def test_parse_tag_version_calver_zero_padded(self) -> None:
+        """Parse CalVer with zero-padded month/day (2023.01.05)."""
+        v = parse_tag_version("2023.01.05")
+        assert v is not None
+        assert v.release == (2023, 1, 5)
+
+    def test_parse_tag_version_calver_dash_separated(self) -> None:
+        """Parse CalVer with dash separators (2024-05-01) by normalizing to dots."""
+        v = parse_tag_version("2024-05-01")
+        assert v is not None
+        assert v.release == (2024, 5, 1)
+
+    def test_parse_tag_version_calver_v_prefix_with_dash(self) -> None:
+        """Parse CalVer with 'v' prefix and dashes (v2024-05-01)."""
+        v = parse_tag_version("v2024-05-01")
+        assert v is not None
+        assert v.release == (2024, 5, 1)
+
+    def test_parse_tag_version_unparseable_branch_name(self) -> None:
+        """Return None for branch names like 'main', 'nightly', etc."""
+        assert parse_tag_version("main") is None
+        assert parse_tag_version("nightly") is None
+        assert parse_tag_version("develop") is None
+
+    def test_select_latest_tag_calver_dot_separated(self) -> None:
+        """CalVer with dot separators: latest_major picks highest date."""
+        tags = [
+            ("2023.01.05", "sha_2023_01_05"),
+            ("2023.09.30", "sha_2023_09_30"),
+            ("2024.01.02", "sha_2024_01_02"),
+        ]
+        result = select_latest_tag(tags, "2023.01.05", latest_major=True)
+        assert result is not None
+        tag_name, sha = result
+        # Rendered to match original precision (3 components)
+        assert tag_name == "2024.1.2"
+        assert sha == "sha_2024_01_02"
+
+    def test_select_latest_tag_calver_dash_separated(self) -> None:
+        """CalVer with dash separators: latest_minor picks within same year."""
+        tags = [
+            ("2024-01-05", "sha_2024_01_05"),
+            ("2024-09-30", "sha_2024_09_30"),
+            ("2025-01-02", "sha_2025_01_02"),
+        ]
+        result = select_latest_tag(tags, "2024-01-05", latest_minor=True)
+        assert result is not None
+        tag_name, sha = result
+        # Rendered to match original precision (3 components), dash-normalized to dot
+        assert tag_name == "2024.9.30"
+        assert sha == "sha_2024_09_30"
+
+    def test_select_latest_tag_calver_patch_constraint(self) -> None:
+        """CalVer with patch constraint: latest_patch picks within same year.month."""
+        tags = [
+            ("2024.05.01", "sha_2024_05_01"),
+            ("2024.05.15", "sha_2024_05_15"),
+            ("2024.06.01", "sha_2024_06_01"),
+        ]
+        result = select_latest_tag(tags, "2024.05.05", latest_patch=True)
+        assert result is not None
+        tag_name, sha = result
+        # Constrained to 2024.05.x, so picks 2024.05.15
+        assert tag_name == "2024.5.15"
+        assert sha == "sha_2024_05_15"
+
+    @pytest.mark.asyncio
+    async def test_pin_file_calver_already_pinned_updates_if_moved(self, tmp_path: Path) -> None:
+        """Re-resolve CalVer-tagged action; update SHA if date tag moved."""
+        client = GitHubClient(token="test", concurrency=1)
+
+        old_sha = "a" * 40
+        new_sha = "b" * 40
+        workflow_file = tmp_path / "workflow.yml"
+        workflow_file.write_text(
+            f"name: Test\njobs:\n  build:\n    steps:\n      - uses: some-action@{old_sha}  # 2024.01.15\n"
+        )
+
+        async def mock_resolve_sha(_repo: str, _ref: str) -> str:
+            return new_sha
+
+        with patch.object(client, "resolve_sha", new=AsyncMock(side_effect=mock_resolve_sha)):
+            modified = await pin_file(client, workflow_file, dry_run=False)
+            assert modified
+
+        content = workflow_file.read_text()
+        # YAML normalization may alter spacing, so check key parts separately
+        assert f"@{new_sha}" in content
+        assert "# 2024.01.15" in content
+        assert old_sha not in content
+
+    @pytest.mark.asyncio
+    async def test_pin_file_branch_name_fallback_no_update(self, tmp_path: Path) -> None:
+        """Unparseable tag (e.g., 'nightly' branch): re-resolve hash only, leave comment untouched."""
+        client = GitHubClient(token="test", concurrency=1)
+
+        old_sha = "c" * 40
+        new_sha = "d" * 40
+        workflow_file = tmp_path / "workflow.yml"
+        workflow_file.write_text(
+            f"name: Test\njobs:\n  build:\n    steps:\n      - uses: some-action@{old_sha}  # nightly\n"
+        )
+
+        async def mock_resolve_sha(_repo: str, _ref: str) -> str:
+            return new_sha
+
+        with patch.object(client, "resolve_sha", new=AsyncMock(side_effect=mock_resolve_sha)):
+            # No --update flag means always re-resolve, even 'nightly' branch
+            modified = await pin_file(client, workflow_file, dry_run=False)
+            assert modified
+
+        content = workflow_file.read_text()
+        # YAML normalization may alter spacing
+        assert f"@{new_sha}" in content
+        assert "# nightly" in content
+        assert old_sha not in content

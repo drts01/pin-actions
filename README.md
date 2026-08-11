@@ -264,7 +264,7 @@ Features:
 | Component | Purpose |
 |-----------|---------|
 | `GitHubClient` | Async HTTP client with rate-limit backoff, caching, and semaphore-bounded concurrency; `list_tags()` lists all tags (paginated, cached per-repo) for version-constrained selection |
-| `versioning.py` | Semver-aware tag selection (`packaging.version`): `select_latest_tag()` picks the highest version satisfying `--update-to-latest-major` (no constraint)/`--update-to-latest-minor` (same-major constraint) relative to the currently pinned tag, and re-renders the winning tag to match the original comment's precision/prefix |
+| `versioning.py` | Semver & CalVer tag selection (`packaging.version`): `select_latest_tag()` picks the highest version satisfying `--update-to-latest-major`/`--update-to-latest-minor`/`--update-to-latest-patch` relative to the pinned tag; supports CalVer (dot-separated `2023.10.15`, zero-padded `2023.01.05`, dash-separated `2024-05-01`); unparseable tags (branch names) fall back to hash re-resolve, comment unchanged |
 | `Settings` | `pydantic-settings`-based CLI/env config; CLI parsing (`--help`, kebab-case flags) enabled via `_cli_parse_args=True` at `Settings()` call time in `main()` only — not baked into `model_config`, so direct instantiation (library/tests) never touches `sys.argv` |
 | `errors.py` | Exception hierarchy (`PinActionsError` base); library raises, CLI (`main()`) is the sole catch point |
 | `pin_file()` | Parse (via `yamlrocks`) and rewrite individual workflow files |

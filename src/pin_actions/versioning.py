@@ -4,16 +4,26 @@ from packaging.version import InvalidVersion, Version
 
 
 def parse_tag_version(tag: str) -> Version | None:
-    """Parse a tag name as a semver ``Version``, tolerating a leading 'v'.
+    """Parse a tag name as a semver or CalVer ``Version``, tolerating a leading 'v'.
+
+    Supports:
+    - Semver: ``v1.2.3``, ``1.2.3-rc1``
+    - CalVer: ``2023.10.15``, ``2023-10-15`` (dash → dot conversion), ``2023.1.5``
+    - Unparseable: branches like ``main``, ``nightly`` → None (fallback to hash re-resolve)
 
     Returns:
-        Parsed version, or None if ``tag`` isn't a valid version (e.g. a
-        branch name like 'main').
+        Parsed version, or None if ``tag`` isn't a valid version.
     """
     candidate = tag[1:] if tag.lower().startswith("v") and len(tag) > 1 else tag
     try:
         return Version(candidate)
     except InvalidVersion:
+        # Retry with dash-separated CalVer (e.g., 2024-05-01 → 2024.05.01)
+        if "-" in candidate:
+            try:
+                return Version(candidate.replace("-", "."))
+            except InvalidVersion:
+                pass
         return None
 
 
