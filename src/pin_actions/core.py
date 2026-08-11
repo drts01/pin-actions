@@ -367,8 +367,7 @@ async def run(settings: Settings) -> list[Path]:
         try:
             from diskcache_rs import Cache  # type: ignore[import-not-found]
         except ImportError:
-            # diskcache-rs not installed; caching silently disabled
-            pass
+            logger.warning("diskcache-rs not installed; persistent caching disabled (disable warning with --no-cache)")
         else:
             settings.cache_dir.mkdir(parents=True, exist_ok=True)
             disk_cache = Cache(str(settings.cache_dir))

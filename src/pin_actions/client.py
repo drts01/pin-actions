@@ -116,7 +116,7 @@ class GitHubClient:
             Cached or freshly-fetched value.
         """
         # Check disk cache first
-        if self.disk_cache and (cached := self.disk_cache.get(disk_cache_key)) is not None:
+        if self.disk_cache is not None and (cached := self.disk_cache.get(disk_cache_key)) is not None:
             logger.debug(f"Disk cache hit: {disk_cache_key}")
             return cached  # type: ignore[return-value]
 
@@ -139,7 +139,7 @@ class GitHubClient:
                 mem_cache.popitem(last=False)
 
         # Write to disk cache
-        if self.disk_cache:
+        if self.disk_cache is not None:
             self.disk_cache.set(disk_cache_key, value, expire=self.cache_ttl)
 
         return value
