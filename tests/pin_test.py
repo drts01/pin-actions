@@ -264,6 +264,102 @@ class TestGitHubClient:
         called_url = mock_http_client.get.call_args.args[0]
         assert called_url.endswith("/repos/uhg-pipelines/epl-jf/commits/v5")
 
+    @pytest.mark.asyncio
+    async def test_resolve_sha_evicts_lru_entry(self) -> None:
+        """LRU eviction: when cache size exceeds max_cache_size, oldest entry is removed."""
+        client = GitHubClient(token="test", concurrency=1, max_cache_size=2)
+
+        # Manually populate cache with 2 entries (at capacity)
+        client._cache[("owner/repo", "v1")] = "1111111111111111111111111111111111111111"
+        client._cache[("owner/repo", "v2")] = "2222222222222222222222222222222222222222"
+
+        async def mock_request_with_backoff(_repo: str, _ref: str) -> str:
+            return "3333333333333333333333333333333333333333"
+
+        # Resolve a 3rd ref, which should trigger eviction of the oldest (v1)
+        with patch.object(client, "_request_with_backoff", side_effect=mock_request_with_backoff):
+            result = await client.resolve_sha("owner/repo", "v3")
+
+        assert result == "3333333333333333333333333333333333333333"
+        # v3 and v2 should be in cache, v1 should be evicted
+        assert ("owner/repo", "v1") not in client._cache
+        assert ("owner/repo", "v2") in client._cache
+        assert ("owner/repo", "v3") in client._cache
+        assert len(client._cache) == 2
+
+    @pytest.mark.asyncio
+    async def test_resolve_sha_lru_touch_on_hit(self) -> None:
+        """LRU touch-on-hit: cache hit on oldest entry moves it to end, preventing eviction."""
+        client = GitHubClient(token="test", concurrency=1, max_cache_size=2)
+
+        # Manually populate cache with 2 entries
+        client._cache[("owner/repo", "v1")] = "1111111111111111111111111111111111111111"
+        client._cache[("owner/repo", "v2")] = "2222222222222222222222222222222222222222"
+
+        # Hit v1 (oldest), should move to end
+        result1 = await client.resolve_sha("owner/repo", "v1")
+        assert result1 == "1111111111111111111111111111111111111111"
+
+        async def mock_request_with_backoff(_repo: str, _ref: str) -> str:
+            return "3333333333333333333333333333333333333333"
+
+        # Resolve v3, which should evict v2 (now oldest after v1 touch), not v1
+        with patch.object(client, "_request_with_backoff", side_effect=mock_request_with_backoff):
+            result3 = await client.resolve_sha("owner/repo", "v3")
+
+        assert result3 == "3333333333333333333333333333333333333333"
+        # v1 and v3 should be in cache, v2 should be evicted
+        assert ("owner/repo", "v1") in client._cache
+        assert ("owner/repo", "v2") not in client._cache
+        assert ("owner/repo", "v3") in client._cache
+        assert len(client._cache) == 2
+
+    @pytest.mark.asyncio
+    async def test_list_tags_evicts_lru_entry(self) -> None:
+        """LRU eviction works on _tags_cache (separate OrderedDict) via list_tags."""
+        client = GitHubClient(token="test", concurrency=1, max_cache_size=2)
+
+        # Manually populate _tags_cache with 2 repos
+        client._tags_cache["owner/repo1"] = [("v1", "1111111111111111111111111111111111111111")]
+        client._tags_cache["owner/repo2"] = [("v2", "2222222222222222222222222222222222222222")]
+
+        async def mock_fetch_all_tags(_owner_repo: str) -> list[tuple[str, str]]:
+            return [("v3", "3333333333333333333333333333333333333333")]
+
+        # Fetch tags for a 3rd repo, should trigger eviction of oldest (repo1)
+        with patch.object(client, "_fetch_all_tags", side_effect=mock_fetch_all_tags):
+            result = await client.list_tags("owner/repo3")
+
+        assert result == [("v3", "3333333333333333333333333333333333333333")]
+        # repo3 and repo2 should be in _tags_cache, repo1 should be evicted
+        assert "owner/repo1" not in client._tags_cache
+        assert "owner/repo2" in client._tags_cache
+        assert "owner/repo3" in client._tags_cache
+        assert len(client._tags_cache) == 2
+
+    @pytest.mark.asyncio
+    async def test_cache_unbounded_when_max_cache_size_zero(self) -> None:
+        """With max_cache_size=0, cache grows unbounded (no LRU eviction)."""
+        client = GitHubClient(token="test", concurrency=1, max_cache_size=0)
+
+        # Manually populate cache with 10 entries
+        for i in range(10):
+            sha = f"{i:040d}"
+            client._cache[(f"owner/repo{i}", f"ref{i}")] = sha
+
+        async def mock_request_with_backoff(_repo: str, _ref: str) -> str:
+            return "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+
+        # Resolve another ref with unbounded cache
+        with patch.object(client, "_request_with_backoff", side_effect=mock_request_with_backoff):
+            await client.resolve_sha("owner/repo11", "ref11")
+
+        # All 11 entries should still be in cache (no eviction)
+        assert len(client._cache) == 11
+        for i in range(10):
+            assert (f"owner/repo{i}", f"ref{i}") in client._cache
+        assert ("owner/repo11", "ref11") in client._cache
+
 
 class TestPinFile:
     """Test file pinning logic."""
