@@ -1,0 +1,26 @@
+[env_run_base]
+description = "Run pytest with coverage"
+package = "editable"
+dependency_groups = [ "test" ]
+pass_env = [ "CI", "GITHUB_*" ]
+commands = [ [ "pytest", "{posargs}" ] ]
+
+[env.build]
+description = "Validate sdist/wheel build, metadata, and installability"
+package = "skip"
+skip_install = true
+dependency_groups = [ "build" ]
+commands = [
+  [ "python", "-m", "build", "--outdir", "{env_tmp_dir}/dist" ],
+  [ "twine", "check", "{env_tmp_dir}/dist/*" ],
+  [ "check-wheel-contents", "{env_tmp_dir}/dist" ],
+]
+
+[env.py315]
+description = "Canary: Python 3.15 (pre-release, allowed to fail)"
+base_python = "python3.15"
+ignore_outcome = true
+
+[tox]
+env_list = [ "py314", "py314-cache" ]
+min_version = "4.22"

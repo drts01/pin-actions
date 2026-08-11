@@ -52,6 +52,11 @@ test = [
   "pytest-asyncio>=0.23",
   "pytest-cov>=7.1",
 ]
+build = [
+  "build>=1.2",
+  "check-wheel-contents>=0.6",
+  "twine>=6",
+]
 ci = [
   "tox-gh>=1.7.1",
   "tox-uv>=1.35.1",
@@ -112,7 +117,7 @@ testpaths = [ "tests" ]
 
 [tool.coverage]
 run.omit = [ "**/__pycache__/*", "tests/*" ]
-run.source = [ "src" ]
+run.source_pkgs = [ "pin_actions" ]
 report.exclude_lines = [
   "def __repr__",
   "if __name__ == .__main__.:",
