@@ -57,8 +57,8 @@ class Settings(BaseSettings):
         "(e.g. v4.1.7) instead of truncating to match the original precision (e.g. v4)",
     )
     cache_dir: Path = Field(
-        default_factory=lambda: Path.home() / ".cache" / "pin-actions",
-        description="Directory for persistent disk cache (default: ~/.cache/pin-actions)",
+        default=Path.home() / ".cache" / "pin-actions",
+        description="Directory for persistent disk cache",
     )
     cache_ttl: int = Field(
         default=3600,
