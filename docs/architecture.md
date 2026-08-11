@@ -31,13 +31,28 @@ async with self._semaphore:
 ### Thread-Safe Cache
 ```python
 _cache: dict[(repo, ref), str]  # guarded by threading.Lock
-with self._cache_lock:
-    if cache_key in self._cache:
-        return self._cache[cache_key]
+_tags_cache: dict[str, list[tuple[str, str]]]  # guarded by threading.Lock
 ```
+
+Both caches follow a unified **disk-cache → in-memory cache → fetch (semaphore-gated) → write-through both caches** pattern, implemented via the generic `_cached_fetch()` helper:
+
+```python
+async def _cached_fetch(
+    self,
+    disk_cache_key: str,
+    mem_cache: dict[Any, Any],
+    mem_key: Any,
+    mem_lock: threading.Lock,
+    fetch: Callable[[], Awaitable[Any]],
+) -> Any:
+    """Check disk cache → in-memory cache → fetch (gated by semaphore) → write-through both."""
+```
+
 - **Purpose**: Satisfies spec requirement for thread-safe caching
 - **Use case**: If `pin_actions` is imported and called from multiple async loops (e.g., via `asyncio.to_thread`), the lock ensures cache dict consistency
 - **Performance**: Eliminates duplicate API requests for same `owner/repo@ref` within a run (common: many workflows use `actions/checkout@v4`)
+- **Truthiness fix**: Uses `is not None` check instead of walrus operator, correctly caching empty lists (e.g., repos with zero tags)
+- **Callers**: `list_tags()` and `resolve_sha()` delegate all caching logic to `_cached_fetch()`, passing lambdas for fetch operations
 - **Future**: [Hishel](https://github.com/karpetrosyan/hishel) (HTTP-level response caching) will replace this manual cache once Hishel adds `httpx2` support
 
 
@@ -133,6 +148,7 @@ run(Settings)
 |----------|-----------|
 | **httpx2 (not httpx)** | Spec requirement; avoids hishel compat issues |
 | **yamlrocks (not regex/ruamel.yaml)** | Round-trip AST preserves comments/formatting on untouched lines; Rust-backed, faster than pure-Python ruamel.yaml. Trade-off: pre-1.0 alpha API, non-obvious mutation semantics (see above) |
+| **Shared `_cached_fetch()` helper** | Unified disk-cache → in-memory cache → fetch (semaphore-gated) → write-through pattern eliminates duplication between `list_tags()` and `resolve_sha()`. Replaces per-method inline logic; fixes empty-list caching bug (was truthiness-gated, now `is not None`). Both callers pass lambdas for the fetch operation |
 | **Manual lock-guarded cache** | Explicit thread-safety per spec; simple & fast. Will migrate to Hishel-based HTTP caching once Hishel supports `httpx2` |
 | **Semaphore (not global rate limiter)** | Async-native; respects GitHub API concurrency limits without blocking |
 | **Batch ref resolution** | Deduplicate refs before API calls; faster for workflows with repeated actions |
@@ -145,7 +161,7 @@ run(Settings)
 | **Rewritten tag comment preserves the original comment's precision** | User directive: a comment like `v4` (major-only) should stay `v4` even if the winning remote tag is `v9.1.2` — rewriting to full precision would be a surprising, unrequested style change. `versioning._render_tag()` truncates/zero-pads the winning `Version.release` tuple to `len(current.release)` components before re-rendering with the original tag's `v`-prefix style |
 | **Tags frozen by default under a version constraint; `--update-branches` opts branches back in** | A version constraint only makes sense for semver tags; branch refs (comment doesn't parse as a version) are left untouched unless the user explicitly opts in, avoiding surprise branch-ref rewrites when the user's intent was "move my tags forward" |
 | **Warn-and-skip on no matching tag** | No tag on the remote satisfies the major/minor constraint (e.g. that major was never re-tagged) — printing a stderr warning and leaving the entry untouched is safer than raising (would abort the whole file/batch) or silently no-op'ing (user wouldn't know why nothing moved) |
-| **Separate `list_tags()`/per-repo tags cache from `resolve_sha()`/`_cache`** | Different GitHub endpoint (`GET .../tags` vs `GET .../commits/{ref}`), different cache key shape (repo-only vs `(repo, ref)`) — kept as two independent lock-guarded caches rather than overloading one |
+| **Separate `list_tags()`/per-repo tags cache from `resolve_sha()`/`_cache`** | Different GitHub endpoint (`GET .../tags` vs `GET .../commits/{ref}`), different cache key shape (repo-only vs `(repo, ref)`) — kept as two independent lock-guarded caches, but unified via `_cached_fetch()` pattern rather than overloading one |
 
 
 ## Safety Invariants

@@ -3,7 +3,10 @@
 import asyncio
 import random
 import threading
-from typing import Protocol
+from typing import TYPE_CHECKING, Any, Protocol
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
 
 import httpx2
 
@@ -85,11 +88,53 @@ class GitHubClient:
         """Exit async context manager, closing pooled client."""
         await self.aclose()
 
+    async def _cached_fetch[T](
+        self,
+        disk_cache_key: str,
+        mem_cache: dict[Any, T],
+        mem_key: Any,  # noqa: ANN401
+        mem_lock: threading.Lock,
+        fetch: Callable[[], Awaitable[T]],
+    ) -> T:
+        """Check disk cache → in-memory cache → fetch (gated by semaphore) → write-through both.
+
+        Args:
+            disk_cache_key: Key for disk cache lookup/write.
+            mem_cache: In-memory cache dict (e.g., _cache or _tags_cache).
+            mem_key: Key for in-memory cache lookup/write.
+            mem_lock: Lock guarding in-memory cache.
+            fetch: Async callable that performs the remote fetch.
+
+        Returns:
+            Cached or freshly-fetched value.
+        """
+        # Check disk cache first
+        if self.disk_cache and (cached := self.disk_cache.get(disk_cache_key)) is not None:
+            return cached  # type: ignore[return-value]
+
+        # Check in-memory cache
+        with mem_lock:
+            if mem_key in mem_cache:
+                return mem_cache[mem_key]
+
+        # Fetch under semaphore (rate limiting)
+        async with self._semaphore:
+            value = await fetch()
+
+        # Write to in-memory cache
+        with mem_lock:
+            mem_cache[mem_key] = value
+
+        # Write to disk cache
+        if self.disk_cache:
+            self.disk_cache.set(disk_cache_key, value, expire=self.cache_ttl)
+
+        return value
+
     async def list_tags(self, repo: str) -> list[tuple[str, str]]:
         """List all tags for a repo as (tag_name, commit_sha) pairs.
 
-        Results are cached per-repo for the lifetime of the client (guarded
-        by a dedicated lock, mirroring the ref-resolution cache).
+        Results are cached per-repo for the lifetime of the client.
 
         Args:
             repo: Repository in 'owner/repo' format (sub-paths stripped).
@@ -102,30 +147,17 @@ class GitHubClient:
             NetworkError: On unrecoverable network errors.
         """
         owner_repo = "/".join(repo.split("/")[:2])
-        disk_cache_key = f"list_tags:{self.base_url}:{owner_repo}"
-
-        # Check disk cache first
-        if self.disk_cache and (cached_tags := self.disk_cache.get(disk_cache_key)):
-            return cached_tags
-
-        with self._tags_cache_lock:
-            if owner_repo in self._tags_cache:
-                return self._tags_cache[owner_repo]
-
-        async with self._semaphore:
-            tags = await self._fetch_all_tags(owner_repo)
-
-        with self._tags_cache_lock:
-            self._tags_cache[owner_repo] = tags
-
-        if self.disk_cache:
-            self.disk_cache.set(disk_cache_key, tags, expire=self.cache_ttl)
-
-        return tags
+        return await self._cached_fetch(
+            f"list_tags:{self.base_url}:{owner_repo}",
+            self._tags_cache,
+            owner_repo,
+            self._tags_cache_lock,
+            lambda: self._fetch_all_tags(owner_repo),
+        )
 
     async def _fetch_all_tags(self, owner_repo: str) -> list[tuple[str, str]]:
         """Paginate ``GET /repos/{owner_repo}/tags`` and collect all (name, sha) pairs."""
-        headers = {}
+        headers: dict[str, str] = {}
         if self.token:
             headers["Authorization"] = f"token {self.token}"
 
@@ -182,25 +214,13 @@ class GitHubClient:
         if is_full_sha(ref):
             return ref
 
-        disk_cache_key = f"resolve_sha:{self.base_url}:{repo}:{ref}"
-
-        if self.disk_cache and (cached_sha := self.disk_cache.get(disk_cache_key)):
-            return cached_sha
-
-        cache_key = (repo, ref)
-        with self._cache_lock:
-            if cache_key in self._cache:
-                return self._cache[cache_key]
-
-        async with self._semaphore:
-            sha = await self._request_with_backoff(repo, ref)
-
-        with self._cache_lock:
-            self._cache[cache_key] = sha
-        if self.disk_cache:
-            self.disk_cache.set(disk_cache_key, sha, expire=self.cache_ttl)
-
-        return sha
+        return await self._cached_fetch(
+            f"resolve_sha:{self.base_url}:{repo}:{ref}",
+            self._cache,
+            (repo, ref),
+            self._cache_lock,
+            lambda: self._request_with_backoff(repo, ref),
+        )
 
     async def _request_with_backoff(self, repo: str, ref: str) -> str:
         """Fetch commit SHA with exponential backoff on rate limits.
@@ -217,7 +237,7 @@ class GitHubClient:
             RateLimitExhaustedError: If retries are exhausted while rate-limited.
             NetworkError: On unrecoverable network errors.
         """
-        headers = {}
+        headers: dict[str, str] = {}
         if self.token:
             headers["Authorization"] = f"token {self.token}"
 
