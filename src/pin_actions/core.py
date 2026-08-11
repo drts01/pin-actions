@@ -415,6 +415,13 @@ _LEVELS_BY_VERBOSITY: list[dict[str, int]] = [
     {"pin_actions": logging.DEBUG, "httpx2": logging.DEBUG, "httpcore": logging.DEBUG},
 ]
 
+# Dedicated always-on CLI loggers for user-facing output (independent of -v verbosity)
+_cli_out = logging.getLogger("pin_actions.cli.out")
+_cli_err = logging.getLogger("pin_actions.cli.err")
+for _log in (_cli_out, _cli_err):
+    _log.propagate = False
+    _log.setLevel(logging.INFO)
+
 
 def _configure_logging(verbose: int) -> None:
     """Configure logging levels per namespace based on verbosity count.
@@ -422,10 +429,15 @@ def _configure_logging(verbose: int) -> None:
     Args:
         verbose: Verbosity count (0-3+).
     """
-    logging.basicConfig(format="%(levelname)s: %(message)s")
+    logging.basicConfig(format="%(levelname)s:%(name)s: %(message)s", force=True)
     levels = _LEVELS_BY_VERBOSITY[min(verbose, 3)]
     for namespace, level in levels.items():
         logging.getLogger(namespace).setLevel(level)
+
+    # Rebuild CLI loggers' handlers for test isolation (capsys-safe: fresh stream references).
+    for log, stream in ((_cli_out, sys.stdout), (_cli_err, sys.stderr)):
+        log.handlers.clear()
+        log.addHandler(logging.StreamHandler(stream))
 
 
 def main() -> None:
@@ -444,20 +456,20 @@ def main() -> None:
         _configure_logging(settings.verbose)
         modified = asyncio.run(run(settings))
     except PinActionsError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
+        _cli_err.error(f"Error: {exc}")
         sys.exit(1)
     except ExceptionGroup as eg:
-        print(f"Error: {eg}", file=sys.stderr)
+        _cli_err.error(f"Error: {eg}")
         for exc in eg.exceptions:
-            print(f"  - {exc}", file=sys.stderr)
+            _cli_err.error(f"  - {exc}")
         sys.exit(1)
     except ValueError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
+        _cli_err.error(f"Error: {exc}")
         sys.exit(1)
 
     if modified:
-        print(f"Pinned {len(modified)} file(s):")
+        _cli_out.info(f"Pinned {len(modified)} file(s):")
         for path in modified:
-            print(f"  {path}")
+            _cli_out.info(f"  {path}")
     else:
-        print("No files modified.")
+        _cli_out.info("No files modified.")
