@@ -57,6 +57,33 @@ class GitHubClient:
         self._cache_lock = threading.Lock()
         self._tags_cache: dict[str, list[tuple[str, str]]] = {}
         self._tags_cache_lock = threading.Lock()
+        self._http_client: httpx2.AsyncClient | None = None
+        self._http_client_lock = asyncio.Lock()
+
+    async def _get_http_client(self) -> httpx2.AsyncClient:
+        """Get or create the pooled HTTP client (lazy-init).
+
+        Thread-safe via asyncio.Lock; reuses the same client across all requests
+        for connection pooling and performance.
+        """
+        if self._http_client is None:
+            async with self._http_client_lock:
+                if self._http_client is None:
+                    self._http_client = httpx2.AsyncClient()
+        return self._http_client
+
+    async def aclose(self) -> None:
+        """Close the pooled HTTP client if it exists."""
+        if self._http_client is not None:
+            await self._http_client.aclose()
+
+    async def __aenter__(self) -> GitHubClient:
+        """Enter async context manager."""
+        return self
+
+    async def __aexit__(self, exc_type: object, exc_val: object, exc_tb: object) -> None:
+        """Exit async context manager, closing pooled client."""
+        await self.aclose()
 
     async def list_tags(self, repo: str) -> list[tuple[str, str]]:
         """List all tags for a repo as (tag_name, commit_sha) pairs.
@@ -103,37 +130,37 @@ class GitHubClient:
             headers["Authorization"] = f"token {self.token}"
 
         tags: list[tuple[str, str]] = []
-        async with httpx2.AsyncClient() as client:
-            for page in range(1, _MAX_TAG_PAGES + 1):
-                url = f"{self.base_url}/repos/{owner_repo}/tags"
-                params = {"per_page": 100, "page": page}
+        client = await self._get_http_client()
+        for page in range(1, _MAX_TAG_PAGES + 1):
+            url = f"{self.base_url}/repos/{owner_repo}/tags"
+            params = {"per_page": 100, "page": page}
 
-                for attempt in range(self.max_retries):
-                    try:
-                        resp = await client.get(url, headers=headers, params=params, timeout=10.0)
-                    except httpx2.RequestError as exc:
-                        if attempt < self.max_retries - 1:
-                            await self._backoff(None, attempt)
-                            continue
-                        raise NetworkError(f"Network error listing tags for {owner_repo}") from exc
-
-                    if resp.status_code == 200:
-                        break
-                    if resp.status_code in (403, 429) or resp.status_code >= 500:
-                        await self._backoff(resp, attempt)
+            for attempt in range(self.max_retries):
+                try:
+                    resp = await client.get(url, headers=headers, params=params, timeout=10.0)
+                except httpx2.RequestError as exc:
+                    if attempt < self.max_retries - 1:
+                        await self._backoff(None, attempt)
                         continue
-                    if resp.status_code == 404:
-                        raise GitHubAPIError(f"Repository not found: {owner_repo}")
-                    resp.raise_for_status()
-                else:
-                    raise RateLimitExhaustedError(owner_repo, "tags", self.max_retries)
+                    raise NetworkError(f"Network error listing tags for {owner_repo}") from exc
 
-                data = resp.json()
-                if not data:
+                if resp.status_code == 200:
                     break
-                tags.extend((entry["name"], entry["commit"]["sha"]) for entry in data)
-                if len(data) < 100:
-                    break
+                if resp.status_code in (403, 429) or resp.status_code >= 500:
+                    await self._backoff(resp, attempt)
+                    continue
+                if resp.status_code == 404:
+                    raise GitHubAPIError(f"Repository not found: {owner_repo}")
+                resp.raise_for_status()
+            else:
+                raise RateLimitExhaustedError(owner_repo, "tags", self.max_retries)
+
+            data = resp.json()
+            if not data:
+                break
+            tags.extend((entry["name"], entry["commit"]["sha"]) for entry in data)
+            if len(data) < 100:
+                break
 
         return tags
 
@@ -200,33 +227,33 @@ class GitHubClient:
         owner_repo = "/".join(repo.split("/")[:2])
         url = f"{self.base_url}/repos/{owner_repo}/commits/{ref}"
 
-        async with httpx2.AsyncClient() as client:
-            for attempt in range(self.max_retries):
-                try:
-                    resp = await client.get(url, headers=headers, timeout=10.0)
+        client = await self._get_http_client()
+        for attempt in range(self.max_retries):
+            try:
+                resp = await client.get(url, headers=headers, timeout=10.0)
 
-                    if resp.status_code == 200:
-                        data = resp.json()
-                        return data["sha"]
+                if resp.status_code == 200:
+                    data = resp.json()
+                    return data["sha"]
 
-                    if resp.status_code in (403, 429):
-                        await self._backoff(resp, attempt)
-                        continue
+                if resp.status_code in (403, 429):
+                    await self._backoff(resp, attempt)
+                    continue
 
-                    if resp.status_code == 404:
-                        raise InvalidRefError(repo, ref)
+                if resp.status_code == 404:
+                    raise InvalidRefError(repo, ref)
 
-                    if resp.status_code >= 500:
-                        await self._backoff(resp, attempt)
-                        continue
+                if resp.status_code >= 500:
+                    await self._backoff(resp, attempt)
+                    continue
 
-                    resp.raise_for_status()
+                resp.raise_for_status()
 
-                except httpx2.RequestError as exc:
-                    if attempt < self.max_retries - 1:
-                        await self._backoff(None, attempt)
-                        continue
-                    raise NetworkError(f"Network error resolving {repo}@{ref}") from exc
+            except httpx2.RequestError as exc:
+                if attempt < self.max_retries - 1:
+                    await self._backoff(None, attempt)
+                    continue
+                raise NetworkError(f"Network error resolving {repo}@{ref}") from exc
 
         raise RateLimitExhaustedError(repo, ref, self.max_retries)
 

@@ -9,7 +9,14 @@
 ### Async/Await (Primary)
 - `run()` orchestrates all file processing as async tasks
 - `pin_file()` performs file I/O and parsing (sync, CPU-bound)
-- `GitHubClient.resolve_sha()` is async for API calls (I/O-bound)
+- `GitHubClient.resolve_sha()` and `list_tags()` are async for API calls (I/O-bound)
+
+### HTTP Connection Pooling
+- `GitHubClient` maintains a single `httpx2.AsyncClient` (lazily initialized) across all requests
+- Enables connection reuse and TCP keep-alive for performance
+- `_get_http_client()` manages lazy initialization with double-checked locking (asyncio.Lock)
+- Use `async with GitHubClient(...) as client:` for deterministic cleanup; context manager is optional but recommended
+- Replaces previous per-request `async with httpx2.AsyncClient()` instantiation (now connection-pooled instead of per-call)
 
 ### Rate Limiting via Semaphore
 ```python

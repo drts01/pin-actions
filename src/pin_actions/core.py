@@ -372,36 +372,35 @@ async def run(settings: Settings) -> list[Path]:
             settings.cache_dir.mkdir(parents=True, exist_ok=True)
             disk_cache = Cache(str(settings.cache_dir))
 
-    client = GitHubClient(
+    async with GitHubClient(
         token=token,
         base_url=settings.github_api,
         concurrency=settings.concurrency,
         max_retries=settings.max_retries,
         disk_cache=disk_cache,
         cache_ttl=settings.cache_ttl,
-    )
+    ) as client:
+        # Process all files concurrently (semaphore in client bounds API calls)
+        tasks = [
+            pin_file(
+                client,
+                f,
+                dry_run=settings.dry_run,
+                update=settings.update,
+                full_version=settings.full_version,
+            )
+            for f in files
+        ]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
 
-    # Process all files concurrently (semaphore in client bounds API calls)
-    tasks = [
-        pin_file(
-            client,
-            f,
-            dry_run=settings.dry_run,
-            update=settings.update,
-            full_version=settings.full_version,
-        )
-        for f in files
-    ]
-    results = await asyncio.gather(*tasks, return_exceptions=True)
+        errors = [(f, r) for f, r in zip(files, results, strict=True) if isinstance(r, Exception)]
+        if errors:
+            raise ExceptionGroup(
+                f"{len(errors)} file(s) failed to process",
+                [PinActionsError(f"{f}: {exc}") if not isinstance(exc, PinActionsError) else exc for f, exc in errors],
+            )
 
-    errors = [(f, r) for f, r in zip(files, results, strict=True) if isinstance(r, Exception)]
-    if errors:
-        raise ExceptionGroup(
-            f"{len(errors)} file(s) failed to process",
-            [PinActionsError(f"{f}: {exc}") if not isinstance(exc, PinActionsError) else exc for f, exc in errors],
-        )
-
-    return [f for f, r in zip(files, results, strict=True) if r is True]
+        return [f for f, r in zip(files, results, strict=True) if r is True]
 
 
 def main() -> None:
