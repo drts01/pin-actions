@@ -74,5 +74,5 @@ class Settings(BaseSettings):
         ge=0,
         le=3,
         validation_alias=AliasChoices("verbose", "v"),
-        description="Increase verbosity (-v, -vv, -vvv); higher counts enable DEBUG/dependency logging",
+        description="Verbosity level 0-3: 0=warnings, 1=info, 2=debug, 3=debug+dependency logs (httpx/httpcore)",
     )
