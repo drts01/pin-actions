@@ -96,7 +96,7 @@ def fake_disk_cache() -> dict[str, Any]:
             """Get cached value or default."""
             return self._storage.get(key, default)
 
-        def set(self, key: str, value: object, _expire: int | None = None) -> None:
+        def set(self, key: str, value: object, expire: int | None = None) -> None:
             """Set cached value (_expire ignored in fake)."""
             self._storage[key] = value
 

@@ -101,6 +101,10 @@ lint.per-file-ignores."tests/*" = [
   "S106", # flake8-bandit hardcoded_password_func_arg — test token defaults expected
   "S107", # flake8-bandit hardcoded_password_default — test fixture defaults are intentional
 ]
+lint.per-file-ignores."tests/conftest.py" = [
+  "ARG001", # Unused function argument - fixtures must match pytest signatures
+  "ARG002", # Unused method argument - class-based fixtures must match signatures
+]
 
 [tool.pytest]
 addopts = [
