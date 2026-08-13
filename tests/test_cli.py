@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import pytest
+from pin_actions.config import Settings
 from pin_actions.core import main
 from pin_actions.errors import InvalidRefError, YAMLParseError
 
@@ -254,3 +255,22 @@ class TestMainUpdateFlag:
             patch("pin_actions.core.run", side_effect=mock_run),
         ):
             main()
+
+
+class TestHelpFlagDrift:
+    """Guard against --help output drifting from Settings fields."""
+
+    def test_help_lists_every_settings_flag(self, capsys: pytest.CaptureFixture) -> None:
+        """Every Settings field's primary kebab-case flag appears in --help output."""
+        # Arrange
+        test_args = ["pin-actions", "--help"]
+
+        # Act
+        with patch("sys.argv", test_args), pytest.raises(SystemExit):
+            main()
+
+        # Assert
+        help_text = capsys.readouterr().out
+        for field_name in Settings.model_fields:
+            flag = f"--{field_name.replace('_', '-')}"
+            assert flag in help_text, f"Settings field {field_name!r} missing from --help output as {flag!r}"

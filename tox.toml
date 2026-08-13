@@ -16,6 +16,13 @@ commands = [
   [ "check-wheel-contents", "{env_tmp_dir}/dist" ],
 ]
 
+[env.docs]
+description = "Build documentation site (strict mode)"
+package = "skip"
+skip_install = true
+dependency_groups = [ "docs" ]
+commands = [ [ "zensical", { replace = "posargs", default = [ "build" ], extend = true } ] ]
+
 [env.py315]
 description = "Canary: Python 3.15 (pre-release, allowed to fail)"
 base_python = "python3.15"

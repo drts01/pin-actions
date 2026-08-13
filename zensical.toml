@@ -1,0 +1,81 @@
+[project]
+site_name = "pin-actions"
+site_description = "Pin mutable GitHub Actions to immutable commit SHAs"
+repo_url = "https://github.com/drts01/pin-actions"
+repo_name = "drts01/pin-actions"
+edit_uri = "edit/main/docs/"
+strict = true
+
+nav = [
+  { "Home" = "index.md" },
+  { "Tutorials" = [
+    { "Getting Started" = "tutorials/getting-started.md" },
+  ] },
+  { "How-To Guides" = [
+    { "Update Pinned Tags" = "how-to/update-pinned-tags.md" },
+    { "Checkout Another Repo" = "how-to/checkout-another-repo.md" },
+    { "Use as a Library" = "how-to/use-as-a-library.md" },
+    { "Configure Caching" = "how-to/configure-caching.md" },
+    { "Handle Errors" = "how-to/handle-errors.md" },
+  ] },
+  { "Reference" = [
+    { "CLI" = "reference/cli.md" },
+    { "config" = "reference/config.md" },
+    { "client" = "reference/client.md" },
+    { "core" = "reference/core.md" },
+    { "versioning" = "reference/versioning.md" },
+    { "errors" = "reference/errors.md" },
+  ] },
+  { "Explanation" = [
+    { "Architecture Overview" = "explanation/architecture.md" },
+    { "Design Decisions" = "explanation/design-decisions.md" },
+  ] },
+  { "Changelog" = "changelog.md" },
+  { "Contributing" = "contributing.md" },
+]
+
+[project.theme]
+features = [
+  "navigation.sections",
+  "navigation.top",
+  "navigation.instant",
+  "navigation.path",
+  "content.code.copy",
+  "content.code.annotate",
+  "content.tabs.link",
+  "toc.follow",
+]
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme)"
+toggle.icon = "lucide/sun-moon"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+
+[project.markdown_extensions]
+admonition = {}
+attr_list = {}
+def_list = {}
+toc = { permalink = true }
+pymdownx.superfences = { custom_fences = [{ name = "mermaid", class = "mermaid", format = "pymdownx.superfences.fence_code_format" }] }
+pymdownx.tabbed = { alternate_style = true }
+pymdownx.highlight = { anchor_linenums = true }
+pymdownx.inlinehilite = {}
+pymdownx.snippets = { check_paths = true, base_path = ["."] }
+
+
+[project.plugins.mkdocstrings]
+[project.plugins.mkdocstrings.config.handlers.python]
+paths = ["src"]
+
+[project.plugins.mkdocstrings.config.handlers.python.options]
+docstring_style = "google"
+show_source = true
+show_root_heading = true
+merge_init_into_class = true

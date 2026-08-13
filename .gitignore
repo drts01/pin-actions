@@ -1,5 +1,8 @@
+.*/
+!.github/
 *cache*/
-build/
-dist/
-.venv/
+/build/
+/dist/
+/site/
+
 .coverage*

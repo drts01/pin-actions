@@ -1,0 +1,80 @@
+# Update Pinned Tags
+
+By default, pin-actions re-resolves already-pinned tags on every run and updates the SHA if the tag has moved. You can also use version constraints to move pins forward intelligently.
+
+## Re-resolving Tags (Default)
+
+Without any `--update` flag, a tag like `v4` is resolved fresh on every run. If `actions/checkout@v4` now points to a different commit, the SHA is updated:
+
+```bash
+pin-actions --github-token $GITHUB_TOKEN
+```
+
+This mirrors the behavior of [mheap/pin-github-action](https://github.com/mheap/pin-github-action).
+
+## Moving to Latest Version
+
+Use `--update major`, `--update minor`, or `--update patch` to move pins to newer versions:
+
+### `--update major` — Absolute latest tag
+
+Crosses major boundaries. A pin to `v4.0.5` can move to `v9.1.2`:
+
+```bash
+pin-actions --update major --github-token $GITHUB_TOKEN
+```
+
+### `--update minor` — Latest within same major
+
+Stays within the same major version. A pin to `v4.0.5` moves to `v4.9.0`, never `v5.x`:
+
+```bash
+pin-actions --update minor --github-token $GITHUB_TOKEN
+```
+
+### `--update patch` — Latest within same major.minor
+
+Stays within the same major.minor. A pin to `v4.2.3` moves to `v4.2.9`, never `v4.3.x`:
+
+```bash
+pin-actions --update patch --github-token $GITHUB_TOKEN
+```
+
+## Precision Preservation
+
+The rewritten tag comment matches the original's precision:
+
+| Original | Latest Tag | Result |
+|----------|-----------|--------|
+| `v4` | `v4.9.0` | `v4` (major-only preserved) |
+| `v4.0.5` | `v9.1.2` | `v9.1.2` (full precision kept) |
+| `v4.0` | `v4.9.3` | `v4.9` (major.minor preserved) |
+
+Use `--full-version` to record the full tag version instead:
+
+```bash
+pin-actions --update minor --full-version --github-token $GITHUB_TOKEN
+```
+
+## Branch refs
+
+Branch refs (e.g., `main`, `develop`) never parse as a version, so `--update` has no effect on them — they're always re-resolved against the branch name, the same as the default no-constraint path:
+
+```bash
+pin-actions --update minor --github-token $GITHUB_TOKEN
+```
+
+## Handling Missing Tags
+
+If no tag on the remote satisfies the constraint, pin-actions warns to stderr and leaves the entry unchanged:
+
+```
+pin-actions: warning: no tag matching version constraint for actions/checkout@v4.0.5; leaving pinned as-is
+```
+
+This is safer than silently dropping a pin or raising an error mid-batch.
+
+## See Also
+
+- [Design Decisions](../explanation/design-decisions.md) — Version constraint rationale and more
+- [Reference: Settings](../reference/config.md) — All CLI options

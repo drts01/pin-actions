@@ -26,7 +26,6 @@ type ResolvedSHAs = dict[tuple[str, str], str]
 
 def _is_local_action(repo: str) -> bool:
     """Check if action is local (./...) or docker (docker://)."""
-
     return repo.startswith("./") or repo.startswith("docker://")
 
 
@@ -180,7 +179,7 @@ async def pin_file(
     # ``current_sha`` is the SHA already in the file (None if this entry isn't pinned yet), so
     # we can tell after resolution whether the tag has moved and a rewrite is actually needed.
     # ``is_uses`` distinguishes uses: (write as repo@sha) from with.ref (write as bare sha).
-    refs_to_resolve: dict[tuple[str, str], list[tuple[tuple[Any, ...], str | None, bool]]] = {}
+    refs_to_resolve: RefsToResolve = {}
 
     # Process uses: entries
     for item_path, uses_str in _find_uses_paths(doc):
@@ -254,7 +253,7 @@ async def pin_file(
     # retry, or abort (library-friendly: no swallowing).
     keys = list(refs_to_resolve)
     values = await asyncio.gather(*(client.resolve_sha(repo, tag) for repo, tag in keys))
-    resolved = dict(zip(keys, values, strict=True))
+    resolved: ResolvedSHAs = dict(zip(keys, values, strict=True))
 
     # Rewrite entries whose resolved SHA differs from what's already there (new pins
     # always differ; already-pinned entries only differ if the tag has moved).
@@ -298,6 +297,13 @@ async def _apply_version_constrained_tag(
     satisfies the constraint relative to ``tag``.
 
     Args:
+        doc: YAML document to mutate.
+        client: GitHub API client for fetching tags.
+        item_path: Path tuple to the item to rewrite.
+        repo: Repository in 'owner/repo' format.
+        tag: Current tag recorded in the comment.
+        current_sha: Current SHA already in the file.
+        update: Version constraint mode ('major', 'minor', 'patch').
         is_uses: If True, write as 'repo@sha' (uses:); if False, write as bare 'sha' (with.ref).
         full_version: If True, use the full precision of the winning tag instead of
             truncating to match the original tag's precision.
@@ -347,7 +353,6 @@ async def run(settings: Settings) -> list[Path]:
             needing per-file results despite failures should call
             :func:`pin_file` directly for each file.
     """
-
     if not settings.path.exists():
         raise ValueError(f"Path does not exist: {settings.path}")
 

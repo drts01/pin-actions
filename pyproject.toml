@@ -52,6 +52,11 @@ test = [
   "pytest-asyncio>=0.23",
   "pytest-cov>=7.1",
 ]
+docs = [
+  "mkdocstrings>=1",
+  "mkdocstrings-python>=2",
+  "zensical>=0.0.53",
+]
 build = [
   "build>=1.2",
   "check-wheel-contents>=0.6",
@@ -80,6 +85,7 @@ lint.select = [
   "ASYNC", # flake8-async
   "B",     # flake8-bugbear
   "C4",    # flake8-comprehensions
+  "D",     # pydocstyle
   "E",     # pycodestyle errors
   "F",     # pyflakes
   "I",     # isort
@@ -94,8 +100,13 @@ lint.select = [
   "UP",    # pyupgrade
   "W",     # pycodestyle warnings
 ]
+lint.ignore = [
+  "D203", # one-blank-line-before-class (conflicts with black)
+  "D213", # multi-line-summary-second-line (conflicts with black)
+]
 lint.per-file-ignores."tests/*" = [
   "ANN",  # flake8-annotations — test signatures use minimal types
+  "D",    # pydocstyle — tests don't need comprehensive docstrings
   "S101", # flake8-bandit assert_used — assertions in tests expected
   "S105", # flake8-bandit hardcoded_password_string — test tokens are hardcoded
   "S106", # flake8-bandit hardcoded_password_func_arg — test token defaults expected
@@ -105,6 +116,13 @@ lint.per-file-ignores."tests/conftest.py" = [
   "ARG001", # Unused function argument - fixtures must match pytest signatures
   "ARG002", # Unused method argument - class-based fixtures must match signatures
 ]
+lint.pydocstyle.convention = "google"
+
+[tool.interrogate]
+fail-under = 100
+ignore-nested-functions = true
+exclude = [ "tests/" ]
+verbose = 2
 
 [tool.pytest]
 addopts = [
