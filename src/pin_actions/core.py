@@ -332,7 +332,7 @@ async def _apply_version_constrained_tag(
     doc.locate(item_path).comment = new_tag
 
 
-async def run(settings: Settings) -> list[Path]:
+async def run(settings: Settings, *, client: GitHubClient | None = None) -> list[Path]:
     """Scan workflows/actions and pin all mutable refs to commit SHAs.
 
     Per-file errors (YAML parse failures, unresolvable refs, I/O errors) are
@@ -342,6 +342,12 @@ async def run(settings: Settings) -> list[Path]:
 
     Args:
         settings: Configuration (path, token, etc.).
+        client: Optional pre-built GitHubClient. When provided, the client is
+            reused without closing it (caller retains ownership). When None,
+            a new client is created internally and closed after processing.
+            Provide a shared client to reuse connection pooling, in-memory
+            caching, and rate-limit bookkeeping across multiple run() calls
+            (e.g. processing multiple repositories).
 
     Returns:
         List of modified file paths.
@@ -364,6 +370,9 @@ async def run(settings: Settings) -> list[Path]:
     if not files:
         return []
 
+    if client is not None:
+        return await _process_files(client, files, settings)
+
     token = settings.github_token.get_secret_value() if settings.github_token else None
 
     # Initialize disk cache if enabled (can be disabled via --no-cache)
@@ -385,27 +394,44 @@ async def run(settings: Settings) -> list[Path]:
         disk_cache=disk_cache,
         cache_ttl=settings.cache_ttl,
     ) as client:
-        # Process all files concurrently (semaphore in client bounds API calls)
-        tasks = [
-            pin_file(
-                client,
-                f,
-                dry_run=settings.dry_run,
-                update=settings.update,
-                full_version=settings.full_version,
-            )
-            for f in files
-        ]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        return await _process_files(client, files, settings)
 
-        errors = [(f, r) for f, r in zip(files, results, strict=True) if isinstance(r, Exception)]
-        if errors:
-            raise ExceptionGroup(
-                f"{len(errors)} file(s) failed to process",
-                [PinActionsError(f"{f}: {exc}") if not isinstance(exc, PinActionsError) else exc for f, exc in errors],
-            )
 
-        return [f for f, r in zip(files, results, strict=True) if r is True]
+async def _process_files(client: GitHubClient, files: list[Path], settings: Settings) -> list[Path]:
+    """Process all workflow files using the provided client.
+
+    Args:
+        client: GitHub API client (caller retains ownership/closing responsibility).
+        files: List of workflow/action files to process.
+        settings: Configuration (for dry_run, update mode, etc.).
+
+    Returns:
+        List of modified file paths.
+
+    Raises:
+        ExceptionGroup[PinActionsError]: If one or more files failed.
+    """
+    # Process all files concurrently (semaphore in client bounds API calls)
+    tasks = [
+        pin_file(
+            client,
+            f,
+            dry_run=settings.dry_run,
+            update=settings.update,
+            full_version=settings.full_version,
+        )
+        for f in files
+    ]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    errors = [(f, r) for f, r in zip(files, results, strict=True) if isinstance(r, Exception)]
+    if errors:
+        raise ExceptionGroup(
+            f"{len(errors)} file(s) failed to process",
+            [PinActionsError(f"{f}: {exc}") if not isinstance(exc, PinActionsError) else exc for f, exc in errors],
+        )
+
+    return [f for f, r in zip(files, results, strict=True) if r is True]
 
 
 # Verbosity → per-namespace logging levels

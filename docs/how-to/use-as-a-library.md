@@ -113,8 +113,72 @@ async def main():
 asyncio.run(main())
 ```
 
+## Multi-Repo Processing with a Shared Client
+
+Reuse one `GitHubClient` across multiple repositories to share connection pooling, in-memory caching, and rate-limit bookkeeping:
+
+```python
+import asyncio
+from pathlib import Path
+from pin_actions import GitHubClient, Settings, run
+
+async def main():
+    repos = [Path("/repos/service-a"), Path("/repos/service-b")]
+    async with GitHubClient(token="ghp_xxxx", concurrency=10) as client:
+        for repo_path in repos:
+            settings = Settings(
+                path=repo_path / ".github",
+                dry_run=False,
+            )
+            try:
+                modified = await run(settings, client=client)
+                print(f"{repo_path}: {len(modified)} file(s) pinned")
+            except ExceptionGroup as eg:
+                print(f"{repo_path}: {len(eg.exceptions)} error(s)")
+
+asyncio.run(main())
+```
+
+This pattern is especially efficient when many repositories share common actions (e.g. `actions/checkout@v4`), because the shared client's in-memory cache avoids redundant API calls.
+
+## Real-World Example: `scripts/update_repos.py`
+
+[`scripts/update_repos.py`](https://github.com/drts01/pin-actions/blob/main/scripts/update_repos.py) is a complete, runnable example combining the patterns above with `gh`/`git` for cloning, committing, and opening PRs across many repositories. The library integration is a single async function:
+
+```python
+async def _try_pin(client: GitHubClient, repo_dir: Path, settings: UpdateReposSettings, result: RepoResult) -> bool:
+    pin_settings = Settings(
+        path=repo_dir / ".github",
+        github_token=settings.token,
+        dry_run=settings.dry_run,
+        update=settings.update,
+        full_version=settings.full_version,
+        cache=False,
+    )
+    try:
+        result.modified = await run(pin_settings, client=client)
+    except ExceptionGroup as eg:
+        result.error = f"{len(eg.exceptions)} file(s) failed"
+        return False
+    except PinActionsError as exc:
+        result.error = str(exc)
+        return False
+    except ValueError:
+        return False
+    return True
+```
+
+Run it directly:
+
+```bash
+uv run --with-editable . scripts/update_repos.py --repos org/repo1 --repos org/repo2 --dry-run
+```
+
+See [Multi-Repo Automation](./multi-repo-automation.md) for full CLI options and output formats.
+
 ## See Also
 
 - [Reference: core](../reference/core.md) — `run()`, `pin_file()`
 - [Reference: client](../reference/client.md) — `GitHubClient` full API
 - [Reference: errors](../reference/errors.md) — Exception hierarchy
+- [How-To: Multi-Repo Automation](./multi-repo-automation.md) — Batch script for organizations
