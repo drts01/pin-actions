@@ -123,6 +123,7 @@ fail-under = 100
 ignore-nested-functions = true
 exclude = [ "tests/" ]
 verbose = 2
+style = "google"
 
 [tool.pytest]
 addopts = [
