@@ -30,7 +30,8 @@ class UpdateReposSettings(BaseSettings):
         description="Repositories to pin (owner/repo); use multiple times or --repos-file",
     )
     repos_file: Path | None = Field(
-        default=None, description="File with one owner/repo per line (comments/blanks ignored)"
+        default=None,
+        description="File with one owner/repo per line (comments/blanks ignored)",
     )
     token: SecretStr | None = Field(
         default=None,
@@ -44,13 +45,15 @@ class UpdateReposSettings(BaseSettings):
     api_concurrency: int = Field(default=5, ge=1, description="Max concurrent GitHub API requests")
     branch_prefix: str = Field(default="pin-actions", description="Feature branch prefix")
     base_branch: str | None = Field(
-        default=None, description="PR base branch; defaults to each repo's actual default branch"
+        default=None,
+        description="PR base branch; defaults to each repo's actual default branch",
     )
     push: bool = Field(default=False, description="Push and open a PR via gh (requires gh auth login)")
     commit_message: str = Field(default=DEFAULT_COMMIT_MESSAGE, description="Commit message and PR title")
     pr_body: str = Field(default=DEFAULT_PR_BODY, description="Pull request body text")
     format: Literal["table", "markdown", "json", "csv", "tsv"] = Field(
-        default="table", description="Summary output format"
+        default="table",
+        description="Summary output format",
     )
     output_file: Path | None = Field(default=None, description="Write summary to this file instead of stdout")
 

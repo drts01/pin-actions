@@ -1,11 +1,12 @@
 """Async GitHub API client with rate limiting and caching."""
 
 import asyncio
+import http
 import logging
 import random
 import threading
 from collections import OrderedDict
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol, Self
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -18,6 +19,7 @@ from pin_actions.errors import GitHubAPIError, InvalidRefError, NetworkError, Ra
 logger = logging.getLogger(__name__)
 
 _MAX_TAG_PAGES = 10  # 100 tags/page cap; guards against runaway pagination on huge repos
+_TAGS_PER_PAGE = 100
 
 
 class _DiskCache(Protocol):
@@ -87,7 +89,7 @@ class GitHubClient:
         if self._http_client is not None:
             await self._http_client.aclose()
 
-    async def __aenter__(self) -> GitHubClient:
+    async def __aenter__(self) -> Self:
         """Enter async context manager."""
         return self
 
@@ -117,17 +119,17 @@ class GitHubClient:
         """
         # Check disk cache first
         if self.disk_cache is not None and (cached := self.disk_cache.get(disk_cache_key)) is not None:
-            logger.debug(f"Disk cache hit: {disk_cache_key}")
+            logger.debug("Disk cache hit: %s", disk_cache_key)
             return cached  # type: ignore[return-value]
 
         # Check in-memory cache (LRU: touch on hit)
         with mem_lock:
             if mem_key in mem_cache:
                 mem_cache.move_to_end(mem_key)
-                logger.debug(f"Memory cache hit: {mem_key}")
+                logger.debug("Memory cache hit: %s", mem_key)
                 return mem_cache[mem_key]
 
-        logger.debug(f"Cache miss (fetching): {mem_key}")
+        logger.debug("Cache miss (fetching): %s", mem_key)
         # Fetch under semaphore (rate limiting)
         async with self._semaphore:
             value = await fetch()
@@ -178,7 +180,7 @@ class GitHubClient:
         client = await self._get_http_client()
         for page in range(1, _MAX_TAG_PAGES + 1):
             url = f"{self.base_url}/repos/{owner_repo}/tags"
-            params = {"per_page": 100, "page": page}
+            params = {"per_page": _TAGS_PER_PAGE, "page": page}
 
             for attempt in range(self.max_retries):
                 try:
@@ -187,15 +189,17 @@ class GitHubClient:
                     if attempt < self.max_retries - 1:
                         await self._backoff(None, attempt)
                         continue
-                    raise NetworkError(f"Network error listing tags for {owner_repo}") from exc
+                    msg = f"Network error listing tags for {owner_repo}"
+                    raise NetworkError(msg) from exc
 
-                if resp.status_code == 200:
+                if resp.status_code == http.HTTPStatus.OK:
                     break
-                if resp.status_code in (403, 429) or resp.status_code >= 500:
+                if resp.status_code in (403, 429) or resp.status_code >= http.HTTPStatus.INTERNAL_SERVER_ERROR:
                     await self._backoff(resp, attempt)
                     continue
-                if resp.status_code == 404:
-                    raise GitHubAPIError(f"Repository not found: {owner_repo}")
+                if resp.status_code == http.HTTPStatus.NOT_FOUND:
+                    msg = f"Repository not found: {owner_repo}"
+                    raise GitHubAPIError(msg)
                 resp.raise_for_status()
             else:
                 raise RateLimitExhaustedError(owner_repo, "tags", self.max_retries)
@@ -204,7 +208,7 @@ class GitHubClient:
             if not data:
                 break
             tags.extend((entry["name"], entry["commit"]["sha"]) for entry in data)
-            if len(data) < 100:
+            if len(data) < _TAGS_PER_PAGE:
                 break
 
         return tags
@@ -265,7 +269,7 @@ class GitHubClient:
             try:
                 resp = await client.get(url, headers=headers, timeout=10.0)
 
-                if resp.status_code == 200:
+                if resp.status_code == http.HTTPStatus.OK:
                     data = resp.json()
                     return data["sha"]
 
@@ -273,10 +277,10 @@ class GitHubClient:
                     await self._backoff(resp, attempt)
                     continue
 
-                if resp.status_code == 404:
+                if resp.status_code == http.HTTPStatus.NOT_FOUND:
                     raise InvalidRefError(repo, ref)
 
-                if resp.status_code >= 500:
+                if resp.status_code >= http.HTTPStatus.INTERNAL_SERVER_ERROR:
                     await self._backoff(resp, attempt)
                     continue
 
@@ -286,7 +290,8 @@ class GitHubClient:
                 if attempt < self.max_retries - 1:
                     await self._backoff(None, attempt)
                     continue
-                raise NetworkError(f"Network error resolving {repo}@{ref}") from exc
+                msg = f"Network error resolving {repo}@{ref}"
+                raise NetworkError(msg) from exc
 
         raise RateLimitExhaustedError(repo, ref, self.max_retries)
 
@@ -314,5 +319,5 @@ class GitHubClient:
             delay = 2**attempt + random.random()  # noqa: S311 -- jitter, not crypto
 
         status = f"(status {response.status_code})" if response else "(network error)"
-        logger.warning(f"Retry attempt {attempt + 1}; backing off {delay:.1f}s {status}")
+        logger.warning("Retry attempt %d; backing off %.1fs %s", attempt + 1, delay, status)
         await asyncio.sleep(min(delay, 60.0))  # Cap at 60 seconds

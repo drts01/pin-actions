@@ -10,6 +10,7 @@ from pathlib import Path
 from pin_actions import GitHubClient, run
 from pin_actions.config import Settings
 
+
 async def main():
     settings = Settings(
         path=Path(".github/workflows"),
@@ -19,6 +20,7 @@ async def main():
     )
     modified = await run(settings)
     print(f"Modified {len(modified)} file(s)")
+
 
 asyncio.run(main())
 ```
@@ -31,12 +33,14 @@ Use `GitHubClient` directly to resolve refs without full file processing:
 import asyncio
 from pin_actions import GitHubClient
 
+
 async def main():
     client = GitHubClient(token="ghp_xxxx", concurrency=10)
 
     # Resolve mutable ref to commit SHA
     sha = await client.resolve_sha("actions/checkout", "v4")
     print(f"actions/checkout@v4 -> {sha}")
+
 
 asyncio.run(main())
 ```
@@ -50,6 +54,7 @@ import asyncio
 from pathlib import Path
 from pin_actions import GitHubClient, pin_file
 
+
 async def main():
     async with GitHubClient(token="ghp_xxxx") as client:
         modified = await pin_file(
@@ -60,6 +65,7 @@ async def main():
         )
         if modified:
             print("File was updated")
+
 
 asyncio.run(main())
 ```
@@ -78,6 +84,7 @@ from pin_actions import (
     pin_file,
 )
 
+
 async def main():
     try:
         modified = await pin_file(client, path)
@@ -90,6 +97,7 @@ async def main():
     except PinActionsError as exc:
         print(f"Pin failed: {exc}")
 
+
 asyncio.run(main())
 ```
 
@@ -101,6 +109,7 @@ When processing multiple files, catch the `ExceptionGroup` to inspect per-file f
 import asyncio
 from pin_actions import run, PinActionsError
 
+
 async def main():
     try:
         modified = await run(settings)
@@ -109,6 +118,7 @@ async def main():
         print(f"Errors: {len(eg.exceptions)} file(s) failed")
         for exc in eg.exceptions:
             print(f"  - {exc}")
+
 
 asyncio.run(main())
 ```
@@ -121,6 +131,7 @@ Reuse one `GitHubClient` across multiple repositories to share connection poolin
 import asyncio
 from pathlib import Path
 from pin_actions import GitHubClient, Settings, run
+
 
 async def main():
     repos = [Path("/repos/service-a"), Path("/repos/service-b")]
@@ -135,6 +146,7 @@ async def main():
                 print(f"{repo_path}: {len(modified)} file(s) pinned")
             except ExceptionGroup as eg:
                 print(f"{repo_path}: {len(eg.exceptions)} error(s)")
+
 
 asyncio.run(main())
 ```

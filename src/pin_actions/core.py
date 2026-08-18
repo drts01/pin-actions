@@ -26,7 +26,7 @@ type ResolvedSHAs = dict[tuple[str, str], str]
 
 def _is_local_action(repo: str) -> bool:
     """Check if action is local (./...) or docker (docker://)."""
-    return repo.startswith("./") or repo.startswith("docker://")
+    return repo.startswith(("./", "docker://"))
 
 
 def _is_already_pinned(ref: str) -> bool:
@@ -94,18 +94,11 @@ def _find_with_ref_paths(doc: Any) -> list[tuple[tuple[Any, ...], str, str, bool
             continue
 
         if item_path[-1] == "uses" and isinstance(value, str):
-            # uses is at (..., "uses")
             step_uses[item_path[:-1]] = value
-        elif (
-            len(item_path) >= 2 and item_path[-2] == "with" and item_path[-1] == "repository" and isinstance(value, str)
-        ):
-            # with.repository is at (..., "with", "repository")
-            step_path = item_path[:-2]
-            step_repository[step_path] = value
-        elif len(item_path) >= 2 and item_path[-2] == "with" and item_path[-1] == "ref" and isinstance(value, str):
-            # with.ref is at (..., "with", "ref")
-            step_path = item_path[:-2]
-            step_ref[step_path] = (item_path, value)
+        elif item_path[-2:] == ("with", "repository") and isinstance(value, str):
+            step_repository[item_path[:-2]] = value
+        elif item_path[-2:] == ("with", "ref") and isinstance(value, str):
+            step_ref[item_path[:-2]] = (item_path, value)
 
     results: list[tuple[tuple[Any, ...], str, str, bool]] = []
 
@@ -328,7 +321,7 @@ async def _apply_version_constrained_tag(
         full_version=full_version,
     )
     if match is None:
-        logger.warning(f"no tag matching version constraint for {repo}@{tag}; leaving pinned as-is")
+        logger.warning("no tag matching version constraint for %s@%s; leaving pinned as-is", repo, tag)
         return
 
     new_tag, new_sha = match
@@ -370,7 +363,8 @@ async def run(settings: Settings, *, client: GitHubClient | None = None) -> list
             :func:`pin_file` directly for each file.
     """
     if not settings.path.exists():
-        raise ValueError(f"Path does not exist: {settings.path}")
+        msg = f"Path does not exist: {settings.path}"
+        raise ValueError(msg)
 
     # Gather all workflow and action files
     files = []
@@ -389,7 +383,7 @@ async def run(settings: Settings, *, client: GitHubClient | None = None) -> list
     disk_cache = None
     if settings.cache:
         try:
-            from diskcache_rs import Cache  # type: ignore[import-not-found]
+            from diskcache_rs import Cache  # type: ignore[import-not-found]  # noqa: PLC0415
         except ImportError:
             logger.warning("diskcache-rs not installed; persistent caching disabled (disable warning with --no-cache)")
         else:
@@ -403,8 +397,8 @@ async def run(settings: Settings, *, client: GitHubClient | None = None) -> list
         max_retries=settings.max_retries,
         disk_cache=disk_cache,
         cache_ttl=settings.cache_ttl,
-    ) as client:
-        return await _process_files(client, files, settings)
+    ) as gh_client:
+        return await _process_files(gh_client, files, settings)
 
 
 async def _process_files(client: GitHubClient, files: list[Path], settings: Settings) -> list[Path]:
@@ -436,8 +430,9 @@ async def _process_files(client: GitHubClient, files: list[Path], settings: Sett
 
     errors = [(f, r) for f, r in zip(files, results, strict=True) if isinstance(r, Exception)]
     if errors:
+        msg = f"{len(errors)} file(s) failed to process"
         raise ExceptionGroup(
-            f"{len(errors)} file(s) failed to process",
+            msg,
             [PinActionsError(f"{f}: {exc}") if not isinstance(exc, PinActionsError) else exc for f, exc in errors],
         )
 

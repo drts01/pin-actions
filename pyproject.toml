@@ -51,6 +51,7 @@ test = [
   "pytest>=7.4",
   "pytest-asyncio>=0.23",
   "pytest-cov>=7.1",
+  "ruff>=0.16",
 ]
 docs = [
   "mkdocstrings>=1",
@@ -80,43 +81,74 @@ src = [ "tests" ]
 format.indent-style = "space"
 format.quote-style = "double"
 lint.select = [
+  "A",     # flake8-builtins
   "ANN",   # flake8-annotations
   "ARG",   # flake8-unused-arguments
   "ASYNC", # flake8-async
   "B",     # flake8-bugbear
+  "BLE",   # flake8-blind-except
   "C4",    # flake8-comprehensions
+  "COM",   # flake8-commas
   "D",     # pydocstyle
+  "DOC",   # pydoclint
   "E",     # pycodestyle errors
+  "EM",    # flake8-errmsg
+  "ERA",   # eradicate
+  "EXE",   # flake8-executable
   "F",     # pyflakes
+  "FURB",  # refurb
+  "G",     # flake8-logging-format
   "I",     # isort
+  "ISC",   # flake8-implicit-str-concat
+  "LOG",   # flake8-logging
   "N",     # pep8-naming
+  "PERF",  # Perflint
+  "PIE",   # flake8-pie
+  "PL",    # Pylint
+  "PLC",   # Pylint Convention
+  "PLE",   # Pylint Error
+  "PLR",   # Pylint Refactor
+  "PLW",   # Pylint Warning
   "PT",    # flake8-pytest-style
   "PTH",   # flake8-use-pathlib
+  "PYI",   # flake8-pyi
   "RET",   # flake8-return
+  "RSE",   # flake8-raise
   "RUF",   # ruff-specific
   "S",     # flake8-bandit
   "SIM",   # flake8-simplify
+  "SLOT",  # flake8-slots
   "TC",    # flake8-type-checking
+  "TID",   # flake8-tidy-imports
+  "TRY",   # tryceratops
   "UP",    # pyupgrade
   "W",     # pycodestyle warnings
+  "YTT",   # flake8-2020
 ]
 lint.ignore = [
-  "D203", # one-blank-line-before-class (conflicts with black)
-  "D213", # multi-line-summary-second-line (conflicts with black)
+  "COM812", # trailing-comma-missing — conflicts with ruff format
+  "D203",   # one-blank-line-before-class (conflicts with black)
+  "D213",   # multi-line-summary-second-line (conflicts with black)
 ]
+lint.explicit-preview-rules = true
 lint.per-file-ignores."tests/*" = [
-  "ANN",  # flake8-annotations — test signatures use minimal types
-  "D",    # pydocstyle — tests don't need comprehensive docstrings
-  "S101", # flake8-bandit assert_used — assertions in tests expected
-  "S105", # flake8-bandit hardcoded_password_string — test tokens are hardcoded
-  "S106", # flake8-bandit hardcoded_password_func_arg — test token defaults expected
-  "S107", # flake8-bandit hardcoded_password_default — test fixture defaults are intentional
+  "ANN",     # flake8-annotations — test signatures use minimal types
+  "D",       # pydocstyle — tests don't need comprehensive docstrings
+  "PLR2004", # Pylint magic-value-comparison — asserting literal expected values is normal in tests
+  "S101",    # flake8-bandit assert_used — assertions in tests expected
+  "S105",    # flake8-bandit hardcoded_password_string — test tokens are hardcoded
+  "S106",    # flake8-bandit hardcoded_password_func_arg — test token defaults expected
+  "S107",    # flake8-bandit hardcoded_password_default — test fixture defaults are intentional
 ]
 lint.per-file-ignores."tests/conftest.py" = [
   "ARG001", # Unused function argument - fixtures must match pytest signatures
   "ARG002", # Unused method argument - class-based fixtures must match signatures
 ]
 lint.pydocstyle.convention = "google"
+lint.pylint.max-args = 9
+lint.pylint.max-branches = 13
+lint.pylint.max-positional-args = 7
+lint.preview = true
 
 [tool.interrogate]
 fail-under = 100

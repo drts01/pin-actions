@@ -115,7 +115,8 @@ class TestMainErrors:
         test_args = ["pin-actions", "--path", "/nonexistent/path"]
 
         async def mock_run(_settings) -> list[Path]:
-            raise ValueError("Path does not exist: /nonexistent/path")
+            msg = "Path does not exist: /nonexistent/path"
+            raise ValueError(msg)
 
         # Act
         with (

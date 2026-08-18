@@ -2,6 +2,8 @@
 
 import re
 
+_SHA_LENGTH = 40
+
 _GITHUB_URL_RE = re.compile(
     r"^(?:https://github\.com/|git@github\.com:|ssh://git@github\.com/)"
     r"(?P<owner>[^/]+)/(?P<repo>[^/]+?)(?:\.git)?/?$",
@@ -17,7 +19,7 @@ def is_full_sha(ref: str) -> bool:
     Returns:
         True if ``ref`` is exactly 40 hex characters (case-insensitive), False otherwise.
     """
-    return len(ref) == 40 and all(c in "0123456789abcdefABCDEF" for c in ref)
+    return len(ref) == _SHA_LENGTH and all(c in "0123456789abcdefABCDEF" for c in ref)
 
 
 def git_url_to_repo(url: str) -> str | None:

@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 async def pin_precommit_config(client: GitHubClient, path: Path, *, dry_run: bool = False) -> bool:
     """Rewrite each GitHub-hosted repos[].rev to a SHA + '# <original rev>' comment."""
-    content = path.read_bytes()
+    content = path.read_bytes()  # noqa: ASYNC240 -- sync IO on Path, no async equivalent needed
     doc = yamlrocks.loads(content, option=yamlrocks.OPT_ROUND_TRIP)
 
     refs_to_resolve: RefsToResolve = {}
@@ -44,7 +44,7 @@ async def pin_precommit_config(client: GitHubClient, path: Path, *, dry_run: boo
     if new_content == content:
         return False
     if not dry_run:
-        path.write_bytes(new_content)
+        path.write_bytes(new_content)  # noqa: ASYNC240 -- sync IO on Path, no async equivalent needed
     return True
 
 

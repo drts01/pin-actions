@@ -2,6 +2,8 @@
 
 from packaging.version import InvalidVersion, Version
 
+_MINOR_PRECISION = 2
+
 
 def parse_tag_version(tag: str) -> Version | None:
     """Parse a tag name as a semver or CalVer ``Version``, tolerating a leading 'v'.
@@ -95,7 +97,7 @@ def select_latest_tag(
             continue
         if not latest_major and version.major != current.major:
             continue
-        if latest_patch and precision >= 2 and version.minor != current.minor:
+        if latest_patch and precision >= _MINOR_PRECISION and version.minor != current.minor:
             continue
         candidates.append((version, name, sha))
 

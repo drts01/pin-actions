@@ -340,6 +340,7 @@ import asyncio
 from pathlib import Path
 from pin_actions import GitHubClient, Settings, run
 
+
 async def process_local_repos():
     repos = [Path("./my-service"), Path("./my-infra")]
     async with GitHubClient(token="ghp_xxxx", concurrency=10) as client:
@@ -347,6 +348,7 @@ async def process_local_repos():
             settings = Settings(path=repo_path / ".github", dry_run=False)
             modified = await run(settings, client=client)
             print(f"{repo_path}: {len(modified)} pinned")
+
 
 asyncio.run(process_local_repos())
 ```

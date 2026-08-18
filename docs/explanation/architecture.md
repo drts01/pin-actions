@@ -157,7 +157,7 @@ Both in-memory and disk caches are guarded by `threading.Lock`:
 
 ```python
 _cache: OrderedDict[(repo, ref), sha]  # locked
-_tags_cache: OrderedDict[repo, tags]   # locked
+_tags_cache: OrderedDict[repo, tags]  # locked
 ```
 
 **Pattern:** disk cache → in-memory cache → fetch (semaphore-gated) → write-through both
