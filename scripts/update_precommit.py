@@ -3,11 +3,12 @@
 
 import asyncio
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import yamlrocks
-from pin_actions import GitHubClient, git_url_to_repo, resolve_and_rewrite
+from pin_actions import GitHubClient, UpdateOptions, apply_version_constrained_tag, git_url_to_repo, resolve_and_rewrite
 from pin_actions._util import is_full_sha
+from pin_actions.versioning import parse_tag_version
 from pydantic import AliasChoices, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -41,6 +42,22 @@ class UpdatePrecommitSettings(BaseSettings):
         default=False,
         description="Print changes without writing",
     )
+    update: Literal["major", "minor", "patch"] | None = Field(
+        default=None,
+        description="Update strategy for pinned semver tags: 'major', 'minor', or 'patch'",
+    )
+    full_version: bool = Field(
+        default=False,
+        description="Record full tag version instead of truncated precision",
+    )
+    exclude_newer: str | None = Field(
+        default=None,
+        description=(
+            "Exclude tags newer than this cutoff (cool-off period). "
+            "Accepted: RFC 3339 timestamp, ISO 8601 duration (e.g., P7D), "
+            "or friendly duration (e.g., '7 days'). Only applies with --update"
+        ),
+    )
 
 
 async def pin_precommit_config(
@@ -49,6 +66,9 @@ async def pin_precommit_config(
     *,
     host: str = "github.com",
     dry_run: bool = False,
+    update: Literal["major", "minor", "patch"] | None = None,
+    full_version: bool = False,
+    exclude_newer: str | None = None,
 ) -> bool:
     """Rewrite each GitHub-hosted repos[].rev to a SHA + '# <original rev>' comment."""
     content = path.read_bytes()  # noqa: ASYNC240 -- sync IO on Path, no async equivalent needed
@@ -67,6 +87,10 @@ async def pin_precommit_config(
             comment = doc.locate(rev_path).comment
             tag = comment.strip() if comment else ""
             if not tag:
+                continue
+            if update and parse_tag_version(tag) is not None:
+                opts = UpdateOptions(update=update, full_version=full_version, exclude_newer=exclude_newer)
+                await apply_version_constrained_tag(doc, client, rev_path, repo, tag, rev, is_uses=False, options=opts)
                 continue
             refs_to_resolve.setdefault((repo, tag), []).append((rev_path, rev, False))
         else:
@@ -87,7 +111,15 @@ async def _amain(settings: UpdatePrecommitSettings) -> None:
     """Execute main business logic."""
     token = settings.token.get_secret_value() if settings.token else None
     async with GitHubClient(token=token) as client:
-        modified = await pin_precommit_config(client, settings.path, host=settings.host, dry_run=settings.dry_run)
+        modified = await pin_precommit_config(
+            client,
+            settings.path,
+            host=settings.host,
+            dry_run=settings.dry_run,
+            update=settings.update,
+            full_version=settings.full_version,
+            exclude_newer=settings.exclude_newer,
+        )
     status = "Would modify" if settings.dry_run else "Modified"
     msg = f"{status}: {settings.path}" if modified else "No changes."
     print(msg)

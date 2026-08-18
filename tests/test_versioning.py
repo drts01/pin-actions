@@ -2,7 +2,7 @@
 
 from hypothesis import given
 from hypothesis import strategies as st
-from pin_actions.versioning import parse_tag_version, select_latest_tag
+from pin_actions.versioning import parse_tag_version, select_latest_tag, select_latest_tags
 
 
 class TestParseTagVersion:
@@ -264,3 +264,39 @@ class TestSelectLatestTag:
         select_latest_tag(tags, "v1.0.0", latest_major=True)
         select_latest_tag(tags, "v1.0.0", latest_minor=True)
         select_latest_tag(tags, "v1.0.0", latest_patch=True)
+
+
+class TestSelectLatestTags:
+    """Property-based tests for select_latest_tags (plural, returns sorted list)."""
+
+    @given(
+        st.lists(
+            st.tuples(
+                st.text(alphabet="v0123456789.", min_size=1, max_size=20),
+                st.text(alphabet="abcdef0123456789", min_size=40, max_size=40),
+            ),
+            min_size=1,
+            max_size=10,
+            unique_by=lambda x: x[0],
+        ),
+    )
+    def test_property_sorted_descending_and_satisfies_constraint(self, tags: list[tuple[str, str]]) -> None:
+        """Property: results are sorted descending by version and satisfy the constraint."""
+        current_tag = "v1.0.0"
+        current = parse_tag_version(current_tag)
+
+        for kwargs in (
+            {"latest_major": True},
+            {"latest_minor": True},
+            {"latest_patch": True},
+        ):
+            result = select_latest_tags(tags, current_tag, **kwargs)
+
+            # Invariant 1: sorted descending by version
+            versions = [parse_tag_version(name) for name, _sha in result]
+            assert versions == sorted(versions, reverse=True)
+
+            # Invariant 2: every candidate satisfies the requested constraint
+            if not kwargs.get("latest_major"):
+                for version in versions:
+                    assert version.major == current.major

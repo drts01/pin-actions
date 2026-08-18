@@ -534,3 +534,136 @@ class TestPinFileVersionConstraintsUses:
         assert f"@{new_sha}" in content
         assert "# v4" in content
         assert old_sha not in content
+
+
+class TestPinFileExcludeNewer:
+    """Test pin_file with --exclude-newer cool-off period."""
+
+    @pytest.mark.asyncio
+    async def test_exclude_newer_skips_newest_falls_back(self, tmp_path: Path) -> None:
+        """Cutoff excludes the newest candidate; falls back to next-oldest passing candidate."""
+        # Arrange
+        client = GitHubClient(token="test", concurrency=1)
+        old_sha = "a" * 40
+        mid_sha = "b" * 40
+        new_sha = "c" * 40
+        workflow_file = tmp_path / "workflow.yml"
+        workflow_file.write_text(
+            f"name: Test\njobs:\n  build:\n    steps:\n      - uses: actions/checkout@{old_sha}  # v4.0.0\n",
+        )
+
+        async def mock_list_tags(repo: str) -> list[tuple[str, str]]:
+            if repo == "actions/checkout":
+                return [("v4.0.0", old_sha), ("v4.5.0", mid_sha), ("v4.9.0", new_sha)]
+            return []
+
+        async def mock_get_commit_date(_repo: str, sha: str) -> str:
+            # new_sha is "too new" (after cutoff); mid_sha and old_sha are old enough
+            dates = {
+                new_sha: "2024-06-01T00:00:00Z",
+                mid_sha: "2024-01-01T00:00:00Z",
+                old_sha: "2023-01-01T00:00:00Z",
+            }
+            return dates[sha]
+
+        async def mock_resolve_sha(_repo: str, _ref: str) -> str:
+            return old_sha
+
+        # Act
+        with (
+            patch.object(client, "list_tags", new=AsyncMock(side_effect=mock_list_tags)),
+            patch.object(client, "get_commit_date", new=AsyncMock(side_effect=mock_get_commit_date)),
+            patch.object(client, "resolve_sha", new=AsyncMock(side_effect=mock_resolve_sha)),
+        ):
+            modified = await pin_file(
+                client,
+                workflow_file,
+                dry_run=False,
+                update="minor",
+                exclude_newer="2024-03-01T00:00:00Z",
+            )
+
+        # Assert
+        assert modified
+        content = workflow_file.read_text()
+        assert f"@{mid_sha}" in content
+        assert "# v4.5.0" in content
+        assert new_sha not in content
+
+    @pytest.mark.asyncio
+    async def test_exclude_newer_all_candidates_too_new(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+        """All candidates newer than cutoff; file left untouched, warning logged."""
+        # Arrange
+        client = GitHubClient(token="test", concurrency=1)
+        old_sha = "a" * 40
+        new_sha = "b" * 40
+        workflow_file = tmp_path / "workflow.yml"
+        original_content = (
+            f"name: Test\njobs:\n  build:\n    steps:\n      - uses: actions/checkout@{old_sha}  # v4.0.0\n"
+        )
+        workflow_file.write_text(original_content)
+
+        async def mock_list_tags(repo: str) -> list[tuple[str, str]]:
+            if repo == "actions/checkout":
+                return [("v4.0.0", old_sha), ("v4.9.0", new_sha)]
+            return []
+
+        async def mock_get_commit_date(_repo: str, _sha: str) -> str:
+            return "2024-06-01T00:00:00Z"  # everything is too new
+
+        # Act
+        with (
+            patch.object(client, "list_tags", new=AsyncMock(side_effect=mock_list_tags)),
+            patch.object(client, "get_commit_date", new=AsyncMock(side_effect=mock_get_commit_date)),
+        ):
+            modified = await pin_file(
+                client,
+                workflow_file,
+                dry_run=False,
+                update="minor",
+                exclude_newer="2024-03-01T00:00:00Z",
+            )
+
+        # Assert
+        assert not modified
+        assert workflow_file.read_text() == original_content
+        assert "younger than cool-off cutoff" in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_exclude_newer_invalid_value_ignored(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+        """Invalid exclude_newer string logs a warning, cutoff ignored, normal update proceeds."""
+        # Arrange
+        client = GitHubClient(token="test", concurrency=1)
+        old_sha = "a" * 40
+        new_sha = "b" * 40
+        workflow_file = tmp_path / "workflow.yml"
+        workflow_file.write_text(
+            f"name: Test\njobs:\n  build:\n    steps:\n      - uses: actions/checkout@{old_sha}  # v4.0.0\n",
+        )
+
+        async def mock_list_tags(repo: str) -> list[tuple[str, str]]:
+            if repo == "actions/checkout":
+                return [("v4.0.0", old_sha), ("v4.9.0", new_sha)]
+            return []
+
+        async def mock_resolve_sha(_repo: str, _ref: str) -> str:
+            return old_sha
+
+        # Act
+        with (
+            patch.object(client, "list_tags", new=AsyncMock(side_effect=mock_list_tags)),
+            patch.object(client, "resolve_sha", new=AsyncMock(side_effect=mock_resolve_sha)),
+        ):
+            modified = await pin_file(
+                client,
+                workflow_file,
+                dry_run=False,
+                update="minor",
+                exclude_newer="not-a-valid-duration",
+            )
+
+        # Assert
+        assert modified
+        content = workflow_file.read_text()
+        assert f"@{new_sha}" in content
+        assert "invalid exclude-newer value" in caplog.text

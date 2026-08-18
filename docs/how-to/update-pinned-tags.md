@@ -56,6 +56,26 @@ Use `--full-version` to record the full tag version instead:
 pin-actions --update minor --full-version --github-token $GITHUB_TOKEN
 ```
 
+## Cool-off Period (Supply-Chain Risk Mitigation)
+
+When using `--update`, a newly published tag may carry undiscovered malware (zero-day or 1-day compromise). Use `--exclude-newer` to skip tags younger than a cutoff, giving the security community time to scan and detect attacks before adoption.
+
+This mirrors package managers like npm (`minimumReleaseAge`), pnpm, and Renovate:
+
+```bash
+pin-actions --update minor --exclude-newer "7 days" --github-token $GITHUB_TOKEN
+```
+
+Accepted formats:
+
+- **RFC 3339 timestamp:** `2006-12-02T02:07:43Z` — absolute cutoff
+- **ISO 8601 duration:** `P7D`, `PT24H`, `P1W` — relative to now
+- **Friendly duration:** `7 days`, `24 hours`, `1 week` — intuitive and case-insensitive
+
+When set, only tags older than the cutoff are considered for auto-selection. If all candidates are too new, pin-actions warns and leaves the pin unchanged.
+
+**Note:** Cool-off applies *only* to `--update` mode. Exact tag re-resolution (the default) is unaffected, because explicit user-named tags are not auto-selected and thus carry different risk semantics.
+
 ## Branch refs
 
 Branch refs (e.g., `main`, `develop`) never parse as a version, so `--update` has no effect on them — they're always re-resolved against the branch name, the same as the default no-constraint path:

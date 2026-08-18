@@ -42,6 +42,71 @@ def _render_tag(version: Version, precision: int, prefix: str) -> str:
     return prefix + ".".join(str(p) for p in parts)
 
 
+def select_latest_tags(
+    tags: list[tuple[str, str]],
+    current_tag: str,
+    *,
+    latest_patch: bool = False,
+    latest_minor: bool = False,
+    latest_major: bool = False,
+    full_version: bool = False,
+) -> list[tuple[str, str]]:
+    """Collect all tags satisfying the constraint, sorted descending by version.
+
+    - ``latest_major``: no constraint — all semver tags on the remote repo.
+    - ``latest_minor``: constrained to the same major version as ``current_tag``.
+    - ``latest_patch``: constrained to the same major.minor as ``current_tag``.
+
+    When multiple are set, narrower constraint wins: patch > minor > major.
+    Returned tags are re-rendered to match ``current_tag``'s precision, sorted
+    highest-to-lowest by version (best candidate first).
+
+    Args:
+        tags: All (tag_name, commit_sha) pairs available on the remote repo.
+        current_tag: The tag currently recorded for this pin (defines the
+            constraint window and the output precision/prefix).
+        latest_patch: Constrain candidates to the same major.minor version.
+        latest_minor: Constrain candidates to the same major version.
+        latest_major: No constraint — consider every semver tag on the repo.
+        full_version: If True, use the full precision of each tag instead
+            of truncating to match ``current_tag``'s precision.
+
+    Returns:
+        List of (tag_name, commit_sha) tuples, sorted descending by version,
+        or empty list if no constraint is set, ``current_tag`` isn't a valid version,
+        or no candidate satisfies the constraint.
+    """
+    if not latest_patch and not latest_minor and not latest_major:
+        return []
+
+    current = parse_tag_version(current_tag)
+    if current is None:
+        return []
+
+    precision = len(current.release)
+    candidates: list[tuple[Version, str, str]] = []
+    for name, sha in tags:
+        version = parse_tag_version(name)
+        if version is None:
+            continue
+        if not latest_major and version.major != current.major:
+            continue
+        if latest_patch and precision >= _MINOR_PRECISION and version.minor != current.minor:
+            continue
+        candidates.append((version, name, sha))
+
+    if not candidates:
+        return []
+
+    # Sort descending by version (highest first)
+    candidates.sort(key=lambda c: c[0], reverse=True)
+
+    prefix = current_tag[0] if current_tag[:1].lower() == "v" and len(current_tag) > 1 else ""
+    output_precision = len(candidates[0][0].release) if full_version else precision
+
+    return [(_render_tag(version, output_precision, prefix), sha) for version, _name, sha in candidates]
+
+
 def select_latest_tag(
     tags: list[tuple[str, str]],
     current_tag: str,
@@ -52,6 +117,8 @@ def select_latest_tag(
     full_version: bool = False,
 ) -> tuple[str, str] | None:
     """Pick the highest-version tag satisfying the constraint relative to ``current_tag``.
+
+    **Deprecated: Use select_latest_tags() instead.**
 
     - ``latest_major``: no constraint — the single highest semver tag on the
       remote repo wins, even if it's a different major version (e.g. v4.0.5 -> v9.1.2).
@@ -82,29 +149,12 @@ def select_latest_tag(
         or None if no constraint is set, ``current_tag`` isn't a valid version,
         or no candidate satisfies the constraint.
     """
-    if not latest_patch and not latest_minor and not latest_major:
-        return None
-
-    current = parse_tag_version(current_tag)
-    if current is None:
-        return None
-
-    precision = len(current.release)
-    candidates: list[tuple[Version, str, str]] = []
-    for name, sha in tags:
-        version = parse_tag_version(name)
-        if version is None:
-            continue
-        if not latest_major and version.major != current.major:
-            continue
-        if latest_patch and precision >= _MINOR_PRECISION and version.minor != current.minor:
-            continue
-        candidates.append((version, name, sha))
-
-    if not candidates:
-        return None
-
-    best_version, _best_name, best_sha = max(candidates, key=lambda c: c[0])
-    prefix = current_tag[0] if current_tag[:1].lower() == "v" and len(current_tag) > 1 else ""
-    output_precision = len(best_version.release) if full_version else precision
-    return _render_tag(best_version, output_precision, prefix), best_sha
+    candidates = select_latest_tags(
+        tags,
+        current_tag,
+        latest_patch=latest_patch,
+        latest_minor=latest_minor,
+        latest_major=latest_major,
+        full_version=full_version,
+    )
+    return candidates[0] if candidates else None

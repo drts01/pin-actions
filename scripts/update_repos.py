@@ -41,6 +41,14 @@ class UpdateReposSettings(BaseSettings):
     dry_run: bool = Field(default=False, description="Print changes without writing, committing, or pushing")
     update: Literal["major", "minor", "patch"] | None = Field(default=None, description="Semver update strategy")
     full_version: bool = Field(default=False, description="Record full tag version instead of truncated precision")
+    exclude_newer: str | None = Field(
+        default=None,
+        description=(
+            "Exclude tags newer than this cutoff (cool-off period). "
+            "Accepted: RFC 3339 timestamp, ISO 8601 duration (e.g., P7D), "
+            "or friendly duration (e.g., '7 days'). Only applies with --update"
+        ),
+    )
     concurrency: int = Field(default=4, ge=1, description="Max concurrent repo clones")
     api_concurrency: int = Field(default=5, ge=1, description="Max concurrent GitHub API requests")
     branch_prefix: str = Field(default="pin-actions", description="Feature branch prefix")
@@ -112,6 +120,7 @@ async def _try_pin(client: GitHubClient, repo_dir: Path, settings: UpdateReposSe
         dry_run=settings.dry_run,
         update=settings.update,
         full_version=settings.full_version,
+        exclude_newer=settings.exclude_newer,
         cache=False,
     )
     try:

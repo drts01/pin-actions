@@ -30,12 +30,26 @@ host = "github.example.com"
 
 Setting `host` to a GitHub Enterprise Server hostname automatically derives the API base URL (`https://{host}/api/v3`).
 
+**Cool-off period example (`pin-actions.toml`):**
+
+```toml
+exclude_newer = "7 days"
+```
+
+The `exclude_newer` setting applies only to `--update` mode and accepts three formats:
+- RFC 3339 timestamp: `2006-12-02T02:07:43Z` (absolute cutoff)
+- ISO 8601 duration: `P7D`, `PT24H`, `P1W` (relative to now)
+- Friendly duration: `7 days`, `24 hours`, `1 week` (case-insensitive)
+
+Default: unset (no cool-off). When set, tags younger than the cutoff are excluded from auto-selection, mitigating same-day supply-chain compromises.
+
 **Example `pyproject.toml`:**
 
 ```toml
 [tool.pin-actions]
 concurrency = 10
 update = "minor"
+exclude_newer = "7 days"
 ```
 
 ## See Also

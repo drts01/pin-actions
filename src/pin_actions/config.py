@@ -142,3 +142,12 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("verbose", "v"),
         description="Verbosity level 0-3: 0=warnings, 1=info, 2=debug, 3=debug+dependency logs (httpx/httpcore)",
     )
+    exclude_newer: str | None = Field(
+        default=None,
+        description=(
+            "Exclude tags newer than this cutoff (cool-off period). "
+            "Accepted: RFC 3339 timestamp (e.g., 2006-12-02T02:07:43Z), "
+            "ISO 8601 duration (e.g., P7D, PT24H, P1W), or friendly duration "
+            "(e.g., 7 days, 24 hours, 1 week). Only applies to --update"
+        ),
+    )

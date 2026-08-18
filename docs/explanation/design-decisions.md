@@ -72,6 +72,19 @@ This mirrors [mheap/pin-github-action](https://github.com/mheap/pin-github-actio
 
 Steps without a `with.repository` sibling are skipped (current-repo context unavailable).
 
+## Cool-off Period (--exclude-newer)
+
+Newly published tags carry unmitigated supply-chain risk: zero-day or 1-day compromises live until security tooling detects them. The `--exclude-newer` flag (RFC 3339 / ISO 8601 / friendly duration) implements a minimum-release-age cool-off period, matching npm (`minimumReleaseAge`), pnpm, and Renovate.
+
+| Scope | Behavior |
+|---|---|
+| **Auto-select only** (`--update`) | Applied only when picking the latest tag (best candidate first, skip those too new) |
+| **Exact ref re-resolution** (default, no `--update`) | Not applied; user-named tags are not auto-selected, so risk semantics differ |
+| **Zero-cost when disabled** | `exclude_newer=None` short-circuits before any commit-date API call |
+| **Failure handling** | If commit-date fetch fails, candidate is skipped with warning; if all candidates are too new, pin left unchanged |
+
+When set, candidates are tested best-first (highest version wins). Only tags passing the age check are considered; if none do, a stderr warning is issued and the pin is left as-is — same graceful degradation as "no matching version constraint" case.
+
 ## Safety Invariants
 
 1. **Stable no-op**: Running twice with unmoved tags produces identical output (re-resolution happens, but file only rewritten if SHA differs)

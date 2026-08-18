@@ -3,20 +3,33 @@
 import asyncio
 import logging
 import sys
+from dataclasses import dataclass
+from datetime import datetime
 from typing import TYPE_CHECKING, Any, Literal
 
 import yamlrocks
 
+from pin_actions._duration import parse_exclude_newer
 from pin_actions._util import is_full_sha
 from pin_actions.client import GitHubClient
 from pin_actions.config import Settings
 from pin_actions.errors import PinActionsError, YAMLParseError
-from pin_actions.versioning import parse_tag_version, select_latest_tag
+from pin_actions.versioning import parse_tag_version, select_latest_tags
 
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+
+@dataclass(frozen=True, slots=True)
+class UpdateOptions:
+    """Config for version-constrained tag updates."""
+
+    update: Literal["major", "minor", "patch"]
+    full_version: bool = False
+    exclude_newer: str | None = None
+
 
 # PEP 695 type aliases for clarity
 type UsesWithRefTuple = tuple[tuple[Any, ...], str | None, bool]
@@ -166,6 +179,7 @@ async def pin_file(
     dry_run: bool = False,
     update: Literal["major", "minor", "patch"] | None = None,
     full_version: bool = False,
+    exclude_newer: str | None = None,
 ) -> bool:
     """Pin mutable action refs in a workflow or action file to their commit SHAs.
 
@@ -179,6 +193,7 @@ async def pin_file(
             or None (re-resolve exact tag/branch recorded in the comment).
         full_version: If True, record the full resolved tag version in the comment
             instead of truncating to match the original precision.
+        exclude_newer: Cool-off period; see :func:`_apply_version_constrained_tag`.
 
     Returns:
         True if file was modified, False otherwise.
@@ -225,17 +240,8 @@ async def pin_file(
             continue
 
         if update and parse_tag_version(tag) is not None:
-            await _apply_version_constrained_tag(
-                doc,
-                client,
-                item_path,
-                repo,
-                tag,
-                ref,
-                update=update,
-                is_uses=True,
-                full_version=full_version,
-            )
+            opts = UpdateOptions(update=update, full_version=full_version, exclude_newer=exclude_newer)
+            await apply_version_constrained_tag(doc, client, item_path, repo, tag, ref, is_uses=True, options=opts)
             continue
 
         # Regardless of update mode, always re-resolve any non-semver comment (branch ref)
@@ -254,17 +260,8 @@ async def pin_file(
             continue
 
         if update and parse_tag_version(tag) is not None:
-            await _apply_version_constrained_tag(
-                doc,
-                client,
-                ref_path,
-                repo,
-                tag,
-                ref,
-                update=update,
-                is_uses=False,
-                full_version=full_version,
-            )
+            opts = UpdateOptions(update=update, full_version=full_version, exclude_newer=exclude_newer)
+            await apply_version_constrained_tag(doc, client, ref_path, repo, tag, ref, is_uses=False, options=opts)
             continue
 
         refs_to_resolve.setdefault((repo, tag), []).append((ref_path, ref, False))
@@ -282,7 +279,7 @@ async def pin_file(
     return True
 
 
-async def _apply_version_constrained_tag(
+async def apply_version_constrained_tag(
     doc: Any,  # noqa: ANN401
     client: GitHubClient,
     item_path: tuple[Any, ...],
@@ -290,14 +287,13 @@ async def _apply_version_constrained_tag(
     tag: str,
     current_sha: str,
     *,
-    update: Literal["major", "minor", "patch"],
     is_uses: bool = True,
-    full_version: bool = False,
+    options: UpdateOptions,
 ) -> None:
     """Rewrite a single already-pinned semver tag to the latest version within constraint.
 
     Warns to stderr (and leaves the entry untouched) if no tag on the remote
-    satisfies the constraint relative to ``tag``.
+    satisfies the constraint relative to ``tag`` or if cool-off period excludes all candidates.
 
     Args:
         doc: YAML document to mutate.
@@ -306,25 +302,52 @@ async def _apply_version_constrained_tag(
         repo: Repository in 'owner/repo' format.
         tag: Current tag recorded in the comment.
         current_sha: Current SHA already in the file.
-        update: Version constraint mode ('major', 'minor', 'patch').
         is_uses: If True, write as 'repo@sha' (uses:); if False, write as bare 'sha' (with.ref).
-        full_version: If True, use the full precision of the winning tag instead of
-            truncating to match the original tag's precision.
+        options: Version update config (update mode, full_version, cool-off period).
     """
+    # Parse exclude_newer once per call
+    cutoff: datetime | None = None
+    if options.exclude_newer:
+        try:
+            cutoff = parse_exclude_newer(options.exclude_newer)
+        except ValueError as exc:
+            logger.warning("invalid exclude-newer value for %s@%s: %s; ignoring", repo, tag, exc)
+
     tags = await client.list_tags(repo)
-    match = select_latest_tag(
+    candidates = select_latest_tags(
         tags,
         tag,
-        latest_patch=(update == "patch"),
-        latest_minor=(update == "minor"),
-        latest_major=(update == "major"),
-        full_version=full_version,
+        latest_patch=(options.update == "patch"),
+        latest_minor=(options.update == "minor"),
+        latest_major=(options.update == "major"),
+        full_version=options.full_version,
     )
-    if match is None:
+    if not candidates:
         logger.warning("no tag matching version constraint for %s@%s; leaving pinned as-is", repo, tag)
         return
 
-    new_tag, new_sha = match
+    # If cool-off period is set, iterate candidates best-first and skip those too new
+    if cutoff:
+        for candidate_tag, candidate_sha in candidates:
+            try:
+                commit_date_str = await client.get_commit_date(repo, candidate_sha)
+                # Parse commit_date_str (RFC 3339 format)
+                commit_date = datetime.fromisoformat(commit_date_str)
+                if commit_date < cutoff:
+                    # This tag is old enough; use it
+                    new_tag, new_sha = candidate_tag, candidate_sha
+                    break
+            except Exception as exc:  # noqa: BLE001 -- broad catch for any error fetching/parsing date
+                logger.warning("failed to check commit date for %s@%s: %s; skipping", repo, candidate_sha, exc)
+                continue
+        else:
+            # No candidate passed the age check
+            logger.warning("all candidates for %s@%s are younger than cool-off cutoff; leaving pinned as-is", repo, tag)
+            return
+    else:
+        # No cool-off; take the best candidate
+        new_tag, new_sha = candidates[0]
+
     if new_sha == current_sha and new_tag == tag:
         return
 
@@ -423,6 +446,7 @@ async def _process_files(client: GitHubClient, files: list[Path], settings: Sett
             dry_run=settings.dry_run,
             update=settings.update,
             full_version=settings.full_version,
+            exclude_newer=settings.exclude_newer,
         )
         for f in files
     ]

@@ -3,7 +3,7 @@
 from pin_actions._util import git_url_to_repo
 from pin_actions.client import GitHubClient
 from pin_actions.config import Settings
-from pin_actions.core import pin_file, resolve_and_rewrite, run
+from pin_actions.core import UpdateOptions, apply_version_constrained_tag, pin_file, resolve_and_rewrite, run
 from pin_actions.errors import (
     GitHubAPIError,
     InvalidRefError,
@@ -23,7 +23,9 @@ __all__ = [
     "PinActionsError",
     "RateLimitExhaustedError",
     "Settings",
+    "UpdateOptions",
     "YAMLParseError",
+    "apply_version_constrained_tag",
     "git_url_to_repo",
     "pin_file",
     "resolve_and_rewrite",

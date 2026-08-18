@@ -69,6 +69,8 @@ class GitHubClient:
         self._cache_lock = threading.Lock()
         self._tags_cache: OrderedDict[str, list[tuple[str, str]]] = OrderedDict()
         self._tags_cache_lock = threading.Lock()
+        self._commit_date_cache: OrderedDict[tuple[str, str], str] = OrderedDict()
+        self._commit_date_cache_lock = threading.Lock()
         self._http_client: httpx2.AsyncClient | None = None
         self._http_client_lock = asyncio.Lock()
 
@@ -294,6 +296,84 @@ class GitHubClient:
                 raise NetworkError(msg) from exc
 
         raise RateLimitExhaustedError(repo, ref, self.max_retries)
+
+    async def get_commit_date(self, repo: str, sha: str) -> str:
+        """Fetch commit date as RFC 3339 string for a given SHA.
+
+        Results are cached per-repo-sha for the lifetime of the client.
+
+        Args:
+            repo: Repository in 'owner/repo' format (may include sub-path).
+            sha: Commit SHA (40-char or short).
+
+        Returns:
+            RFC 3339 timestamp string (e.g., '2006-12-02T15:04:05Z').
+
+        Raises:
+            InvalidRefError: If the commit does not exist on the remote repository (404).
+            RateLimitExhaustedError: If retries are exhausted while rate-limited.
+            NetworkError: On unrecoverable network errors.
+        """
+        owner_repo = "/".join(repo.split("/")[:2])
+        return await self._cached_fetch(
+            f"commit_date:{self.base_url}:{owner_repo}:{sha}",
+            self._commit_date_cache,
+            (owner_repo, sha),
+            self._commit_date_cache_lock,
+            lambda: self._fetch_commit_date(owner_repo, sha),
+        )
+
+    async def _fetch_commit_date(self, owner_repo: str, sha: str) -> str:
+        """Fetch commit date with exponential backoff on rate limits.
+
+        Args:
+            owner_repo: Repository in 'owner/repo' format.
+            sha: Commit SHA.
+
+        Returns:
+            RFC 3339 timestamp string.
+
+        Raises:
+            InvalidRefError: If the commit does not exist (404).
+            RateLimitExhaustedError: If retries are exhausted while rate-limited.
+            NetworkError: On unrecoverable network errors.
+        """
+        headers: dict[str, str] = {}
+        if self.token:
+            headers["Authorization"] = f"token {self.token}"
+
+        url = f"{self.base_url}/repos/{owner_repo}/commits/{sha}"
+        client = await self._get_http_client()
+
+        for attempt in range(self.max_retries):
+            try:
+                resp = await client.get(url, headers=headers, timeout=10.0)
+
+                if resp.status_code == http.HTTPStatus.OK:
+                    data = resp.json()
+                    return data["commit"]["committer"]["date"]
+
+                if resp.status_code in (403, 429):
+                    await self._backoff(resp, attempt)
+                    continue
+
+                if resp.status_code == http.HTTPStatus.NOT_FOUND:
+                    raise InvalidRefError(owner_repo, sha)
+
+                if resp.status_code >= http.HTTPStatus.INTERNAL_SERVER_ERROR:
+                    await self._backoff(resp, attempt)
+                    continue
+
+                resp.raise_for_status()
+
+            except httpx2.RequestError as exc:
+                if attempt < self.max_retries - 1:
+                    await self._backoff(None, attempt)
+                    continue
+                msg = f"Network error fetching commit date for {owner_repo}@{sha}"
+                raise NetworkError(msg) from exc
+
+        raise RateLimitExhaustedError(owner_repo, sha, self.max_retries)
 
     async def _backoff(
         self,
