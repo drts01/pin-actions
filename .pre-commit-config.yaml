@@ -29,11 +29,6 @@ repos:
         args: [--fix, --exit-non-zero-on-fix]
       - id: ruff-format
 
-  # - repo: https://github.com/facebook/pyrefly-pre-commit
-  #   rev: 1.2.0.dev2
-  #   hooks:
-  #     - id: pyrefly-check
-
   # - repo: https://github.com/returntocorp/semgrep
   #   rev: v1.171.0
   #   hooks:

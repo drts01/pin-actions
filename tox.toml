@@ -28,6 +28,12 @@ description = "Canary: Python 3.15 (pre-release, allowed to fail)"
 base_python = "python3.15"
 ignore_outcome = true
 
+[env.typecheck]
+description = "Static type checking with Pyrefly"
+package = "editable"
+dependency_groups = [ "typecheck" ]
+commands = [ [ "pyrefly", { replace = "posargs", default = [ "check" ], extend = true } ] ]
+
 [tox]
 env_list = [ "py314", "py314-cache" ]
 min_version = "4.22"
