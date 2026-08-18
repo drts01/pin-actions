@@ -206,3 +206,100 @@ class TestSettingsFullVersion:
 
         # Assert
         assert settings.full_version is False
+
+
+class TestSettingsConfigFile:
+    """Test TOML config file loading (XDG, cwd, pyproject.toml) and precedence."""
+
+    def test_cwd_toml_file_loaded(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """pin-actions.toml in cwd sets field values."""
+        # Arrange
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "pin-actions.toml").write_text("concurrency = 42\n")
+
+        # Act
+        settings = Settings(_cli_parse_args=False)
+
+        # Assert
+        assert settings.concurrency == 42
+
+    def test_xdg_config_file_loaded(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """XDG_CONFIG_HOME/pin-actions/config.toml sets field values."""
+        # Arrange
+        xdg = tmp_path / "xdg"
+        (xdg / "pin-actions").mkdir(parents=True)
+        (xdg / "pin-actions" / "config.toml").write_text("concurrency = 7\n")
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(xdg))
+        monkeypatch.chdir(tmp_path)
+
+        # Act
+        settings = Settings(_cli_parse_args=False)
+
+        # Assert
+        assert settings.concurrency == 7
+
+    def test_cwd_overrides_xdg(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """pin-actions.toml (cwd) takes precedence over XDG config.toml."""
+        # Arrange
+        xdg = tmp_path / "xdg"
+        (xdg / "pin-actions").mkdir(parents=True)
+        (xdg / "pin-actions" / "config.toml").write_text("concurrency = 7\n")
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(xdg))
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "pin-actions.toml").write_text("concurrency = 42\n")
+
+        # Act
+        settings = Settings(_cli_parse_args=False)
+
+        # Assert
+        assert settings.concurrency == 42
+
+    def test_env_var_overrides_toml_file(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """PIN_ACTIONS_* env var takes precedence over any TOML config file."""
+        # Arrange
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "pin-actions.toml").write_text("concurrency = 42\n")
+        monkeypatch.setenv("PIN_ACTIONS_CONCURRENCY", "3")
+
+        # Act
+        settings = Settings(_cli_parse_args=False)
+
+        # Assert
+        assert settings.concurrency == 3
+
+    def test_pyproject_toml_tool_table_loaded(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """pyproject.toml [tool.pin-actions] table sets field values."""
+        # Arrange
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "pyproject.toml").write_text("[tool.pin-actions]\nconcurrency = 11\n")
+
+        # Act
+        settings = Settings(_cli_parse_args=False)
+
+        # Assert
+        assert settings.concurrency == 11
+
+    def test_cwd_toml_overrides_pyproject_toml(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """pin-actions.toml (cwd) takes precedence over pyproject.toml table."""
+        # Arrange
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "pyproject.toml").write_text("[tool.pin-actions]\nconcurrency = 11\n")
+        (tmp_path / "pin-actions.toml").write_text("concurrency = 42\n")
+
+        # Act
+        settings = Settings(_cli_parse_args=False)
+
+        # Assert
+        assert settings.concurrency == 42
+
+    def test_no_config_file_uses_default(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Missing config files (no pin-actions.toml, no pyproject.toml) fall back to field default."""
+        # Arrange
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+
+        # Act
+        settings = Settings(_cli_parse_args=False)
+
+        # Assert
+        assert settings.concurrency == 5

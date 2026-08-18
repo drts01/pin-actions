@@ -10,6 +10,10 @@
 - `PIN_ACTIONS_TOKEN` — Alternative name for the GitHub token
 - `PIN_ACTIONS_*` — Any other field can be set via its `PIN_ACTIONS_`-prefixed env var name (e.g. `PIN_ACTIONS_CONCURRENCY`)
 
+## Config file
+
+See [Config file](config.md#config-file) for TOML config file locations and precedence.
+
 ## Examples
 
 ```bash
