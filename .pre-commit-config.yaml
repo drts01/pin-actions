@@ -9,7 +9,9 @@ repos:
     rev: v6.0.0
     hooks:
       - id: check-added-large-files
+      - id: check-executables-have-shebangs
       - id: check-merge-conflict
+      - id: check-shebang-scripts-are-executable
       - id: check-toml
       - id: check-yaml
       - id: end-of-file-fixer
@@ -21,7 +23,7 @@ repos:
       - id: trailing-whitespace
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.16.1
+    rev: v0.16.2
     hooks:
       - id: ruff-check
         args: [--fix, --exit-non-zero-on-fix]
@@ -31,13 +33,6 @@ repos:
   #   rev: 1.2.0.dev2
   #   hooks:
   #     - id: pyrefly-check
-
-  # - repo: https://github.com/PyCQA/bandit
-  #   rev: 1.9.4
-  #   hooks:
-  #     - id: bandit
-  #       args: [-r, src/, -ll]
-  #       stages: [manual]
 
   # - repo: https://github.com/returntocorp/semgrep
   #   rev: v1.171.0
