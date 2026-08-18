@@ -2,16 +2,41 @@
 """Pin GitHub-hosted pre-commit hook revs to immutable commit SHAs."""
 
 import asyncio
-import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import yamlrocks
 from pin_actions import GitHubClient, git_url_to_repo, resolve_and_rewrite
 from pin_actions._util import is_full_sha
+from pydantic import AliasChoices, Field, SecretStr
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 if TYPE_CHECKING:
     from pin_actions.core import RefsToResolve
+
+
+class UpdatePrecommitSettings(BaseSettings):
+    """CLI & environment configuration for update-precommit."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="UPDATE_PRECOMMIT_",
+        case_sensitive=False,
+        populate_by_name=True,
+    )
+
+    path: Path = Field(
+        default=Path(".pre-commit-config.yaml"),
+        description="Path to .pre-commit-config.yaml file",
+    )
+    token: SecretStr | None = Field(
+        default=None,
+        validation_alias=AliasChoices("UPDATE_PRECOMMIT_TOKEN", "GITHUB_TOKEN"),
+        description="GitHub API token (env: GITHUB_TOKEN or UPDATE_PRECOMMIT_TOKEN)",
+    )
+    dry_run: bool = Field(
+        default=False,
+        description="Print changes without writing",
+    )
 
 
 async def pin_precommit_config(client: GitHubClient, path: Path, *, dry_run: bool = False) -> bool:
@@ -48,16 +73,26 @@ async def pin_precommit_config(client: GitHubClient, path: Path, *, dry_run: boo
     return True
 
 
-async def main() -> None:
+async def _amain(settings: UpdatePrecommitSettings) -> None:
     """Execute main business logic."""
-    path = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(".pre-commit-config.yaml")
-    dry_run = "--dry-run" in sys.argv
-    async with GitHubClient() as client:
-        modified = await pin_precommit_config(client, path, dry_run=dry_run)
-    status = "Would modify" if dry_run else "Modified"
-    msg = f"{status}: {path}" if modified else "No changes."
+    token = settings.token.get_secret_value() if settings.token else None
+    async with GitHubClient(token=token) as client:
+        modified = await pin_precommit_config(client, settings.path, dry_run=settings.dry_run)
+    status = "Would modify" if settings.dry_run else "Modified"
+    msg = f"{status}: {settings.path}" if modified else "No changes."
     print(msg)
 
 
+def main() -> None:
+    """CLI entry point."""
+    settings = UpdatePrecommitSettings(
+        _cli_parse_args=True,
+        _cli_kebab_case=True,
+        _cli_implicit_flags=True,
+        _cli_prog_name="update-precommit",
+    )
+    asyncio.run(_amain(settings))
+
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
