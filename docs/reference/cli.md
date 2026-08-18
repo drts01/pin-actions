@@ -31,6 +31,9 @@ pin-actions -v 2 --github-token $GITHUB_TOKEN
 
 # Disable caching for debugging
 pin-actions --no-cache --github-token $GITHUB_TOKEN
+
+# Use with GitHub Enterprise Server
+pin-actions --host github.example.com --github-token $GITHUB_TOKEN
 ```
 
 ## See also

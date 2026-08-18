@@ -25,8 +25,10 @@ All config files are optional — pin-actions runs with zero configuration if no
 ```toml
 concurrency = 10
 cache_ttl = 7200
-github_api = "https://github.example.com/api/v3"
+host = "github.example.com"
 ```
+
+Setting `host` to a GitHub Enterprise Server hostname automatically derives the API base URL (`https://{host}/api/v3`).
 
 **Example `pyproject.toml`:**
 

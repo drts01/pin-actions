@@ -1,13 +1,7 @@
 """Shared utilities."""
 
-import re
-
 _SHA_LENGTH = 40
-
-_GITHUB_URL_RE = re.compile(
-    r"^(?:https://github\.com/|git@github\.com:|ssh://git@github\.com/)"
-    r"(?P<owner>[^/]+)/(?P<repo>[^/]+?)(?:\.git)?/?$",
-)
+_URL_OWNER_REPO_PARTS = 2
 
 
 def is_full_sha(ref: str) -> bool:
@@ -22,17 +16,24 @@ def is_full_sha(ref: str) -> bool:
     return len(ref) == _SHA_LENGTH and all(c in "0123456789abcdefABCDEF" for c in ref)
 
 
-def git_url_to_repo(url: str) -> str | None:
-    """Extract 'owner/repo' from a GitHub clone URL; None for non-GitHub hosts.
+def git_url_to_repo(url: str, host: str = "github.com") -> str | None:
+    """Extract 'owner/repo' from a git clone URL for a given host.
 
-    Supports https://github.com/owner/repo(.git), git@github.com:owner/repo(.git),
-    and ssh://git@github.com/owner/repo(.git) URLs.
+    Supports https://{host}/owner/repo(.git), git@{host}:owner/repo(.git),
+    and ssh://git@{host}/owner/repo(.git) URLs.
 
     Args:
         url: Git clone URL (as found in .pre-commit-config.yaml repos[].repo).
+        host: Hostname to match (default 'github.com' for public GitHub; use
+            'github.example.com' for GitHub Enterprise Server).
 
     Returns:
-        'owner/repo', or None if url isn't a recognizable GitHub URL.
+        'owner/repo', or None if url isn't a recognizable URL for the given host.
     """
-    match = _GITHUB_URL_RE.match(url.strip())
-    return f"{match['owner']}/{match['repo']}" if match else None
+    url = url.strip().removesuffix("/").removesuffix(".git")
+    for prefix in (f"https://{host}/", f"git@{host}:", f"ssh://git@{host}/"):
+        if url.startswith(prefix):
+            parts = url[len(prefix) :].split("/")
+            if len(parts) == _URL_OWNER_REPO_PARTS and all(parts):
+                return "/".join(parts)
+    return None

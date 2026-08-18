@@ -392,7 +392,7 @@ async def run(settings: Settings, *, client: GitHubClient | None = None) -> list
 
     async with GitHubClient(
         token=token,
-        base_url=settings.github_api,
+        base_url=settings.api_base_url,
         concurrency=settings.concurrency,
         max_retries=settings.max_retries,
         disk_cache=disk_cache,

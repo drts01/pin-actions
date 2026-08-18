@@ -21,7 +21,8 @@ class TestSettingsDefaults:
         assert settings.dry_run is False
         assert settings.concurrency == 5
         assert settings.max_retries == 5
-        assert settings.github_api == "https://api.github.com"
+        assert settings.host == "github.com"
+        assert settings.api_base_url == "https://api.github.com"
         assert settings.update is None
         assert settings.full_version is False
         assert settings.cache_dir == Path.home() / ".cache" / "pin-actions"
@@ -206,6 +207,42 @@ class TestSettingsFullVersion:
 
         # Assert
         assert settings.full_version is False
+
+
+class TestSettingsHost:
+    """Test host field and derived api_base_url property."""
+
+    def test_host_default(self) -> None:
+        """Host defaults to github.com."""
+        # Arrange, Act
+        settings = Settings()
+
+        # Assert
+        assert settings.host == "github.com"
+
+    def test_public_github_api_base_url(self) -> None:
+        """Public GitHub host derives https://api.github.com."""
+        # Arrange, Act
+        settings = Settings(host="github.com")
+
+        # Assert
+        assert settings.api_base_url == "https://api.github.com"
+
+    def test_ghe_server_api_base_url(self) -> None:
+        """GHE Server host derives https://{host}/api/v3."""
+        # Arrange, Act
+        settings = Settings(host="github.example.com")
+
+        # Assert
+        assert settings.api_base_url == "https://github.example.com/api/v3"
+
+    def test_host_custom_ghe_instance(self) -> None:
+        """Custom GHE instance hostname derives correct API URL."""
+        # Arrange, Act
+        settings = Settings(host="ghe.mycompany.com")
+
+        # Assert
+        assert settings.api_base_url == "https://ghe.mycompany.com/api/v3"
 
 
 class TestSettingsConfigFile:

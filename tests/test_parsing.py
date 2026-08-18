@@ -246,7 +246,7 @@ class TestWalkUsesKeys:
 
 
 class TestGitUrlToRepo:
-    """Test GitHub URL → owner/repo extraction."""
+    """Test git URL → owner/repo extraction (configurable host)."""
 
     @given(
         st.sampled_from(
@@ -265,3 +265,33 @@ class TestGitUrlToRepo:
         """Extract owner/repo from GitHub URLs; return None for non-GitHub."""
         url, expected = url_and_expected
         assert git_url_to_repo(url) == expected
+
+    def test_ghe_server_https_url(self) -> None:
+        """Extract owner/repo from GitHub Enterprise Server HTTPS URL."""
+        url = "https://github.example.com/myorg/myrepo"
+        assert git_url_to_repo(url, host="github.example.com") == "myorg/myrepo"
+
+    def test_ghe_server_ssh_url(self) -> None:
+        """Extract owner/repo from GitHub Enterprise Server SSH URL."""
+        url = "git@github.example.com:myorg/myrepo.git"
+        assert git_url_to_repo(url, host="github.example.com") == "myorg/myrepo"
+
+    def test_ghe_server_ssh_protocol_url(self) -> None:
+        """Extract owner/repo from GitHub Enterprise Server SSH protocol URL."""
+        url = "ssh://git@github.example.com/myorg/myrepo"
+        assert git_url_to_repo(url, host="github.example.com") == "myorg/myrepo"
+
+    def test_ghe_url_with_different_host_returns_none(self) -> None:
+        """Return None if URL host doesn't match the specified host."""
+        url = "https://github.com/owner/repo"
+        assert git_url_to_repo(url, host="github.example.com") is None
+
+    def test_git_url_strips_trailing_slash(self) -> None:
+        """Strip trailing slash from URL."""
+        url = "https://github.com/owner/repo/"
+        assert git_url_to_repo(url) == "owner/repo"
+
+    def test_git_url_double_suffix_removal(self) -> None:
+        """Handle both trailing slash and .git suffix."""
+        url = "https://github.com/owner/repo.git/"
+        assert git_url_to_repo(url) == "owner/repo"

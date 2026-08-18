@@ -33,13 +33,23 @@ class UpdatePrecommitSettings(BaseSettings):
         validation_alias=AliasChoices("UPDATE_PRECOMMIT_TOKEN", "GITHUB_TOKEN"),
         description="GitHub API token (env: GITHUB_TOKEN or UPDATE_PRECOMMIT_TOKEN)",
     )
+    host: str = Field(
+        default="github.com",
+        description="GitHub hostname for clone-URL parsing (e.g. 'github.example.com' for GHE Server)",
+    )
     dry_run: bool = Field(
         default=False,
         description="Print changes without writing",
     )
 
 
-async def pin_precommit_config(client: GitHubClient, path: Path, *, dry_run: bool = False) -> bool:
+async def pin_precommit_config(
+    client: GitHubClient,
+    path: Path,
+    *,
+    host: str = "github.com",
+    dry_run: bool = False,
+) -> bool:
     """Rewrite each GitHub-hosted repos[].rev to a SHA + '# <original rev>' comment."""
     content = path.read_bytes()  # noqa: ASYNC240 -- sync IO on Path, no async equivalent needed
     doc = yamlrocks.loads(content, option=yamlrocks.OPT_ROUND_TRIP)
@@ -48,7 +58,7 @@ async def pin_precommit_config(client: GitHubClient, path: Path, *, dry_run: boo
     for i, repo_entry in enumerate(doc["repos"]):
         url = repo_entry.get("repo")
         rev = repo_entry.get("rev")
-        repo = url and git_url_to_repo(url)
+        repo = url and git_url_to_repo(url, host=host)
         if not repo or not rev:
             continue
 
@@ -77,7 +87,7 @@ async def _amain(settings: UpdatePrecommitSettings) -> None:
     """Execute main business logic."""
     token = settings.token.get_secret_value() if settings.token else None
     async with GitHubClient(token=token) as client:
-        modified = await pin_precommit_config(client, settings.path, dry_run=settings.dry_run)
+        modified = await pin_precommit_config(client, settings.path, host=settings.host, dry_run=settings.dry_run)
     status = "Would modify" if settings.dry_run else "Modified"
     msg = f"{status}: {settings.path}" if modified else "No changes."
     print(msg)

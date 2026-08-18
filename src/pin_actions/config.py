@@ -98,10 +98,18 @@ class Settings(BaseSettings):
         ge=1,
         description="Max retry attempts on 429/403 errors",
     )
-    github_api: str = Field(
-        default="https://api.github.com",
-        description="GitHub API base URL",
+    host: str = Field(
+        default="github.com",
+        description="GitHub hostname: 'github.com' or GHE Server hostname (e.g. 'github.example.com')",
     )
+
+    @property
+    def api_base_url(self) -> str:
+        """Derive REST API base URL from host (GHE Server uses /api/v3)."""
+        if self.host == "github.com":
+            return "https://api.github.com"
+        return f"https://{self.host}/api/v3"
+
     update: Literal["major", "minor", "patch"] | None = Field(
         default=None,
         description="Update strategy for pinned semver tags: 'major' (cross major boundaries, "
