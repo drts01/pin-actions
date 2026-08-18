@@ -78,26 +78,63 @@ def mock_resolve_sha_factory() -> Callable[[dict[tuple[str, str], str]], AsyncMo
     return _make
 
 
+class FakeClock:
+    """Controllable fake clock for deterministic TTL testing."""
+
+    def __init__(self) -> None:
+        self._now: float = 0.0
+
+    def __call__(self) -> float:
+        """Return current fake time (monotonic-style)."""
+        return self._now
+
+    def advance(self, seconds: float) -> None:
+        """Move the fake clock forward."""
+        self._now += seconds
+
+
+class FakeDiskCache:
+    """In-memory fake implementing _DiskCache Protocol, with real TTL expiry.
+
+    Usage:
+        clock = FakeClock()
+        cache = FakeDiskCache(clock=clock)
+        client = GitHubClient(..., disk_cache=cache)
+        clock.advance(3601)  # simulate TTL expiry
+    """
+
+    def __init__(self, clock: Callable[[], float] | None = None) -> None:
+        self._storage: dict[str, tuple[object, float | None]] = {}
+        self._clock: Callable[[], float] = clock if clock is not None else FakeClock()
+
+    def get(self, key: str, default: object = None) -> object:
+        """Get cached value or default; evicts and returns default if expired."""
+        if key not in self._storage:
+            return default
+        value, expires_at = self._storage[key]
+        if expires_at is not None and self._clock() >= expires_at:
+            del self._storage[key]
+            return default
+        return value
+
+    def set(self, key: str, value: object, expire: int | None = None) -> None:
+        """Set cached value with optional TTL (seconds) from current fake time."""
+        expires_at = self._clock() + expire if expire is not None else None
+        self._storage[key] = (value, expires_at)
+
+
 @pytest.fixture
-def fake_disk_cache() -> dict[str, Any]:
+def fake_clock() -> FakeClock:
+    """Standalone controllable clock fixture for advancing time in tests."""
+    return FakeClock()
+
+
+@pytest.fixture
+def fake_disk_cache(fake_clock: FakeClock) -> FakeDiskCache:
     """In-memory fake implementing _DiskCache Protocol.
 
     Usage:
         client = GitHubClient(..., disk_cache=fake_disk_cache)
+        fake_clock.advance(3601)  # simulate TTL expiry
     """
-
-    class FakeDiskCache:
-        """Minimal in-memory _DiskCache implementation for testing."""
-
-        def __init__(self) -> None:
-            self._storage: dict[str, Any] = {}
-
-        def get(self, key: str, default: object = None) -> object:
-            """Get cached value or default."""
-            return self._storage.get(key, default)
-
-        def set(self, key: str, value: object, expire: int | None = None) -> None:
-            """Set cached value (_expire ignored in fake)."""
-            self._storage[key] = value
-
-    return FakeDiskCache()  # type: ignore[return-value]
+    return FakeDiskCache(clock=fake_clock)

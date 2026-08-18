@@ -264,6 +264,31 @@ class TestLRUCacheEviction:
         assert len(client._tags_cache) == 2
 
 
+class TestMemoryCacheNoExpiry:
+    """Pin current behavior: in-memory cache has no TTL (unlike disk cache)."""
+
+    @pytest.mark.asyncio
+    async def test_memory_cache_never_expires(self, make_client) -> None:  # type: ignore[no-untyped-def]
+        """In-memory cache serves stale values indefinitely; only disk cache honors TTL."""
+        # Arrange: no disk_cache, so only in-memory _cache is exercised
+        client = make_client(cache_ttl=1)  # cache_ttl is irrelevant to memory cache
+        sha = "ffffffffffffffffffffffffffffffffffffffff"
+        call_count = 0
+
+        async def mock_request_with_backoff(_repo: str, _ref: str) -> str:
+            nonlocal call_count
+            call_count += 1
+            return sha
+
+        # Act
+        with patch.object(client, "_request_with_backoff", side_effect=mock_request_with_backoff):
+            await client.resolve_sha("owner/repo", "v1")
+            await client.resolve_sha("owner/repo", "v1")  # would-be "expired" if TTL applied
+
+        # Assert: only one real fetch — memory cache never expires regardless of cache_ttl
+        assert call_count == 1
+
+
 class TestUnboundedCache:
     """Test max_cache_size=0 disables LRU eviction."""
 
@@ -445,6 +470,62 @@ class TestDiskCache:
 
         # Assert
         assert result == tags
+
+    @pytest.mark.asyncio
+    async def test_disk_cache_expires_after_ttl(self, fake_disk_cache: object, fake_clock: object) -> None:
+        """After TTL elapses, a fresh API call is made instead of serving stale cache."""
+        # Arrange
+        client = GitHubClient(token="test", concurrency=1, disk_cache=fake_disk_cache, cache_ttl=3600)  # type: ignore[arg-type]
+        old_sha = "cccccccccccccccccccccccccccccccccccccccc"
+        new_sha = "dddddddddddddddddddddddddddddddddddddddd"
+        call_count = 0
+
+        async def mock_request_with_backoff(_repo: str, _ref: str) -> str:
+            nonlocal call_count
+            call_count += 1
+            return new_sha if call_count > 1 else old_sha
+
+        # Act: first call populates cache
+        with patch.object(client, "_request_with_backoff", side_effect=mock_request_with_backoff):
+            first = await client.resolve_sha("actions/checkout", "v5")
+        # Advance clock past TTL, then clear in-memory cache to isolate disk-cache expiry
+        fake_clock.advance(3601)  # type: ignore[attr-defined]
+        client._cache.clear()
+        # Second call after expiry must hit the API again
+        with patch.object(client, "_request_with_backoff", side_effect=mock_request_with_backoff):
+            second = await client.resolve_sha("actions/checkout", "v5")
+
+        # Assert
+        assert first == old_sha
+        assert second == new_sha
+        assert call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_disk_cache_not_expired_within_ttl(self, fake_disk_cache: object, fake_clock: object) -> None:
+        """Within TTL, cached value is served without a new API call."""
+        # Arrange
+        client = GitHubClient(token="test", concurrency=1, disk_cache=fake_disk_cache, cache_ttl=3600)  # type: ignore[arg-type]
+        sha = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        call_count = 0
+
+        async def mock_request_with_backoff(_repo: str, _ref: str) -> str:
+            nonlocal call_count
+            call_count += 1
+            return sha
+
+        # Act: first call populates cache
+        with patch.object(client, "_request_with_backoff", side_effect=mock_request_with_backoff):
+            first = await client.resolve_sha("actions/checkout", "v6")
+        # Advance clock but stay within TTL, then clear in-memory cache to isolate disk-cache
+        fake_clock.advance(3599)  # type: ignore[attr-defined]
+        client._cache.clear()
+        with patch.object(client, "_request_with_backoff", side_effect=mock_request_with_backoff):
+            second = await client.resolve_sha("actions/checkout", "v6")
+
+        # Assert
+        assert first == sha
+        assert second == sha
+        assert call_count == 1  # only one real fetch; second call served from cache
 
 
 class TestContextManager:
