@@ -139,6 +139,34 @@ def _set_path(doc: Any, item_path: tuple[Any, ...], value: str) -> None:  # noqa
     target[item_path[-1]] = value
 
 
+async def resolve_and_rewrite(
+    doc: Any,  # noqa: ANN401
+    client: GitHubClient,
+    refs_to_resolve: RefsToResolve,
+) -> None:
+    """Batch-resolve unique (repo, ref) pairs and rewrite matching doc entries in place.
+
+    Schema-agnostic: caller supplies refs_to_resolve from whatever YAML shape
+    it walked (GH Actions uses:, pre-commit repos[].rev, etc.).
+
+    Args:
+        doc: yamlrocks round-trip document to mutate.
+        client: GitHub API client.
+        refs_to_resolve: Map of (repo, tag_or_ref) -> list of (item_path,
+            current_sha, is_uses) needing that resolution.
+    """
+    keys = list(refs_to_resolve)
+    values = await asyncio.gather(*(client.resolve_sha(repo, tag) for repo, tag in keys))
+    resolved: ResolvedSHAs = dict(zip(keys, values, strict=True))
+
+    for (repo, tag), new_sha in resolved.items():
+        for item_path, current_sha, is_uses in refs_to_resolve.get((repo, tag), []):
+            if new_sha == current_sha:
+                continue
+            _set_path(doc, item_path, f"{repo}@{new_sha}" if is_uses else new_sha)
+            doc.locate(item_path).comment = tag
+
+
 async def pin_file(
     client: GitHubClient,
     path: Path,
@@ -248,25 +276,7 @@ async def pin_file(
 
         refs_to_resolve.setdefault((repo, tag), []).append((ref_path, ref, False))
 
-    # Batch resolve all unique refs in parallel (semaphore bounds concurrency).
-    # Any GitHubAPIError propagates to the caller, who decides whether to skip,
-    # retry, or abort (library-friendly: no swallowing).
-    keys = list(refs_to_resolve)
-    values = await asyncio.gather(*(client.resolve_sha(repo, tag) for repo, tag in keys))
-    resolved: ResolvedSHAs = dict(zip(keys, values, strict=True))
-
-    # Rewrite entries whose resolved SHA differs from what's already there (new pins
-    # always differ; already-pinned entries only differ if the tag has moved).
-    for (repo, tag), new_sha in resolved.items():
-        for item_path, current_sha, is_uses in refs_to_resolve.get((repo, tag), []):
-            if new_sha == current_sha:
-                continue
-            # Write format depends on whether this is uses: or with.ref
-            if is_uses:
-                _set_path(doc, item_path, f"{repo}@{new_sha}")
-            else:
-                _set_path(doc, item_path, new_sha)
-            doc.locate(item_path).comment = tag
+    await resolve_and_rewrite(doc, client, refs_to_resolve)
 
     # Write if changed
     new_content = doc.to_yaml()

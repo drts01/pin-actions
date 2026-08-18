@@ -176,6 +176,41 @@ uv run --with-editable . scripts/update_repos.py --repos org/repo1 --repos org/r
 
 See [Multi-Repo Automation](./multi-repo-automation.md) for full CLI options and output formats.
 
+## Pin Pre-Commit Hook Revs
+
+[`scripts/update_precommit.py`](https://github.com/drts01/pin-actions/blob/main/scripts/update_precommit.py) pins GitHub-hosted `.pre-commit-config.yaml` hook revisions (tags or branches) to their immutable commit SHAs, preserving the original rev as a trailing YAML comment:
+
+```python
+async def pin_precommit_config(client: GitHubClient, path: Path, *, dry_run: bool = False) -> bool:
+    """Rewrite each GitHub-hosted repos[].rev to a SHA + '# <original rev>' comment."""
+    content = path.read_bytes()
+    doc = yamlrocks.loads(content, option=yamlrocks.OPT_ROUND_TRIP)
+    refs_to_resolve: RefsToResolve = {}
+    for i, repo_entry in enumerate(doc["repos"]):
+        repo = git_url_to_repo(repo_entry.get("repo"))
+        rev = repo_entry.get("rev")
+        if not repo or not rev:
+            continue
+        rev_path = ("repos", i, "rev")
+        if is_full_sha(rev):
+            # Already pinned; re-resolve if comment tag moved
+            ...
+        else:
+            # New pin or re-resolve branch/tag
+            refs_to_resolve.setdefault((repo, rev), []).append((rev_path, None, False))
+    if refs_to_resolve:
+        await resolve_and_rewrite(doc, client, refs_to_resolve)
+    # Write and return True if changed
+```
+
+Run it:
+
+```bash
+uv run --with-editable . scripts/update_precommit.py .pre-commit-config.yaml --dry-run
+```
+
+This reuses the schema-agnostic `resolve_and_rewrite()` and `git_url_to_repo()` primitives; it's a compact example of extending pin-actions beyond GitHub Actions workflows.
+
 ## See Also
 
 - [Reference: core](../reference/core.md) — `run()`, `pin_file()`

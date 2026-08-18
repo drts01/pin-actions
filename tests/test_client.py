@@ -301,7 +301,8 @@ class TestRetryAndBackoff:
         responses = [
             MagicMock(status_code=429, headers={"Retry-After": "0.01"}),
             MagicMock(
-                status_code=200, json=MagicMock(return_value={"sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"})
+                status_code=200,
+                json=MagicMock(return_value={"sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}),
             ),
         ]
         response_iter = iter(responses)
@@ -328,7 +329,8 @@ class TestRetryAndBackoff:
             MagicMock(status_code=500),
             MagicMock(status_code=503),
             MagicMock(
-                status_code=200, json=MagicMock(return_value={"sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"})
+                status_code=200,
+                json=MagicMock(return_value={"sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}),
             ),
         ]
         response_iter = iter(responses)
@@ -361,7 +363,7 @@ class TestFetchAllTagsPagination:
                 json=MagicMock(
                     return_value=[
                         {"name": f"v1.{i}", "commit": {"sha": f"{'0' * (39 - len(str(i)))}{i}"}} for i in range(100)
-                    ]
+                    ],
                 ),
             ),
             MagicMock(
@@ -369,7 +371,7 @@ class TestFetchAllTagsPagination:
                 json=MagicMock(
                     return_value=[
                         {"name": f"v1.{i}", "commit": {"sha": f"{'1' * (39 - len(str(i)))}{i}"}} for i in range(50)
-                    ]
+                    ],
                 ),
             ),
         ]

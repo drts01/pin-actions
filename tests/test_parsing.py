@@ -4,7 +4,7 @@ from typing import Any
 
 from hypothesis import given
 from hypothesis import strategies as st
-from pin_actions._util import is_full_sha
+from pin_actions._util import git_url_to_repo, is_full_sha
 from pin_actions.core import _is_already_pinned, _is_local_action, _parse_uses
 
 
@@ -243,3 +243,25 @@ class TestWalkUsesKeys:
         assert self._walk_uses_keys({}) == []
         assert self._walk_uses_keys([]) == []
         assert self._walk_uses_keys({"jobs": {}}) == []
+
+
+class TestGitUrlToRepo:
+    """Test GitHub URL → owner/repo extraction."""
+
+    @given(
+        st.sampled_from(
+            [
+                ("https://github.com/pre-commit/pre-commit-hooks", "pre-commit/pre-commit-hooks"),
+                ("https://github.com/pre-commit/pre-commit-hooks.git", "pre-commit/pre-commit-hooks"),
+                ("git@github.com:pre-commit/pre-commit-hooks.git", "pre-commit/pre-commit-hooks"),
+                ("ssh://git@github.com/pre-commit/pre-commit-hooks.git", "pre-commit/pre-commit-hooks"),
+                ("https://gitlab.com/foo/bar", None),
+                ("local", None),
+                ("meta", None),
+            ],
+        ),
+    )
+    def test_github_url_extraction(self, url_and_expected: tuple[str, str | None]) -> None:
+        """Extract owner/repo from GitHub URLs; return None for non-GitHub."""
+        url, expected = url_and_expected
+        assert git_url_to_repo(url) == expected

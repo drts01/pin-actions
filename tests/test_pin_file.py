@@ -254,7 +254,7 @@ class TestPinFileWithRef:
             "        uses: actions/checkout@v4\n"
             "        with:\n"
             "          repository: other/repo\n"
-            "          ref: v3.0.0\n"
+            "          ref: v3.0.0\n",
         )
 
         async def mock_resolve_sha(repo: str, ref: str) -> str:
@@ -289,7 +289,7 @@ class TestPinFileWithRef:
             "        uses: actions/checkout@v4\n"
             "        with:\n"
             f"          repository: j178/prek-action\n"
-            f"          ref: {old_sha}  # v3.0.0\n"
+            f"          ref: {old_sha}  # v3.0.0\n",
         )
 
         async def mock_resolve_sha(_repo: str, _ref: str) -> str:
@@ -379,7 +379,7 @@ class TestPinFileVersionConstraints:
             f"      - uses: actions/checkout@{checkout_sha}\n"
             "        with:\n"
             f"          repository: other/repo\n"
-            f"          ref: {old_sha}  # v3.0.0\n"
+            f"          ref: {old_sha}  # v3.0.0\n",
         )
 
         async def mock_list_tags(repo: str) -> list[tuple[str, str]]:
@@ -416,7 +416,7 @@ class TestPinFileCalVer:
         new_sha = "b" * 40
         workflow_file = tmp_path / "workflow.yml"
         workflow_file.write_text(
-            f"name: Test\njobs:\n  build:\n    steps:\n      - uses: some-action@{old_sha}  # 2024.01.15\n"
+            f"name: Test\njobs:\n  build:\n    steps:\n      - uses: some-action@{old_sha}  # 2024.01.15\n",
         )
 
         async def mock_resolve_sha(_repo: str, _ref: str) -> str:
@@ -442,7 +442,7 @@ class TestPinFileCalVer:
         new_sha = "d" * 40
         workflow_file = tmp_path / "workflow.yml"
         workflow_file.write_text(
-            f"name: Test\njobs:\n  build:\n    steps:\n      - uses: some-action@{old_sha}  # nightly\n"
+            f"name: Test\njobs:\n  build:\n    steps:\n      - uses: some-action@{old_sha}  # nightly\n",
         )
 
         async def mock_resolve_sha(_repo: str, _ref: str) -> str:
@@ -472,7 +472,7 @@ class TestPinFileVersionConstraintsUses:
         new_sha = "b" * 40
         workflow_file = tmp_path / "workflow.yml"
         workflow_file.write_text(
-            f"name: Test\njobs:\n  build:\n    steps:\n      - uses: actions/checkout@{old_sha}  # v4.2.1\n"
+            f"name: Test\njobs:\n  build:\n    steps:\n      - uses: actions/checkout@{old_sha}  # v4.2.1\n",
         )
 
         async def mock_list_tags(repo: str) -> list[tuple[str, str]]:
@@ -508,7 +508,7 @@ class TestPinFileVersionConstraintsUses:
         new_sha = "e" * 40
         workflow_file = tmp_path / "workflow.yml"
         workflow_file.write_text(
-            f"name: Test\njobs:\n  build:\n    steps:\n      - uses: actions/setup-python@{old_sha}  # v4\n"
+            f"name: Test\njobs:\n  build:\n    steps:\n      - uses: actions/setup-python@{old_sha}  # v4\n",
         )
 
         async def mock_list_tags(repo: str) -> list[tuple[str, str]]:
