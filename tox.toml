@@ -5,6 +5,7 @@ package = "editable"
 dependency_groups = [ "test" ]
 pass_env = [ "CI", "GITHUB_*" ]
 commands = [ [ "pytest", "{posargs}" ] ]
+env = { PYTHON_GIL = 0 }
 
 [env.build]
 description = "Validate sdist/wheel build, metadata, and installability"
@@ -26,20 +27,24 @@ commands = [ [ "zensical", { replace = "posargs", default = [ "build" ], extend 
 
 [env.py315]
 description = "Canary: Python 3.15 (pre-release, allowed to fail)"
-base_python = [ "python3.15" ]
+ignore_outcome = true
+
+[env.py315t]
+description = "Canary: Python 3.15t (pre-release, allowed to fail)"
 ignore_outcome = true
 
 [env.typecheck]
 description = "Static type checking with Pyrefly"
-package = "editable"
 dependency_groups = [ "typecheck" ]
 commands = [ [ "pyrefly", { replace = "posargs", default = [ "check" ], extend = true } ] ]
 
 [tox]
-env_list = [ "py314", "py314-cache" ]
+env_list = [ "build", "typecheck", "py{314{,t},314{,t}}" ]
 min_version = "4.22"
 requires = [ "tox-uv" ]
 
 [gh.python]
 "3.15" = [ "py315" ]
-"3.14" = [ "py314", "typecheck" ]
+"3.15t" = [ "py315t" ]
+"3.14t" = [ "py314t" ]
+"3.14" = [ "py314", "typecheck", "build" ]
