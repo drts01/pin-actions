@@ -3,11 +3,16 @@ site_name = "pin-actions"
 site_description = "Pin mutable GitHub Actions to immutable commit SHAs"
 repo_url = "https://github.com/drts01/pin-actions"
 repo_name = "drts01/pin-actions"
-edit_uri = "edit/main/docs/"
+edit_uri = "edit/trunk/docs/"
 strict = true
 
 nav = [
-  { "Home" = "index.md" },
+  { "Home" = [
+    { "Home" = "index.md" },
+    { "Changelog" = "changelog.md" },
+    { "Contributing" = "contributing.md" },
+    { "License" = "license.md" },
+  ] },
   { "Tutorials" = [
     { "Getting Started" = "tutorials/getting-started.md" },
   ] },
@@ -32,8 +37,6 @@ nav = [
     { "Architecture Overview" = "explanation/architecture.md" },
     { "Design Decisions" = "explanation/design-decisions.md" },
   ] },
-  { "Changelog" = "changelog.md" },
-  { "Contributing" = "contributing.md" },
 ]
 
 [project.theme]
@@ -46,7 +49,10 @@ features = [
   "content.code.annotate",
   "content.tabs.link",
   "toc.follow",
+  "navigation.tabs",
+  "search.highlight",
 ]
+font.code = "JetBrains Mono"
 
 [[project.theme.palette]]
 media = "(prefers-color-scheme)"
@@ -66,10 +72,26 @@ attr_list = {}
 def_list = {}
 toc = { permalink = true }
 pymdownx.superfences = { custom_fences = [{ name = "mermaid", class = "mermaid", format = "pymdownx.superfences.fence_code_format" }] }
-pymdownx.tabbed = { alternate_style = true }
-pymdownx.highlight = { anchor_linenums = true }
+pymdownx.tabbed.alternate_style = true
+pymdownx.tabbed.combine_header_slug = true
+pymdownx.tabbed.slugify.object = "pymdownx.slugs.slugify"
+pymdownx.tabbed.slugify.kwds.case = "lower"
+pymdownx.highlight = { anchor_linenums = true , pygments_lang_class = true, linenums_style = "pymdownx-inline", line_spans = "__span"}
 pymdownx.inlinehilite = {}
 pymdownx.snippets = { check_paths = true, base_path = ["."] }
+pymdownx.tasklist.clickable_checkbox = true
+pymdownx.emoji.emoji_generator = "zensical.extensions.emoji.to_svg"
+pymdownx.emoji.emoji_index = "zensical.extensions.emoji.twemoji"
+pymdownx.details = {}
+pymdownx.caret = {}
+pymdownx.mark = {}
+pymdownx.tilde = {}
+pymdownx.blocks.caption = {}
+pymdownx.smartsymbols = {}
+abbr = {}
+footnotes = {}
+tables = {}
+md_in_html = {}
 
 
 [project.plugins.mkdocstrings]

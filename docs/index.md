@@ -1,3 +1,4 @@
+# Pin Actions
 --8<-- "README.md:overview"
 
 ## Documentation
