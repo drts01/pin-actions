@@ -73,6 +73,9 @@ async def pin_precommit_config(
     """Rewrite each GitHub-hosted repos[].rev to a SHA + '# <original rev>' comment."""
     content = path.read_bytes()  # noqa: ASYNC240 -- sync IO on Path, no async equivalent needed
     doc = yamlrocks.loads(content, option=yamlrocks.OPT_ROUND_TRIP)
+    if not isinstance(doc, yamlrocks.YAMLRocksDocument):
+        msg = "expected a round-trip YAMLRocksDocument"
+        raise TypeError(msg)
 
     refs_to_resolve: RefsToResolve = {}
     for i, repo_entry in enumerate(doc["repos"]):
@@ -84,7 +87,9 @@ async def pin_precommit_config(
 
         rev_path = ("repos", i, "rev")
         if is_full_sha(rev):
-            comment = doc.locate(rev_path).comment
+            node = doc.locate(rev_path)
+            assert node is not None, f"rev_path {rev_path} exists in doc"  # noqa: S101
+            comment = node.comment
             tag = comment.strip() if comment else ""
             if not tag:
                 continue

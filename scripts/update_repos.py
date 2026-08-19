@@ -59,7 +59,7 @@ class UpdateReposSettings(BaseSettings):
     push: bool = Field(default=False, description="Push and open a PR via gh (requires gh auth login)")
     commit_message: str = Field(default=DEFAULT_COMMIT_MESSAGE, description="Commit message and PR title")
     pr_body: str = Field(default=DEFAULT_PR_BODY, description="Pull request body text")
-    format: Literal["table", "markdown", "json", "csv", "tsv"] = Field(
+    format: Literal["table", "markdown", "json", "csv", "tsv"] = Field(  # pyrefly: ignore[bad-assignment]
         default="table",
         description="Summary output format",
     )
@@ -146,6 +146,7 @@ def _publish(repo: str, repo_dir: Path, settings: UpdateReposSettings, result: R
         _run("git", "commit", "-m", settings.commit_message, cwd=repo_dir)
         if settings.push:
             _run("git", "push", "origin", branch, cwd=repo_dir)
+            assert result.base_branch is not None, "base_branch set by _try_clone before _publish runs"  # noqa: S101
             pr = _run(
                 "gh",
                 "pr",

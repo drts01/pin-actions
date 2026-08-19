@@ -2,7 +2,7 @@
 
 import os
 from pathlib import Path
-from typing import Literal
+from typing import Literal, override
 
 from pydantic import AliasChoices, Field, SecretStr
 from pydantic_settings import (
@@ -36,6 +36,7 @@ class Settings(BaseSettings):
         pyproject_toml_table_header=("tool", "pin-actions"),
     )
 
+    @override
     @classmethod
     def settings_customise_sources(
         cls,

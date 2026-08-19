@@ -1,5 +1,7 @@
 """Semver-aware tag selection for --update-to-latest-major/--update-to-latest-minor."""
 
+from operator import itemgetter
+
 from packaging.version import InvalidVersion, Version
 
 _MINOR_PRECISION = 2
@@ -99,7 +101,7 @@ def select_latest_tags(
         return []
 
     # Sort descending by version (highest first)
-    candidates.sort(key=lambda c: c[0], reverse=True)
+    candidates.sort(key=itemgetter(0), reverse=True)
 
     prefix = current_tag[0] if current_tag[:1].lower() == "v" and len(current_tag) > 1 else ""
     output_precision = len(candidates[0][0].release) if full_version else precision

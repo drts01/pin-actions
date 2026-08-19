@@ -173,6 +173,55 @@ async def resolve_and_rewrite(
             doc.locate(item_path).comment = tag
 
 
+async def _resolve_pinned_ref(
+    doc: Any,  # noqa: ANN401
+    client: GitHubClient,
+    item_path: tuple[Any, ...],
+    repo: str,
+    ref: str,
+    *,
+    is_uses: bool,
+    update_options: UpdateOptions | None,
+    refs_to_resolve: RefsToResolve,
+) -> None:
+    """Handle re-resolve logic for an already-pinned uses:/with.ref entry.
+
+    Extracts the common resolution logic for pinned entries that need re-resolution
+    against their recorded tag/branch or version update constraints.
+
+    Args:
+        doc: yamlrocks round-trip document to mutate.
+        client: GitHub API client.
+        item_path: Path to the entry in the document.
+        repo: Repository identifier (owner/repo).
+        ref: Current ref value (SHA for pinned entries).
+        is_uses: True if this is a uses: entry, False if with.ref.
+        update_options: Version update config, or None for re-resolve.
+        refs_to_resolve: Mutable dict to accumulate refs needing resolution.
+    """
+    node = doc.locate(item_path)
+    assert node is not None, f"item_path {item_path} exists in doc"  # noqa: S101
+    comment = node.comment
+    tag = comment.strip() if comment else ""
+    if not tag:
+        return
+
+    if update_options and parse_tag_version(tag) is not None:
+        await apply_version_constrained_tag(
+            doc,
+            client,
+            item_path,
+            repo,
+            tag,
+            ref,
+            is_uses=is_uses,
+            options=update_options,
+        )
+        return
+
+    refs_to_resolve.setdefault((repo, tag), []).append((item_path, ref, is_uses))
+
+
 async def pin_file(
     client: GitHubClient,
     path: Path,
@@ -211,11 +260,19 @@ async def pin_file(
     except Exception as exc:
         raise YAMLParseError(path, str(exc)) from exc
 
+    if not isinstance(doc, yamlrocks.YAMLRocksDocument):
+        raise YAMLParseError(path, "expected a round-trip YAMLRocksDocument")
+
     # Gather all unique refs to resolve, keyed by (repo, tag) -> list of (item_path, current_sha, is_uses).
     # ``current_sha`` is the SHA already in the file (None if this entry isn't pinned yet), so
     # we can tell after resolution whether the tag has moved and a rewrite is actually needed.
     # ``is_uses`` distinguishes uses: (write as repo@sha) from with.ref (write as bare sha).
     refs_to_resolve: RefsToResolve = {}
+
+    # Build update options if needed
+    update_opts = (
+        UpdateOptions(update=update, full_version=full_version, exclude_newer=exclude_newer) if update else None
+    )
 
     # Process uses: entries
     for item_path, uses_str in _find_uses_paths(doc):
@@ -231,21 +288,16 @@ async def pin_file(
             refs_to_resolve.setdefault((repo, ref), []).append((item_path, None, True))
             continue
 
-        # Already-pinned entry: re-resolve against the tag/branch recorded in the
-        # trailing comment (mirrors mheap/pin-github-action's default behavior). A
-        # bare SHA with no comment has nothing to re-resolve against, so it's skipped.
-        comment = doc.locate(item_path).comment
-        tag = comment.strip() if comment else ""
-        if not tag:
-            continue
-
-        if update and parse_tag_version(tag) is not None:
-            opts = UpdateOptions(update=update, full_version=full_version, exclude_newer=exclude_newer)
-            await apply_version_constrained_tag(doc, client, item_path, repo, tag, ref, is_uses=True, options=opts)
-            continue
-
-        # Regardless of update mode, always re-resolve any non-semver comment (branch ref)
-        refs_to_resolve.setdefault((repo, tag), []).append((item_path, ref, True))
+        await _resolve_pinned_ref(
+            doc,
+            client,
+            item_path,
+            repo,
+            ref,
+            is_uses=True,
+            update_options=update_opts,
+            refs_to_resolve=refs_to_resolve,
+        )
 
     # Process with.ref entries (checkout-only, requires with.repository)
     for ref_path, repo, ref, _is_uses in _find_with_ref_paths(doc):
@@ -253,18 +305,16 @@ async def pin_file(
             refs_to_resolve.setdefault((repo, ref), []).append((ref_path, None, False))
             continue
 
-        # Already-pinned with.ref: same re-resolve logic
-        comment = doc.locate(ref_path).comment
-        tag = comment.strip() if comment else ""
-        if not tag:
-            continue
-
-        if update and parse_tag_version(tag) is not None:
-            opts = UpdateOptions(update=update, full_version=full_version, exclude_newer=exclude_newer)
-            await apply_version_constrained_tag(doc, client, ref_path, repo, tag, ref, is_uses=False, options=opts)
-            continue
-
-        refs_to_resolve.setdefault((repo, tag), []).append((ref_path, ref, False))
+        await _resolve_pinned_ref(
+            doc,
+            client,
+            ref_path,
+            repo,
+            ref,
+            is_uses=False,
+            update_options=update_opts,
+            refs_to_resolve=refs_to_resolve,
+        )
 
     await resolve_and_rewrite(doc, client, refs_to_resolve)
 
