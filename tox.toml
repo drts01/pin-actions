@@ -25,7 +25,7 @@ commands = [ [ "zensical", { replace = "posargs", default = [ "build" ], extend 
 
 [env.py315]
 description = "Canary: Python 3.15 (pre-release, allowed to fail)"
-base_python = "python3.15"
+base_python = [ "python3.15" ]
 ignore_outcome = true
 
 [env.typecheck]
