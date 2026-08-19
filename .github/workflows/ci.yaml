@@ -7,25 +7,38 @@ on:
     branches: [main]
   workflow_call: {}
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
-  precommit:
-    runs-on: uhg-runner
-    permissions:
-      contents: read
-      id-token: write
+  lint:
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - name: Get Artifactory Access Token
-        id: setup-jfrog-saas
-        uses: uhg-pipelines/epl-jf/saas-setup@1152b773c8d4b55c0bb5b2a15c82981fe0b3db35 # v5.4
+      - name: checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: run pre-commit hooks
+        uses: j178/prek-action@4e14d07f9231acabce116ccfca13b13dd9755ece  # v3.0.0
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version:
+          - '3.14'
+          - 3.14t
+          - '3.15'
+          - 3.15t
+    steps:
+      - name: checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Setup uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
-          pip-setup: true
-      - name: Checkout prek
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          repository: j178/prek-action
-          ref: 4e14d07f9231acabce116ccfca13b13dd9755ece  # v3.0.0
-          path: .github/actions/prek
-      - name: Run pre-commit
-        uses: ./.github/actions/prek
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+      - name: Run tox
+        run: uv run --group ci tox run
