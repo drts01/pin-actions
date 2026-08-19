@@ -1,4 +1,5 @@
 [env_run_base]
+runner = "uv-venv-lock-runner"
 description = "Run pytest with coverage"
 package = "editable"
 dependency_groups = [ "test" ]
@@ -37,3 +38,8 @@ commands = [ [ "pyrefly", { replace = "posargs", default = [ "check" ], extend =
 [tox]
 env_list = [ "py314", "py314-cache" ]
 min_version = "4.22"
+requires = [ "tox-uv" ]
+
+[gh.python]
+"3.15" = [ "py315" ]
+"3.14" = [ "py314", "typecheck" ]
