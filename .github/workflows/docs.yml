@@ -9,13 +9,6 @@ on:
       - zensical.toml
       - pyproject.toml
       - .github/workflows/docs.yml
-  pull_request:
-    branches: [trunk]
-    paths:
-      - docs/**
-      - src/pin_actions/**
-      - zensical.toml
-      - pyproject.toml
   workflow_dispatch: {}
 
 permissions:
@@ -24,7 +17,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: docs-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
