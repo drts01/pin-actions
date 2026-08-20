@@ -29,7 +29,7 @@ class UpdatePrecommitSettings(BaseSettings):
         default=Path(".pre-commit-config.yaml"),
         description="Path to .pre-commit-config.yaml file",
     )
-    token: SecretStr | None = Field(
+    github_token: SecretStr | None = Field(
         default=None,
         validation_alias=AliasChoices("UPDATE_PRECOMMIT_TOKEN", "GITHUB_TOKEN"),
         description="GitHub API token (env: GITHUB_TOKEN or UPDATE_PRECOMMIT_TOKEN)",
@@ -114,7 +114,7 @@ async def pin_precommit_config(
 
 async def _amain(settings: UpdatePrecommitSettings) -> None:
     """Execute main business logic."""
-    token = settings.token.get_secret_value() if settings.token else None
+    token = settings.github_token.get_secret_value() if settings.github_token else None
     async with GitHubClient(token=token) as client:
         modified = await pin_precommit_config(
             client,
