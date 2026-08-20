@@ -148,6 +148,8 @@ lint.preview = true
 
 [tool.interrogate]
 fail-under = 100
+ignore-semiprivate = true
+ignore-private = true
 ignore-nested-functions = true
 exclude = [ "tests/" ]
 verbose = 2
