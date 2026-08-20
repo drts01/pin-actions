@@ -1,5 +1,6 @@
 """Tests for GitHubClient (rate limiting, retries, caching, LRU eviction)."""
 
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -389,6 +390,37 @@ class TestFetchAllTagsPagination:
         # Assert
         assert len(tags) == 150
         assert mock_http_client.get.call_count == 2
+
+
+class TestConcurrentDedup:
+    """Test single-flight de-duplication prevents cache stampede."""
+
+    @pytest.mark.asyncio
+    async def test_concurrent_requests_same_key_single_fetch(self) -> None:
+        """Concurrent requests for same key share a single fetch."""
+        # Arrange
+        client = GitHubClient(token="test", concurrency=10)
+        call_count = 0
+
+        async def mock_fetch_all_tags(_owner_repo: str) -> list[tuple[str, str]]:
+            nonlocal call_count
+            call_count += 1
+            await asyncio.sleep(0.01)  # simulate latency
+            return [("v1", "1111111111111111111111111111111111111111")]
+
+        # Act: launch 5 concurrent requests for the same repo
+        with patch.object(client, "_fetch_all_tags", side_effect=mock_fetch_all_tags):
+            results = await asyncio.gather(
+                client.list_tags("actions/checkout"),
+                client.list_tags("actions/checkout"),
+                client.list_tags("actions/checkout"),
+                client.list_tags("actions/checkout"),
+                client.list_tags("actions/checkout"),
+            )
+
+        # Assert: only one actual fetch despite 5 concurrent calls
+        assert call_count == 1
+        assert all(r == [("v1", "1111111111111111111111111111111111111111")] for r in results)
 
 
 class TestContextManager:

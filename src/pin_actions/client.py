@@ -47,8 +47,11 @@ class GitHubClient:
         self.max_cache_size = max_cache_size
         self._semaphore = asyncio.Semaphore(concurrency)
         self._cache: OrderedDict[tuple[str, str], str] = OrderedDict()
+        self._cache_inflight: dict[Any, asyncio.Task[str]] = {}
         self._tags_cache: OrderedDict[str, list[tuple[str, str]]] = OrderedDict()
+        self._tags_cache_inflight: dict[Any, asyncio.Task[list[tuple[str, str]]]] = {}
         self._commit_date_cache: OrderedDict[tuple[str, str], str] = OrderedDict()
+        self._commit_date_cache_inflight: dict[Any, asyncio.Task[str]] = {}
         self._http_client: httpx2.AsyncClient | None = None
         self._http_client_lock = asyncio.Lock()
 
@@ -80,13 +83,17 @@ class GitHubClient:
     async def _cached_fetch[T](
         self,
         cache: OrderedDict[Any, T],
+        inflight: dict[Any, asyncio.Task[T]],
         key: Any,  # noqa: ANN401
         fetch: Callable[[], Awaitable[T]],
     ) -> T:
-        """Check in-memory cache → fetch (gated by semaphore) → write-through cache.
+        """Check in-memory cache → in-flight dedup → fetch → write-through cache.
+
+        Prevents cache stampede by de-duplicating concurrent requests for the same key.
 
         Args:
             cache: In-memory cache dict (e.g., _cache or _tags_cache).
+            inflight: Tracking dict for in-flight fetches (same type as cache).
             key: Key for in-memory cache lookup/write.
             fetch: Async callable that performs the remote fetch.
 
@@ -98,15 +105,25 @@ class GitHubClient:
             logger.debug("Cache hit: %s", key)
             return cache[key]
 
+        if key in inflight:
+            logger.debug("Awaiting in-flight fetch: %s", key)
+            return await inflight[key]
+
+        async def _fetch_and_store() -> T:
+            async with self._semaphore:
+                value = await fetch()
+            cache[key] = value
+            if self.max_cache_size and len(cache) > self.max_cache_size:
+                cache.popitem(last=False)
+            return value
+
         logger.debug("Cache miss (fetching): %s", key)
-        async with self._semaphore:
-            value = await fetch()
-
-        cache[key] = value
-        if self.max_cache_size and len(cache) > self.max_cache_size:
-            cache.popitem(last=False)
-
-        return value
+        task: asyncio.Task[T] = asyncio.ensure_future(_fetch_and_store())
+        inflight[key] = task
+        try:
+            return await task
+        finally:
+            inflight.pop(key, None)
 
     async def list_tags(self, repo: str) -> list[tuple[str, str]]:
         """List all tags for a repo as (tag_name, commit_sha) pairs.
@@ -126,6 +143,7 @@ class GitHubClient:
         owner_repo = "/".join(repo.split("/")[:2])
         return await self._cached_fetch(
             self._tags_cache,
+            self._tags_cache_inflight,
             owner_repo,
             lambda: self._fetch_all_tags(owner_repo),
         )
@@ -193,6 +211,7 @@ class GitHubClient:
 
         return await self._cached_fetch(
             self._cache,
+            self._cache_inflight,
             (repo, ref),
             lambda: self._request_with_backoff(repo, ref),
         )
@@ -273,6 +292,7 @@ class GitHubClient:
         owner_repo = "/".join(repo.split("/")[:2])
         return await self._cached_fetch(
             self._commit_date_cache,
+            self._commit_date_cache_inflight,
             (owner_repo, sha),
             lambda: self._fetch_commit_date(owner_repo, sha),
         )
