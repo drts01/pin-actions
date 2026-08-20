@@ -4,9 +4,8 @@ import asyncio
 import http
 import logging
 import random
-import threading
 from collections import OrderedDict
-from typing import TYPE_CHECKING, Any, Protocol, Self
+from typing import TYPE_CHECKING, Any, Self
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -22,20 +21,8 @@ _MAX_TAG_PAGES = 10  # 100 tags/page cap; guards against runaway pagination on h
 _TAGS_PER_PAGE = 100
 
 
-class _DiskCache(Protocol):
-    """Minimal disk cache interface (duck-typed for diskcache_rs.Cache)."""
-
-    def get(self, key: str, default: object = None) -> object:
-        """Get cached value or default."""
-        ...  # pragma: no cover
-
-    def set(self, key: str, value: object, expire: int | None = None) -> None:
-        """Set cached value with optional TTL."""
-        ...  # pragma: no cover
-
-
 class GitHubClient:
-    """Async GitHub API client with thread-safe caching, rate limiting, and backoff."""
+    """Async GitHub API client with in-memory LRU caching, rate limiting, and backoff."""
 
     def __init__(
         self,
@@ -43,8 +30,6 @@ class GitHubClient:
         base_url: str = "https://api.github.com",
         concurrency: int = 5,
         max_retries: int = 5,
-        disk_cache: _DiskCache | None = None,
-        cache_ttl: int = 3600,
         max_cache_size: int = 1000,
     ) -> None:
         """Initialize GitHub client.
@@ -54,23 +39,16 @@ class GitHubClient:
             base_url: GitHub API base URL.
             concurrency: Max concurrent requests via asyncio.Semaphore.
             max_retries: Max retry attempts on 403/429 errors.
-            disk_cache: Optional diskcache_rs.Cache instance for persistent caching.
-            cache_ttl: TTL in seconds for disk cache entries.
             max_cache_size: Max entries in in-memory cache before LRU eviction (0 = unbounded).
         """
         self.base_url = base_url.rstrip("/")
         self.token = token
         self.max_retries = max_retries
-        self.disk_cache = disk_cache
-        self.cache_ttl = cache_ttl
         self.max_cache_size = max_cache_size
         self._semaphore = asyncio.Semaphore(concurrency)
         self._cache: OrderedDict[tuple[str, str], str] = OrderedDict()
-        self._cache_lock = threading.Lock()
         self._tags_cache: OrderedDict[str, list[tuple[str, str]]] = OrderedDict()
-        self._tags_cache_lock = threading.Lock()
         self._commit_date_cache: OrderedDict[tuple[str, str], str] = OrderedDict()
-        self._commit_date_cache_lock = threading.Lock()
         self._http_client: httpx2.AsyncClient | None = None
         self._http_client_lock = asyncio.Lock()
 
@@ -101,50 +79,32 @@ class GitHubClient:
 
     async def _cached_fetch[T](
         self,
-        disk_cache_key: str,
-        mem_cache: OrderedDict[Any, T],
-        mem_key: Any,  # noqa: ANN401
-        mem_lock: threading.Lock,
+        cache: OrderedDict[Any, T],
+        key: Any,  # noqa: ANN401
         fetch: Callable[[], Awaitable[T]],
     ) -> T:
-        """Check disk cache → in-memory cache → fetch (gated by semaphore) → write-through both.
+        """Check in-memory cache → fetch (gated by semaphore) → write-through cache.
 
         Args:
-            disk_cache_key: Key for disk cache lookup/write.
-            mem_cache: In-memory cache dict (e.g., _cache or _tags_cache).
-            mem_key: Key for in-memory cache lookup/write.
-            mem_lock: Lock guarding in-memory cache.
+            cache: In-memory cache dict (e.g., _cache or _tags_cache).
+            key: Key for in-memory cache lookup/write.
             fetch: Async callable that performs the remote fetch.
 
         Returns:
             Cached or freshly-fetched value.
         """
-        # Check disk cache first
-        if self.disk_cache is not None and (cached := self.disk_cache.get(disk_cache_key)) is not None:
-            logger.debug("Disk cache hit: %s", disk_cache_key)
-            return cached  # type: ignore[return-value]
+        if key in cache:
+            cache.move_to_end(key)
+            logger.debug("Cache hit: %s", key)
+            return cache[key]
 
-        # Check in-memory cache (LRU: touch on hit)
-        with mem_lock:
-            if mem_key in mem_cache:
-                mem_cache.move_to_end(mem_key)
-                logger.debug("Memory cache hit: %s", mem_key)
-                return mem_cache[mem_key]
-
-        logger.debug("Cache miss (fetching): %s", mem_key)
-        # Fetch under semaphore (rate limiting)
+        logger.debug("Cache miss (fetching): %s", key)
         async with self._semaphore:
             value = await fetch()
 
-        # Write to in-memory cache with LRU eviction
-        with mem_lock:
-            mem_cache[mem_key] = value
-            if self.max_cache_size and len(mem_cache) > self.max_cache_size:
-                mem_cache.popitem(last=False)
-
-        # Write to disk cache
-        if self.disk_cache is not None:
-            self.disk_cache.set(disk_cache_key, value, expire=self.cache_ttl)
+        cache[key] = value
+        if self.max_cache_size and len(cache) > self.max_cache_size:
+            cache.popitem(last=False)
 
         return value
 
@@ -165,10 +125,8 @@ class GitHubClient:
         """
         owner_repo = "/".join(repo.split("/")[:2])
         return await self._cached_fetch(
-            f"list_tags:{self.base_url}:{owner_repo}",
             self._tags_cache,
             owner_repo,
-            self._tags_cache_lock,
             lambda: self._fetch_all_tags(owner_repo),
         )
 
@@ -234,10 +192,8 @@ class GitHubClient:
             return ref
 
         return await self._cached_fetch(
-            f"resolve_sha:{self.base_url}:{repo}:{ref}",
             self._cache,
             (repo, ref),
-            self._cache_lock,
             lambda: self._request_with_backoff(repo, ref),
         )
 
@@ -316,10 +272,8 @@ class GitHubClient:
         """
         owner_repo = "/".join(repo.split("/")[:2])
         return await self._cached_fetch(
-            f"commit_date:{self.base_url}:{owner_repo}:{sha}",
             self._commit_date_cache,
             (owner_repo, sha),
-            self._commit_date_cache_lock,
             lambda: self._fetch_commit_date(owner_repo, sha),
         )
 

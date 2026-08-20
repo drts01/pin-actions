@@ -452,24 +452,11 @@ async def run(settings: Settings, *, client: GitHubClient | None = None) -> list
 
     token = settings.github_token.get_secret_value() if settings.github_token else None
 
-    # Initialize disk cache if enabled (can be disabled via --no-cache)
-    disk_cache = None
-    if settings.cache:
-        try:
-            from diskcache_rs import Cache  # type: ignore[import-not-found]  # noqa: PLC0415
-        except ImportError:
-            logger.warning("diskcache-rs not installed; persistent caching disabled (disable warning with --no-cache)")
-        else:
-            settings.cache_dir.mkdir(parents=True, exist_ok=True)
-            disk_cache = Cache(str(settings.cache_dir))
-
     async with GitHubClient(
         token=token,
         base_url=settings.api_base_url,
         concurrency=settings.concurrency,
         max_retries=settings.max_retries,
-        disk_cache=disk_cache,
-        cache_ttl=settings.cache_ttl,
     ) as gh_client:
         return await _process_files(gh_client, files, settings)
 

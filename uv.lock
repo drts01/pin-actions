@@ -258,40 +258,6 @@ wheels = [
 ]
 
 [[package]]
-name = "diskcache-rs"
-version = "0.4.10"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/e3/de/eaf459b0550fde8e4754a95bd6e5ac7f21212a11360e41e16575be1637e1/diskcache_rs-0.4.10.tar.gz", hash = "sha256:7eca3923717ac69197143ec6452a8a65d388c70497e463bc30fc92495b6d1385", size = 238028, upload-time = "2026-05-12T02:54:26.843Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/74/1c/fed8847d77c6887edaa4d401416c25a84584213f300538b483bae52c5950/diskcache_rs-0.4.10-cp314-cp314-macosx_10_12_x86_64.macosx_11_0_arm64.macosx_10_12_universal2.whl", hash = "sha256:16688ea3655aa33e534249ffeb1a5f93e08ac69228663da2282cf9d46bcbdc71", size = 2751268, upload-time = "2026-05-12T02:52:52.561Z" },
-    { url = "https://files.pythonhosted.org/packages/09/59/7cbfdf9c53f1977c78f7951be9c8e9ea4d36aaf789242ff7b6ff9fe27062/diskcache_rs-0.4.10-cp314-cp314-macosx_10_12_x86_64.whl", hash = "sha256:ec14dde1becff3310a36f1913ddfd7f534ce7a6c81fd8690b3b48f4e4456480d", size = 1454977, upload-time = "2026-05-12T02:52:54.822Z" },
-    { url = "https://files.pythonhosted.org/packages/fa/ca/44cc941da8463726475faf8d3a45a7a6c5fa92c52a49a49fc09754e2bfb5/diskcache_rs-0.4.10-cp314-cp314-manylinux_2_12_i686.manylinux2010_i686.whl", hash = "sha256:5627b4bb6392b5f9d9a4d4047259dde7e25b84bac8ada1e92f65e599019cadcd", size = 1635264, upload-time = "2026-05-12T02:52:56.886Z" },
-    { url = "https://files.pythonhosted.org/packages/8e/cb/65b67675268274d6e9494b0e42cd448b56921664019301b4070e8af589ea/diskcache_rs-0.4.10-cp314-cp314-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:74c78bb3a497cfd0a3c4b36c2f9a468da815fa8aa740155ccbd24537a0320807", size = 1351630, upload-time = "2026-05-12T02:52:58.814Z" },
-    { url = "https://files.pythonhosted.org/packages/65/50/f12c9013fdab2221d886c22dbb15b487fb4832a4decc4d9ef81c2136ef9d/diskcache_rs-0.4.10-cp314-cp314-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:d59a6c68b3691b28474c50e671d74d85773d9c6fefa1f10b1a586e57ac333857", size = 1310364, upload-time = "2026-05-12T02:53:00.755Z" },
-    { url = "https://files.pythonhosted.org/packages/0c/53/d0b510abb32f75de11cc3c3ce0d7be9026ed86de796985a316a2741dbe45/diskcache_rs-0.4.10-cp314-cp314-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:8f1a3738633504490059727af917311d48daa47ed7359f15c0a96b21b341bb79", size = 1520789, upload-time = "2026-05-12T02:53:02.976Z" },
-    { url = "https://files.pythonhosted.org/packages/19/ec/05affa36dbc25d8afda39997681d4a7e7ab16c6f244a978231342fe480c9/diskcache_rs-0.4.10-cp314-cp314-musllinux_1_2_aarch64.whl", hash = "sha256:588e26e3424c6f246b637dd9f83966f5042522b99504830406dc1af386538361", size = 1659430, upload-time = "2026-05-12T02:53:04.7Z" },
-    { url = "https://files.pythonhosted.org/packages/0c/03/97be9819ba9994388eeb98e0ade14699baed8e0cbb7cd793071406899ceb/diskcache_rs-0.4.10-cp314-cp314-musllinux_1_2_armv7l.whl", hash = "sha256:07b758e004024302f5c368ac9448b46347339d52ad6fa3e4db5f441b49a538b5", size = 1714982, upload-time = "2026-05-12T02:53:06.575Z" },
-    { url = "https://files.pythonhosted.org/packages/94/82/8eaf8077b728bb6789a0f3f35228bf5d6a4da5371220220a17c6b7ec062c/diskcache_rs-0.4.10-cp314-cp314-musllinux_1_2_i686.whl", hash = "sha256:e1f6b868e6eccd9d008db77ea88971629437d3bfebd60663f0df82cf904733de", size = 1864333, upload-time = "2026-05-12T02:53:08.722Z" },
-    { url = "https://files.pythonhosted.org/packages/e3/a2/a798280e05dda6727960be29a5428ac9c82137529cc94ef54d3cf0692691/diskcache_rs-0.4.10-cp314-cp314-musllinux_1_2_x86_64.whl", hash = "sha256:e44b96cce8e28d998cc7cdd8f8037d59eb589404c7b1f9a945c2ccb4a7166a2a", size = 1760695, upload-time = "2026-05-12T02:53:10.93Z" },
-    { url = "https://files.pythonhosted.org/packages/64/b3/34e5a9e8acf802b43667c50c73a9aa23ad927431eb490c65846d2e7935af/diskcache_rs-0.4.10-cp314-cp314-win32.whl", hash = "sha256:b76190575649c94fb08bcbcbaf16a8fde92e694598d2d931d4a056b7c8d4dd99", size = 1174118, upload-time = "2026-05-12T02:53:12.61Z" },
-    { url = "https://files.pythonhosted.org/packages/fe/7d/8f558f9d358155e2011cd18acc1c775ab56fb9a0a54423841033e7945ff7/diskcache_rs-0.4.10-cp314-cp314-win_amd64.whl", hash = "sha256:797bf707511e57f2fbd56690a1f9b7ab7eb32296b4d8f1f4e2b29e3ee35c5eac", size = 1350808, upload-time = "2026-05-12T02:53:14.225Z" },
-    { url = "https://files.pythonhosted.org/packages/a5/3b/a1b1ddbfe93d56d6e60404e42638a4f26b1fbacf379bf08642202382c2ec/diskcache_rs-0.4.10-cp314-cp314t-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:18e544a3177cb0de140fd2794683b5fbfd84f2d50f175964dd5b30a6e262e8c6", size = 1348836, upload-time = "2026-05-12T02:53:15.895Z" },
-    { url = "https://files.pythonhosted.org/packages/0f/46/e1f4288cc079d6714961023e67b688e579ccf72eb246d33067a3d019f112/diskcache_rs-0.4.10-cp314-cp314t-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:eb9b4710e19d83bd123d569e5c00a19d2b1a1f73a56e08444a1e5e0dc4b649e6", size = 1308437, upload-time = "2026-05-12T02:53:18.102Z" },
-    { url = "https://files.pythonhosted.org/packages/5d/c2/f83f0a7b62da2a2d797197383a235f864c55236fd3965e26f8bf4a466e9e/diskcache_rs-0.4.10-cp314-cp314t-musllinux_1_2_aarch64.whl", hash = "sha256:dcf766d332f1f2f836966a573043ae1d430cc212e7d3e0b876dbb51feaf30b8f", size = 1656924, upload-time = "2026-05-12T02:53:19.984Z" },
-    { url = "https://files.pythonhosted.org/packages/0c/4c/62b394d712333d82f25b98f33e5a9c6fb091fb0d1b570b9cb92822cd259f/diskcache_rs-0.4.10-cp314-cp314t-musllinux_1_2_armv7l.whl", hash = "sha256:3cff8b5b79d6a676499321bd58cc790b829886e04e62e603a60a67689c431e4f", size = 1712773, upload-time = "2026-05-12T02:53:22.194Z" },
-    { url = "https://files.pythonhosted.org/packages/87/af/5d63c3bb8d09408d7aa15c491e0d72af65b571f1727b174c7ba67e929d9d/diskcache_rs-0.4.10-cp314-cp314t-musllinux_1_2_i686.whl", hash = "sha256:57fbf845a6c02490bfa7955cc86e0eaac5b4237194302dfb78cba4e0273885c7", size = 1862636, upload-time = "2026-05-12T02:53:24.654Z" },
-    { url = "https://files.pythonhosted.org/packages/ef/8c/ca0589888095b5da2a65574e15722dbd6afbe1ceda7cd3f1f14c7bc32575/diskcache_rs-0.4.10-cp314-cp314t-musllinux_1_2_x86_64.whl", hash = "sha256:9383ce582659c2bea28aa2b248f43ecef9a1aac09e2919fecbec49741c85ea7b", size = 1758221, upload-time = "2026-05-12T02:53:26.722Z" },
-    { url = "https://files.pythonhosted.org/packages/a6/4b/175e1e55ff1913a53d739bf0333cee7f4c18ef24b01694bc7c66daeb07ee/diskcache_rs-0.4.10-cp315-cp315-manylinux_2_12_i686.manylinux2010_i686.whl", hash = "sha256:2bad97d0a1a6142f7d90c1d84c3f98ab944c00082c22e7ab0dbf7ff8bad935cc", size = 1635264, upload-time = "2026-05-12T02:53:28.561Z" },
-    { url = "https://files.pythonhosted.org/packages/8e/17/77ab4cf7a74efb638acb1487be499d61bf19834622e6a7dac721b1c4e8df/diskcache_rs-0.4.10-cp315-cp315-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:08b73ebb84bed3913fa1eb77108ca46a18562e80139d8416a702fd1c22ca9104", size = 1520787, upload-time = "2026-05-12T02:53:30.343Z" },
-    { url = "https://files.pythonhosted.org/packages/f0/a0/cdce2474d540d2593a04ce745a81ca87c1556cc1af819121e5d6c5096d27/diskcache_rs-0.4.10-cp38-abi3-macosx_10_12_x86_64.whl", hash = "sha256:9e5c311ae4291b0c81a4c52ebd9899137f5f50ef9e899820019d09767bf6ecd4", size = 1460490, upload-time = "2026-05-12T02:53:32.314Z" },
-    { url = "https://files.pythonhosted.org/packages/0e/6a/ea627a8689add25f21197fef1ec723dd30d08366d99412c24e429426f030/diskcache_rs-0.4.10-cp38-abi3-macosx_11_0_arm64.whl", hash = "sha256:52b349141faa292da64800b52dacd2d628705e29a80898d68973894ea094e717", size = 1365506, upload-time = "2026-05-12T02:53:34.415Z" },
-    { url = "https://files.pythonhosted.org/packages/67/3d/2dcdea8d234299674715b3064d25f56c1e6ffcc63e3f70500aea160f70b7/diskcache_rs-0.4.10-cp38-abi3-manylinux_2_12_i686.manylinux2010_i686.whl", hash = "sha256:8e2062f31dd17454be3f1d5bbc3a8605c70c8a32ddc3b0e36716af8027e5244c", size = 1638795, upload-time = "2026-05-12T02:53:36.367Z" },
-    { url = "https://files.pythonhosted.org/packages/b7/0f/07e3a01850047a3ddea015fe5414c81d29e233927af1666937d6a8fe353d/diskcache_rs-0.4.10-cp38-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:a9acd3fd69490ddfdd39fb4b1fd3368d2b39f9c24d112e6b5688aa4b8bb9ac92", size = 1521911, upload-time = "2026-05-12T02:53:38.332Z" },
-    { url = "https://files.pythonhosted.org/packages/d8/5e/cddc07025d9071ca69c5531cd43b3ed813aba8b6590352c57bf02e9cea3e/diskcache_rs-0.4.10-cp38-abi3-win32.whl", hash = "sha256:18d1f06991036d265d2a3323f23c4dcc18961f95383757ad73242b53bda55519", size = 1176369, upload-time = "2026-05-12T02:53:40.294Z" },
-    { url = "https://files.pythonhosted.org/packages/8f/cc/2743d0dd5335274815a81e71a40930cbecc6a079f84c0e281ddf4dc44797/diskcache_rs-0.4.10-cp38-abi3-win_amd64.whl", hash = "sha256:46ba0b8ba5ee77330dbbce15bfb072b9b84466743deb3c02c0a76c972152c923", size = 1352717, upload-time = "2026-05-12T02:53:41.976Z" },
-]
-
-[[package]]
 name = "distlib"
 version = "0.4.3"
 source = { registry = "https://pypi.org/simple" }
@@ -740,11 +706,6 @@ dependencies = [
     { name = "yamlrocks" },
 ]
 
-[package.optional-dependencies]
-cache = [
-    { name = "diskcache-rs" },
-]
-
 [package.dev-dependencies]
 build = [
     { name = "build" },
@@ -773,13 +734,11 @@ typecheck = [
 
 [package.metadata]
 requires-dist = [
-    { name = "diskcache-rs", marker = "extra == 'cache'", specifier = ">=0.4" },
     { name = "httpx2", specifier = ">=0.28" },
     { name = "packaging", specifier = ">=24" },
     { name = "pydantic-settings", specifier = "~=2.0" },
     { name = "yamlrocks", specifier = "~=0.6.1" },
 ]
-provides-extras = ["cache"]
 
 [package.metadata.requires-dev]
 build = [

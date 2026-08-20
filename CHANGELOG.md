@@ -11,6 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Breaking Changes
 - Consolidated `api_base_url` + `git_host` into a single `host` field; use `--host github.example.com` for GHE Server (API URL is derived automatically)
 
+### Removed
+- **Disk caching (`diskcache-rs`)** — Persistent disk cache removed. Rationale: in-memory cache already dedupes refs within a single run; disk cache across separate invocations violated documented re-resolution safety invariant without adding value in CI/CD (ephemeral runners) or batch multi-repo scenarios (staleness at scale). Kept: in-memory LRU cache (thread-safe, zero-cost dedup within-run).
+  - Removed `--cache`, `--cache-dir`, `--cache-ttl` CLI flags
+  - Removed `cache`, `cache_dir`, `cache_ttl` from `Settings`
+  - Removed optional dependency `diskcache-rs>=0.4`
+  - Updated docs: `configure-caching.md` now covers in-memory cache only
+
 ### Added
 - GitHub Enterprise Server (GHE) support via `--host` setting: single flag automatically derives both API base URL and clone-URL hostname
 - Cool-off period (`--exclude-newer`) for tag auto-selection: mitigates same-day supply-chain attacks by skipping tags younger than cutoff; accepts RFC 3339 timestamps, ISO 8601 durations, and friendly durations (e.g., `7 days`)

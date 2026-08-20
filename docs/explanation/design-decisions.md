@@ -6,9 +6,9 @@ Key architectural choices and their rationale.
 
 | Decision | Rationale |
 |----------|-----------|
-| **httpx2** (not httpx) | Spec requirement; avoids hishel compatibility issues |
+| **httpx2** (not httpx) | `httpx` has stalled since late 2024; httpx2 is a drop-in replacement fork by Pydantic Services Inc. |
 | **yamlrocks** (not regex/ruamel.yaml) | Rust-backed AST preserves comments/formatting; faster than pure Python |
-| **Manual lock-guarded cache** (not Hishel) | Explicit thread-safety; simple & fast. Will migrate to Hishel once it supports httpx2 |
+| **In-memory LRU cache** | Simple & fast, asyncio single-threaded model needs no locks. |
 | **Semaphore** (not global rate limiter) | Async-native; respects GitHub API concurrency limits without blocking |
 | **Batch ref resolution** | Deduplicate refs before API calls; faster for workflows with repeated actions |
 | **Raise, don't catch** | Library functions raise exceptions; CLI is the only layer that catches and converts to stderr |
@@ -90,7 +90,7 @@ When set, candidates are tested best-first (highest version wins). Only tags pas
 1. **Stable no-op**: Running twice with unmoved tags produces identical output (re-resolution happens, but file only rewritten if SHA differs)
 2. **Already-pinned refs are re-resolved, not frozen**: A `sha # tag` is re-resolved on every run; a bare SHA is left untouched
 3. **No modification of local actions**: `./...` actions skipped entirely
-4. **Cache consistency**: Lock guards all reads/writes
+4. **Cache consistency**: Atomic dict ops under cooperative asyncio scheduling (no `await` inside critical sections)
 5. **Retry limits**: Max `max_retries` attempts per-ref
 6. **Version constraints never silently drop**: Entry left exactly as-is with stderr warning
 7. **Branch refs are always re-resolved**: A version constraint (`--update`) only affects semver-parseable comments; a branch-name comment always falls through to the default re-resolve path, regardless of `--update`

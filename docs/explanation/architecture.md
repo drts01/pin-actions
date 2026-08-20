@@ -151,16 +151,17 @@ With `Retry-After` header, GitHub's advised delay is respected.
 
 **Retry limit:** `max_retries` (default 5)
 
-### Thread-safe cache
+### In-memory LRU cache
 
-Both in-memory and disk caches are guarded by `threading.Lock`:
+Caches are safe under asyncio's single-threaded cooperative scheduling (no `threading.Lock` needed; critical sections contain no `await`):
 
 ```python
-_cache: OrderedDict[(repo, ref), sha]  # locked
-_tags_cache: OrderedDict[repo, tags]  # locked
+_cache: OrderedDict[(repo, ref), sha]
+_tags_cache: OrderedDict[repo, tags]
+_commit_date_cache: OrderedDict[(repo, sha), date]
 ```
 
-**Pattern:** disk cache → in-memory cache → fetch (semaphore-gated) → write-through both
+**Pattern:** in-memory cache → fetch (semaphore-gated) → write-through cache
 
 **LRU eviction:** `OrderedDict` + `move_to_end()` on hit; auto-evict oldest when `len(cache) > max_cache_size` (default 1000).
 

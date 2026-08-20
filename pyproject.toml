@@ -38,7 +38,6 @@ dependencies = [
   "pydantic-settings~=2.0",
   "yamlrocks~=0.6.1",
 ]
-optional-dependencies.cache = [ "diskcache-rs>=0.4" ]
 urls.Homepage = "https://github.com/drts01/pin-actions"
 urls.Issues = "https://github.com/drts01/pin-actions/issues"
 urls.Repository = "https://github.com/drts01/pin-actions"

@@ -24,7 +24,6 @@ All config files are optional — pin-actions runs with zero configuration if no
 
 ```toml
 concurrency = 10
-cache_ttl = 7200
 host = "github.example.com"
 ```
 

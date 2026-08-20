@@ -1,76 +1,107 @@
 # Configure Caching
 
-Learn how to enable and customize pin-actions' caching behavior to avoid redundant API calls.
+Learn how pin-actions' in-memory caching works to avoid redundant API calls.
 
 ## In-Memory Cache
 
-By default, pin-actions maintains an in-memory cache of resolved refs during a single run. Multiple references to `actions/checkout@v4` within the same session result in only one API call.
+By default, pin-actions maintains an in-memory cache of resolved refs during a single run. Multiple references to the same `actions/checkout@v4` within the same session result in only one API call.
 
-This cache is automatic and requires no configuration.
+This cache is:
+- **Automatic** — no configuration needed
+- **Scoped to the client's lifetime** — shared across all files processed in a single run
+- **Safe for concurrent async use** — Single-threaded asyncio event loop provides atomicity; no locks needed
 
-## Persistent Disk Cache
+## How It Works
 
-Enable persistent caching to reuse resolved refs across multiple runs:
+When you run pin-actions against multiple files or repositories:
 
-```bash
-pin-actions --cache --cache-dir ~/.cache/pin-actions --cache-ttl 3600
-```
+1. **First ref encounter**: API call is made, result cached in memory
+2. **Subsequent encounters**: Cache hit, result returned instantly (no API call)
+3. **Across multiple files in one run**: All files share the same cache, so `actions/checkout@v4` is only fetched once even if used in 100 workflows
 
-This requires the optional `diskcache-rs` dependency:
+**Example**: A batch update of 50 repositories where every repo uses `actions/checkout@v4` and `actions/setup-python@v4`:
 
-```bash
-uv add 'pin-actions[cache]'
-```
+- Unauthenticated runs: ~2 API calls (1 per unique action, 50 repos ÷ 25 refs per repo ≈ massive savings)
+- Authenticated runs: Same, plus batch tag operations if using `--update`
 
-## Cache Options
+## Disable Caching (Advanced)
 
-| Flag | Type | Default | Description |
-|------|------|---------|-------------|
-| `--cache` | bool | true | Enable persistent disk caching |
-| `--no-cache` | bool | — | Disable persistent caching |
-| `--cache-dir` | path | `~/.cache/pin-actions` | Directory for cache files |
-| `--cache-ttl` | seconds | 3600 | Time-to-live for cache entries (1 hour) |
-
-## Disable Caching
-
-To skip all caching (in-memory and disk):
+To skip in-memory caching (rare, for debugging only):
 
 ```bash
-pin-actions --no-cache --github-token $GITHUB_TOKEN
+# Recreate client for each file
+# (no direct flag; use library API if needed)
 ```
 
-Useful for:
-- One-time runs without re-resolution
-- Debugging ref resolution
-- Offline workflows where cached data may be stale
+For library usage, create a new client per file:
 
-## Cache Behavior
+```python
+import asyncio
+from pathlib import Path
+from pin_actions import GitHubClient, Settings, pin_file
 
-- **Cache hit**: Resolved SHA is returned immediately without an API call
-- **Cache miss**: API call is made, result cached for TTL seconds
-- **Expired entry**: After TTL expires, a fresh API call is made
-- **Disk-first**: Persistent cache is checked before in-memory cache before hitting the API
 
-## Library Usage
+async def process_files_without_cache():
+    files = [Path("repo1/.github/workflows/ci.yml"), Path("repo2/.github/workflows/ci.yml")]
+    token = "ghp_xxxx"
 
-Control caching programmatically:
+    # Fresh client per file = fresh cache each time
+    for file in files:
+        async with GitHubClient(token=token) as client:
+            await pin_file(client, file)
+```
+
+**Preferred**: Share a client across files for cache benefits (see below).
+
+## Library Usage: Shared Client Pattern
+
+Control caching programmatically by reusing a single client:
+
+```python
+from pin_actions import GitHubClient, Settings, run
+import asyncio
+from pathlib import Path
+
+
+async def batch_update():
+    repos = [Path("./repo1"), Path("./repo2"), Path("./repo3")]
+
+    # Single client = shared cache across all repos
+    async with GitHubClient(token="ghp_xxxx", concurrency=10) as client:
+        for repo_path in repos:
+            settings = Settings(path=repo_path / ".github/workflows", dry_run=False)
+            modified = await run(settings, client=client)
+            print(f"{repo_path}: {len(modified)} files pinned")
+
+
+asyncio.run(batch_update())
+```
+
+Benefits:
+- **Connection pooling** — reuses HTTP connections across repos
+- **In-memory cache hits** — refs shared across repos (e.g., all using `actions/checkout@v4`) cached once
+- **Unified rate-limit handling** — semaphore bounds all API calls globally
+
+## Cache Tuning
+
+Control in-memory cache size:
 
 ```python
 from pin_actions import GitHubClient
-from diskcache_rs import Cache
 
-# Enable disk cache
-disk_cache = Cache("/tmp/pin-actions-cache")
+# Bounded cache (default: 1000 entries, LRU eviction)
+client = GitHubClient(token="ghp_xxxx", max_cache_size=1000)
 
-client = GitHubClient(
-    token="ghp_xxxx",
-    disk_cache=disk_cache,
-    cache_ttl=7200,  # 2 hours
-    max_cache_size=5000,  # Max entries in memory
-)
+# Unbounded cache (0 = no eviction, memory unbounded)
+client = GitHubClient(token="ghp_xxxx", max_cache_size=0)
 ```
+
+Typical usage:
+- **Default (1000)**: Safe for most workflows; evicts least-recently-used entries on overflow
+- **0 (unbounded)**: For batch operations on very large repositories or repos with many unique actions
 
 ## See Also
 
 - [Reference: Settings](../reference/config.md) — All configuration options
 - [Reference: Client](../reference/client.md) — `GitHubClient` constructor details
+- [Multi-Repo Automation](./multi-repo-automation.md) — Batch processing with shared client

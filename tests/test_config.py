@@ -25,9 +25,6 @@ class TestSettingsDefaults:
         assert settings.api_base_url == "https://api.github.com"
         assert settings.update is None
         assert settings.full_version is False
-        assert settings.cache_dir == Path.home() / ".cache" / "pin-actions"
-        assert settings.cache_ttl == 3600
-        assert settings.cache is True
         assert settings.verbose == 0
 
 
@@ -51,15 +48,6 @@ class TestSettingsValidation:
 
         with pytest.raises(ValidationError):
             Settings(max_retries=-1)
-
-    def test_cache_ttl_must_be_positive(self) -> None:
-        """Cache TTL must be >= 1."""
-        # Arrange, Act, Assert
-        with pytest.raises(ValidationError):
-            Settings(cache_ttl=0)
-
-        with pytest.raises(ValidationError):
-            Settings(cache_ttl=-1)
 
     def test_verbose_bounds(self) -> None:
         """Verbose must be 0-3."""
@@ -137,17 +125,6 @@ class TestSettingsEnvVars:
         # Assert
         assert settings.github_token is not None
         assert settings.github_token.get_secret_value() == "pin_actions_token"
-
-    def test_cache_ttl_from_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Read cache_ttl from PIN_ACTIONS_CACHE_TTL env var."""
-        # Arrange
-        monkeypatch.setenv("PIN_ACTIONS_CACHE_TTL", "7200")
-
-        # Act
-        settings = Settings(_cli_parse_args=False)
-
-        # Assert
-        assert settings.cache_ttl == 7200
 
     def test_verbose_from_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Read verbose from PIN_ACTIONS_VERBOSE or PIN_ACTIONS_V env var."""

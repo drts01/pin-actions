@@ -123,19 +123,6 @@ class Settings(BaseSettings):
         description="When --update is used, record the full resolved tag version in the comment "
         "(e.g. v4.1.7) instead of truncating to match the original precision (e.g. v4)",
     )
-    cache_dir: Path = Field(
-        default=Path.home() / ".cache" / "pin-actions",
-        description="Directory for persistent disk cache",
-    )
-    cache_ttl: int = Field(
-        default=3600,
-        ge=1,
-        description="Cache entry TTL in seconds (default 1 hour)",
-    )
-    cache: bool = Field(
-        default=True,
-        description="Enable persistent disk caching",
-    )
     verbose: int = Field(
         default=0,
         ge=0,
