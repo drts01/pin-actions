@@ -20,7 +20,7 @@ Perfect for organizations with many repositories sharing common actions like `ac
 - `gh` CLI, authenticated (`gh auth login`) — used for cloning and (with `--push`) PR creation
 - `git` CLI — used for committing and pushing
 - `uv` — invokes the script with its dependencies; no manual venv/install needed
-- `GITHUB_TOKEN` env var or `--token` flag (optional — only needed if not using `gh auth login`)
+- `GITHUB_TOKEN` env var or `--github-token` flag (optional — only needed if not using `gh auth login`)
 
 ## Installation
 
@@ -117,10 +117,11 @@ uv run --with-editable . scripts/update_repos.py --repos-file repos.txt --dry-ru
 |------|------|---------|-------------|
 | `--repos` | repeated string | — | Repository (owner/repo); repeat for multiple |
 | `--repos-file` | path | — | File with one owner/repo per line |
-| `--token` | string | `GITHUB_TOKEN` env | GitHub token |
+| `--github-token` | string | `GITHUB_TOKEN` env | GitHub token |
 | `--dry-run` | flag | off | Print changes without writing, committing, or pushing |
 | `--update` | choice | — | `major`/`minor`/`patch` (re-solve already-pinned tags) |
 | `--full-version` | flag | off | Record full tag version (e.g. `v4.1.7` instead of `v4`) |
+| `--exclude-newer` | string | — | Cool-off period (RFC 3339, ISO 8601 duration, or friendly); only with `--update` |
 | `--concurrency` | int | 4 | Max concurrent repo clones |
 | `--api-concurrency` | int | 5 | Max concurrent GitHub API requests |
 | `--branch-prefix` | string | `pin-actions` | Feature branch prefix |
@@ -130,6 +131,8 @@ uv run --with-editable . scripts/update_repos.py --repos-file repos.txt --dry-ru
 | `--pr-body` | string | `Automated by pin-actions.` | Pull request body text |
 | `--format` | choice | `table` | Output format: `table`, `markdown`, `json`, `csv`, `tsv` |
 | `--output-file` | path | stdout | Write summary to file instead of stdout |
+| `--host` | string | `github.com` | GitHub hostname; use for GHE Server (e.g. `github.example.com`) |
+| `--verbose` / `-v` | int | 0 | Verbosity level 0–3: 0=warnings, 1=info, 2=debug, 3=debug+dependencies |
 
 ## Output
 

@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - GitHub Enterprise Server (GHE) support via `--host` setting: single flag automatically derives both API base URL and clone-URL hostname
 - Cool-off period (`--exclude-newer`) for tag auto-selection: mitigates same-day supply-chain attacks by skipping tags younger than cutoff; accepts RFC 3339 timestamps, ISO 8601 durations, and friendly durations (e.g., `7 days`)
+- `scripts/update_repos.py`: added `--host` (GHE Server support with automatic API URL derivation and `GH_HOST` env override) and `--verbose`/`-v` (0–3 logging control); uses modern Python 3.14 idioms (PEP 695 type aliases)
 
 ## [0.1.0] - 2026-08-11
 
