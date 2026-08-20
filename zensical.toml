@@ -24,6 +24,7 @@ nav = [
     { "Multi-Repo Automation" = "how-to/multi-repo-automation.md" },
     { "Configure Caching" = "how-to/configure-caching.md" },
     { "Handle Errors" = "how-to/handle-errors.md" },
+    { "Profiling & Performance" = "how-to/profiling-and-performance.md" },
   ] },
   { "Reference" = [
     { "CLI" = "reference/cli.md" },

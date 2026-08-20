@@ -25,6 +25,47 @@ skip_install = true
 dependency_groups = [ "docs" ]
 commands = [ [ "zensical", { replace = "posargs", default = [ "build" ], extend = true } ] ]
 
+[env.flamegraph]
+description = "Generate SVG flamegraph via py-spy (Linux: no sudo; macOS: requires sudo)"
+package = "editable"
+dependency_groups = [ "profile" ]
+commands = [
+  [
+    "py-spy",
+    "record",
+    "-o",
+    "benchmarks/flamegraph.svg",
+    "--",
+    "python3",
+    "benchmarks/bench_scenario.py",
+    { replace = "posargs", default = [ "--files", "500" ], extend = true },
+  ]
+]
+
+[env.profile]
+description = "Performance profiling: pytest-benchmark micro-benchmarks + scenario load test"
+package = "editable"
+skip_install = false
+dependency_groups = [
+  "profile",
+  "test",
+]
+commands = [
+  [
+    "pytest",
+    "-o",
+    "addopts=--tb=short",
+    "benchmarks/test_benchmarks.py",
+    { replace = "posargs", default = [ "--benchmark-only", "--benchmark-json=benchmark.json" ], extend = true },
+  ],
+  [
+    "python3",
+    "benchmarks/bench_scenario.py",
+    { replace = "posargs", default = [ "--files", "200" ], extend = true }
+  ]
+]
+override_posargs = false
+
 [env.py315]
 description = "Canary: Python 3.15 (pre-release, allowed to fail)"
 ignore_outcome = true
@@ -32,6 +73,33 @@ ignore_outcome = true
 [env.py315t]
 description = "Canary: Python 3.15t (pre-release, allowed to fail)"
 ignore_outcome = true
+
+[env.tachyon-py315]
+description = "Python 3.15/3.15t Tachyon (profiling.sampling) wall-clock async-aware profiler"
+base_python = [ "python3.15" ]
+package = "editable"
+dependency_groups = [ "profile" ]
+ignore_outcome = true
+commands = [
+  [
+    "python3",
+    "-m",
+    "profiling.sampling",
+    "run",
+    "--mode",
+    "wall",
+    "--async-aware",
+    "--flamegraph",
+    "-o",
+    "benchmarks/{env_name}.html",
+    "benchmarks/bench_scenario.py",
+    { replace = "posargs", default = [ "--files", "200" ], extend = true },
+  ]
+]
+
+[env.tachyon-py315t]
+base_python = [ "python3.15t" ]
+base = [ "tachyon-py315" ]
 
 [env.typecheck]
 description = "Static type checking with Pyrefly"

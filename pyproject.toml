@@ -66,6 +66,10 @@ ci = [
 lint = [
   "prek>=0.3.11",
 ]
+profile = [
+  "py-spy>=0.4",
+  "pytest-benchmark~=5.2",
+]
 typecheck = [
   "pyrefly~=1.2",
 ]
@@ -168,6 +172,7 @@ addopts = [
 ]
 asyncio_mode = "auto"
 markers = [
+  "benchmark: pytest-benchmark performance tests (opt-in via profile dependency-group)",
   "integration: Tests with mocked external APIs",
   "unit: Fast unit tests with mocked dependencies",
 ]

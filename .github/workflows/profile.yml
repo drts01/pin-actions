@@ -1,0 +1,162 @@
+name: Profiling
+
+on:
+  push:
+    branches: [trunk]
+    paths:
+      - src/pin_actions/**
+      - benchmarks/**
+      - pyproject.toml
+      - tox.toml
+      - .github/workflows/profile.yml
+  workflow_dispatch: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    name: Benchmark profiles
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.14', 3.14t, '3.15', 3.15t]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+
+      - name: Run benchmark micro-benchmarks + scenario
+        run: uv run --group ci tox run -e profile
+        id: benchmark
+
+      - name: Generate flamegraph (py-spy, 3.14 only)
+        if: matrix.python-version == '3.14'
+        run: uv run --group ci tox run -e flamegraph
+
+      - name: Extract benchmark metadata
+        if: matrix.python-version == '3.14' && always()
+        id: metrics
+        run: |
+           # Parse benchmark.json into summary table
+           jq_query='
+             [.benchmarks[] | {
+               name: .fullname,
+               min: .stats.min,
+               mean: .stats.mean,
+               max: .stats.max,
+               ops: .stats.ops
+             }]
+             | sort_by(.mean) | reverse
+             | "| Name | Min (ms) | Mean (ms) | Max (ms) | Ops/sec |\n" +
+               "|------|----------|----------|----------|----------|\n" +
+               (map(
+                 "| \(.name | split("::")[-1]) | " +
+                 "\(.min * 1000 | floor) | " +
+                 "\(.mean * 1000 | floor) | " +
+                 "\(.max * 1000 | floor) | " +
+                 "\(.ops | floor) |"
+               ) | join("\n"))
+           '
+           if [ -f benchmark.json ]; then
+             table=$(jq -r "$jq_query" benchmark.json)
+             {
+               echo "table<<EOF"
+               echo "$table"
+               echo "EOF"
+             } >> "$GITHUB_OUTPUT"
+           fi
+
+
+      - name: Embed flamegraph SVG and benchmarks in summary
+        if: matrix.python-version == '3.14' && always()
+        run: |
+          {
+            echo "### 📊 Performance Benchmarks (Python 3.14)"
+            echo ""
+            echo "${{ steps.metrics.outputs.table }}"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ ! -f benchmarks/flamegraph.svg ]; then
+            echo "::error::flamegraph.svg not found"
+            exit 1
+          fi
+
+          svg_size=$(wc -c < benchmarks/flamegraph.svg)
+          svg_size_kb=$((svg_size / 1024))
+          max_size=$((700 * 1024))
+
+          if [ "$svg_size" -gt "$max_size" ]; then
+            echo "::warning::Flamegraph SVG too large ($svg_size_kb KB, max ~700 KB) — see artifact"
+            echo "### 🔥 Flamegraph (SVG too large to embed)" >> "$GITHUB_STEP_SUMMARY"
+           else
+             svg_b64=$(base64 -i benchmarks/flamegraph.svg | tr -d '\n')
+             echo "### 🔥 Flamegraph (py-spy wall-clock)" >> "$GITHUB_STEP_SUMMARY"
+             echo "<img src=\"data:image/svg+xml;base64,$svg_b64\" width=\"100%\" />" >> "$GITHUB_STEP_SUMMARY"
+           fi
+
+
+      - name: Upload profiling artifacts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: profiling-py${{ matrix.python-version }}
+          path: |
+            benchmarks/flamegraph.svg
+            benchmarks/tachyon.html
+            benchmark.json
+
+
+          retention-days: 30
+
+  tachyon:
+    name: Tachyon profiler
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.15', 3.15t]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+
+      - name: Generate Tachyon HTML flamegraph
+        run: |
+          env_suffix="$(echo '${{ matrix.python-version }}' | tr -d '.')"
+          uv run --group ci tox run -e "tachyon-py${env_suffix}"
+
+
+      - name: Add Tachyon summary note
+        if: always()
+        run: |
+          {
+            echo "### 📈 Tachyon Profiler (Python ${{ matrix.python-version }})"
+            echo ""
+            echo "Low-overhead async-aware sampling profiler. Interactive HTML flamegraph with embedded JS."
+            echo "GitHub step summaries strip \`<script>\` tags, so **download the artifact to view**."
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+
+
+      - name: Upload Tachyon artifact
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: profiling-tachyon-py${{ matrix.python-version }}
+          path: benchmarks/tachyon-py*.html
+          retention-days: 30
