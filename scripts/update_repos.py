@@ -21,6 +21,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 type EnvDict = dict[str, str]
 
 logger = logging.getLogger("update_repos")
+_cli_out = logging.getLogger("update_repos.cli.out")
 
 DEFAULT_COMMIT_MESSAGE = "chore: pin GitHub Actions to immutable commit SHAs"
 DEFAULT_PR_BODY = "Automated by pin-actions."
@@ -288,6 +289,12 @@ def _configure_logging(verbose: int) -> None:
         logging.getLogger(namespace).setLevel(level)
     logger.setLevel(levels["pin_actions"])
 
+    # Rebuild CLI logger's handlers for test isolation (capsys-safe: fresh stream references).
+    _cli_out.propagate = False
+    _cli_out.setLevel(logging.INFO)
+    _cli_out.handlers.clear()
+    _cli_out.addHandler(logging.StreamHandler(sys.stdout))
+
 
 def _to_json(results: list[RepoResult]) -> str:
     """Format results as JSON."""
@@ -351,6 +358,7 @@ def main() -> None:
 
     if settings.output_file:
         settings.output_file.write_text(summary + "\n")
+        _cli_out.info(f"Wrote summary to {settings.output_file}")
     else:
         print(summary)
 
