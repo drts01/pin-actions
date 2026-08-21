@@ -2,7 +2,7 @@
 
 `pin-actions` parses command-line flags via pydantic-settings, deriving them directly from the [`Settings`](config.md) fields below (kebab-case, e.g. `dry_run` → `--dry-run`). Run `pin-actions --help` for the live, authoritative flag list.
 
-**Breaking change**: `--path` is now `--paths` and accepts multiple file/directory arguments. Default scans `.github/workflows/` (all workflows) plus root `action.yml` and `action.yaml` (composite actions).
+**Breaking change**: `--path` is now `--paths` and accepts multiple file/directory arguments (glob patterns supported). Default scans `.github/workflows/` (all workflows) plus `**/action.yml` and `**/action.yaml` (composite actions in any path).
 
 ::: pin_actions.config.Settings
 

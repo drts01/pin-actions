@@ -6,7 +6,8 @@ import logging
 import sys
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Literal
+from pathlib import Path
+from typing import Any, Literal
 
 import yamlrocks
 
@@ -18,9 +19,6 @@ from pin_actions.errors import PinActionsError, YAMLParseError
 from pin_actions.versioning import parse_tag_version, select_latest_tags
 
 logger = logging.getLogger(__name__)
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 @dataclass(frozen=True, slots=True)
@@ -412,7 +410,7 @@ def _build_update_options(settings: Settings) -> UpdateOptions | None:
     )
 
 
-async def run(settings: Settings, *, client: GitHubClient | None = None) -> list[Path]:
+async def run(settings: Settings, *, client: GitHubClient | None = None, cwd: Path | None = None) -> list[Path]:
     """Scan workflows/actions and pin all mutable refs to commit SHAs.
 
     Per-file errors (YAML parse failures, unresolvable refs, I/O errors) are
@@ -428,6 +426,9 @@ async def run(settings: Settings, *, client: GitHubClient | None = None) -> list
             Provide a shared client to reuse connection pooling, in-memory
             caching, and rate-limit bookkeeping across multiple run() calls
             (e.g. processing multiple repositories).
+        cwd: Working directory for resolving relative paths and glob patterns;
+            defaults to current directory. Glob patterns in paths are resolved
+            relative to this directory.
 
     Returns:
         List of modified file paths.
@@ -439,14 +440,18 @@ async def run(settings: Settings, *, client: GitHubClient | None = None) -> list
             needing per-file results despite failures should call
             :func:`pin_file` directly for each file.
     """
+    _cwd = cwd or Path()
     files: list[Path] = []
     for p in settings.paths:
-        if not p.exists():
+        # Check if p is a glob pattern
+        if any(c in str(p) for c in ("*", "?", "[")):
+            files.extend(_cwd.glob(str(p)))
+        elif not (_cwd / p).exists():
             continue
-        if p.is_file():
-            files.append(p)
+        elif (_cwd / p).is_file():
+            files.append(_cwd / p)
         else:
-            files.extend(f for pattern in ("**/*.yml", "**/*.yaml") for f in p.glob(pattern))
+            files.extend(f for pattern in ("**/*.yml", "**/*.yaml") for f in (_cwd / p).glob(pattern))
 
     if not files:
         return []

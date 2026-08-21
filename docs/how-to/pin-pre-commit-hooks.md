@@ -9,7 +9,7 @@ export GITHUB_TOKEN=ghp_xxxx
 pin-precommit --dry-run
 ```
 
-By default, `pin-precommit` reads `.pre-commit-config.yaml` in the current directory.
+By default, `pin-precommit` reads `.pre-commit-config.yaml` in the current directory. Use `--paths` to specify different files or glob patterns (e.g., `--paths "**/pre-commit-config.yaml"` for monorepos with multiple configs).
 
 ## Apply the Changes
 

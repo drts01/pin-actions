@@ -86,26 +86,43 @@ def main() -> None:
             _cli_implicit_flags=True,
             _cli_prog_name="pin-precommit",
         )
+
+        # Resolve files from paths (glob patterns + literal files)
+        _cwd = Path()
+        files: list[Path] = []
+        for p in settings.paths:
+            # Check if p is a glob pattern
+            if any(c in str(p) for c in ("*", "?", "[")):
+                files.extend(_cwd.glob(str(p)))
+            elif (_cwd / p).is_file():
+                files.append(_cwd / p)
+            # Directories: skip (pre-commit configs are files, not discovered recursively)
+
         options = _build_update_options(settings)
         token = settings.github_token.get_secret_value() if settings.github_token else None
 
-        async def _run() -> bool:
+        async def _run() -> list[Path]:
             async with GitHubClient(
                 token=token,
                 base_url=settings.api_base_url,
                 concurrency=settings.concurrency,
                 max_retries=settings.max_retries,
             ) as client:
-                return await pin_precommit_file(
-                    client,
-                    settings.paths[0],
-                    host=settings.host,
-                    dry_run=settings.dry_run,
-                    diff=settings.diff,
-                    options=options,
-                )
+                modified_files: list[Path] = []
+                for config_file in files:
+                    modified = await pin_precommit_file(
+                        client,
+                        config_file,
+                        host=settings.host,
+                        dry_run=settings.dry_run,
+                        diff=settings.diff,
+                        options=options,
+                    )
+                    if modified:
+                        modified_files.append(config_file)
+                return modified_files
 
-        modified = asyncio.run(_run())
+        modified_files = asyncio.run(_run())
     except PinActionsError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
@@ -113,7 +130,12 @@ def main() -> None:
         print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
 
-    print(f"Pinned: {settings.paths[0]}" if modified else "No changes.")
+    if modified_files:
+        print(f"Pinned {len(modified_files)} file(s):")
+        for path in modified_files:
+            print(f"  {path}")
+    else:
+        print("No files modified.")
 
 
 if __name__ == "__main__":

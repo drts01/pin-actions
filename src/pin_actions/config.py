@@ -76,8 +76,8 @@ class Settings(BaseSettings):
         )
 
     paths: list[Path] = Field(
-        default=[Path(".github/workflows"), Path("action.yml"), Path("action.yaml")],
-        description="Scan these files or directories for workflow/action files (space-separated)",
+        default_factory=lambda: [Path(".github/workflows"), Path("**/action.yml"), Path("**/action.yaml")],
+        description="Scan these files/directories for workflow/action files; glob patterns supported",
     )
     github_token: SecretStr | None = Field(
         default=None,

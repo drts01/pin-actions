@@ -12,8 +12,8 @@ from pin_actions.precommit import PrecommitSettings, pin_precommit_file
 class TestPrecommitDefaults:
     """Test PrecommitSettings defaults."""
 
-    def test_default_path(self) -> None:
-        """Default path is .pre-commit-config.yaml."""
+    def test_default_paths(self) -> None:
+        """Default paths is .pre-commit-config.yaml."""
         assert PrecommitSettings().paths == [Path(".pre-commit-config.yaml")]
 
 

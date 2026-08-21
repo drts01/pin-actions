@@ -171,7 +171,6 @@ def _try_clone(repo: str, repo_dir: Path, settings: UpdateReposSettings, result:
 async def _try_pin(client: GitHubClient, repo_dir: Path, settings: UpdateReposSettings, result: RepoResult) -> bool:
     """Pin actions in repo_dir; sets result.modified/error. Returns True unless a hard error occurred."""
     pin_settings = Settings(
-        paths=[repo_dir / ".github/workflows", repo_dir / "action.yml", repo_dir / "action.yaml"],
         github_token=settings.github_token,
         dry_run=settings.dry_run,
         update=settings.update,
@@ -179,7 +178,7 @@ async def _try_pin(client: GitHubClient, repo_dir: Path, settings: UpdateReposSe
         exclude_newer=settings.exclude_newer,
     )
     try:
-        result.modified = await run(pin_settings, client=client)
+        result.modified = await run(pin_settings, client=client, cwd=repo_dir)
     except ExceptionGroup as eg:
         return _fail(result, result.repo, f"{len(eg.exceptions)} file(s) failed")
     except PinActionsError as exc:
