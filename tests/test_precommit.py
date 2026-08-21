@@ -14,7 +14,7 @@ class TestPrecommitDefaults:
 
     def test_default_path(self) -> None:
         """Default path is .pre-commit-config.yaml."""
-        assert PrecommitSettings().path == Path(".pre-commit-config.yaml")
+        assert PrecommitSettings().paths == [Path(".pre-commit-config.yaml")]
 
 
 class TestPinPrecommitFile:

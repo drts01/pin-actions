@@ -421,7 +421,7 @@ async def run(settings: Settings, *, client: GitHubClient | None = None) -> list
     :func:`pin_file` directly for single-file control.
 
     Args:
-        settings: Configuration (path, token, etc.).
+        settings: Configuration (paths, token, etc.).
         client: Optional pre-built GitHubClient. When provided, the client is
             reused without closing it (caller retains ownership). When None,
             a new client is created internally and closed after processing.
@@ -433,26 +433,25 @@ async def run(settings: Settings, *, client: GitHubClient | None = None) -> list
         List of modified file paths.
 
     Raises:
-        ValueError: If ``settings.path`` does not exist, or if ``exclude_newer``
-            is set but not a valid duration/timestamp.
+        ValueError: If ``exclude_newer`` is set but not a valid duration/timestamp.
         ExceptionGroup[PinActionsError]: If one or more files failed to
             process; no partial results are returned in that case. Callers
             needing per-file results despite failures should call
             :func:`pin_file` directly for each file.
     """
-    if not settings.path.exists():
-        msg = f"Path does not exist: {settings.path}"
-        raise ValueError(msg)
+    files: list[Path] = []
+    for p in settings.paths:
+        if not p.exists():
+            continue
+        if p.is_file():
+            files.append(p)
+        else:
+            files.extend(f for pattern in ("**/*.yml", "**/*.yaml") for f in p.glob(pattern))
 
-    options = _build_update_options(settings)
-
-    files = (
-        [settings.path]
-        if settings.path.is_file()
-        else [f for pattern in ("**/*.yml", "**/*.yaml") for f in settings.path.glob(pattern)]
-    )
     if not files:
         return []
+
+    options = _build_update_options(settings)
 
     if client is not None:
         return await _process_files(client, files, settings, options)

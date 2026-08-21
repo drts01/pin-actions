@@ -10,6 +10,7 @@ import os
 import subprocess
 import sys
 import tempfile
+from functools import partial
 from pathlib import Path
 from typing import Literal
 
@@ -170,7 +171,7 @@ def _try_clone(repo: str, repo_dir: Path, settings: UpdateReposSettings, result:
 async def _try_pin(client: GitHubClient, repo_dir: Path, settings: UpdateReposSettings, result: RepoResult) -> bool:
     """Pin actions in repo_dir; sets result.modified/error. Returns True unless a hard error occurred."""
     pin_settings = Settings(
-        path=repo_dir / ".github",
+        paths=[repo_dir / ".github/workflows", repo_dir / "action.yml", repo_dir / "action.yaml"],
         github_token=settings.github_token,
         dry_run=settings.dry_run,
         update=settings.update,
@@ -332,8 +333,8 @@ def _to_table(results: list[RepoResult]) -> str:
 
 _FORMATTERS = {
     "json": _to_json,
-    "csv": lambda r: _to_csv_tsv(r, ","),
-    "tsv": lambda r: _to_csv_tsv(r, "\t"),
+    "csv": partial(_to_csv_tsv, delimiter=","),
+    "tsv": partial(_to_csv_tsv, delimiter="\t"),
     "markdown": _to_markdown,
     "table": _to_table,
 }

@@ -75,9 +75,9 @@ class Settings(BaseSettings):
             pyproject_settings,
         )
 
-    path: Path = Field(
-        default=Path(".github"),
-        description="File or directory to scan for workflow/action files",
+    paths: list[Path] = Field(
+        default=[Path(".github/workflows"), Path("action.yml"), Path("action.yaml")],
+        description="Scan these files or directories for workflow/action files (space-separated)",
     )
     github_token: SecretStr | None = Field(
         default=None,

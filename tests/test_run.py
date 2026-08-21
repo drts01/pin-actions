@@ -29,7 +29,7 @@ class TestRunBasic:
         workflow2.write_text("name: Release\njobs:\n  deploy:\n    steps:\n      - uses: actions/upload-artifact@v3\n")
 
         settings = Settings(
-            path=workflows_dir,
+            paths=[workflows_dir],
             github_token=None,
             dry_run=False,
             concurrency=1,
@@ -66,7 +66,7 @@ class TestRunEmpty:
         workflows_dir = tmp_path / ".github" / "workflows"
         workflows_dir.mkdir(parents=True)
 
-        settings = Settings(path=workflows_dir, github_token=None, dry_run=False)
+        settings = Settings(paths=[workflows_dir], github_token=None, dry_run=False)
 
         # Act
         modified = await run(settings)
@@ -79,15 +79,18 @@ class TestRunErrors:
     """Test run error handling."""
 
     @pytest.mark.asyncio
-    async def test_missing_path_raises(self, tmp_path: Path) -> None:
-        """Raise ValueError if path doesn't exist."""
+    async def test_missing_paths_skipped_silently(self, tmp_path: Path) -> None:
+        """Silently skip missing paths, return empty list if all missing."""
         # Arrange
-        nonexistent = tmp_path / "nonexistent"
-        settings = Settings(path=nonexistent, github_token=None)
+        nonexistent_a = tmp_path / "nonexistent_a"
+        nonexistent_b = tmp_path / "nonexistent_b"
+        settings = Settings(paths=[nonexistent_a, nonexistent_b], github_token=None)
 
-        # Act, Assert
-        with pytest.raises(ValueError, match="Path does not exist"):
-            await run(settings)
+        # Act
+        modified = await run(settings)
+
+        # Assert
+        assert modified == []
 
     @pytest.mark.asyncio
     async def test_partial_failure_raises_exception_group(self, tmp_path: Path) -> None:
@@ -102,7 +105,7 @@ class TestRunErrors:
         bad_file = workflows_dir / "broken.yml"
         bad_file.write_text("jobs:\n  build:\n    steps:\n    - uses: actions/checkout@v4\n  bad: [\n")
 
-        settings = Settings(path=workflows_dir, github_token=None, dry_run=False, concurrency=1)
+        settings = Settings(paths=[workflows_dir], github_token=None, dry_run=False, concurrency=1)
 
         async def mock_resolve_sha(_repo: str, ref: str) -> str:
             return "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" if ref == "v4" else ref
@@ -133,7 +136,7 @@ class TestRunSharedClient:
         workflow = workflows_dir / "ci.yml"
         workflow.write_text("name: CI\njobs:\n  test:\n    steps:\n      - uses: actions/checkout@v4\n")
 
-        settings = Settings(path=workflows_dir, github_token=None, dry_run=False)
+        settings = Settings(paths=[workflows_dir], github_token=None, dry_run=False)
 
         # Mock the client and verify GitHubClient constructor is never called
         async def mock_resolve_sha(_repo: str, ref: str) -> str:
@@ -168,8 +171,8 @@ class TestRunSharedClient:
         workflow_b = dir_b / "release.yaml"
         workflow_b.write_text("name: Release\njobs:\n  deploy:\n    steps:\n      - uses: actions/upload-artifact@v3\n")
 
-        settings_a = Settings(path=dir_a, github_token=None, dry_run=False)
-        settings_b = Settings(path=dir_b, github_token=None, dry_run=False)
+        settings_a = Settings(paths=[dir_a], github_token=None, dry_run=False)
+        settings_b = Settings(paths=[dir_b], github_token=None, dry_run=False)
 
         # Mock resolve_sha to track calls
         resolve_calls = []
@@ -213,7 +216,7 @@ class TestRunSharedClient:
         workflow = workflows_dir / "ci.yml"
         workflow.write_text("name: CI\njobs:\n  test:\n    steps:\n      - uses: actions/checkout@v4\n")
 
-        settings = Settings(path=workflows_dir, github_token=None, dry_run=False, concurrency=1)
+        settings = Settings(paths=[workflows_dir], github_token=None, dry_run=False, concurrency=1)
 
         async def mock_resolve_sha(_repo: str, ref: str) -> str:
             return "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" if ref == "v4" else ref

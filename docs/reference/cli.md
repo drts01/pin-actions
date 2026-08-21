@@ -2,6 +2,8 @@
 
 `pin-actions` parses command-line flags via pydantic-settings, deriving them directly from the [`Settings`](config.md) fields below (kebab-case, e.g. `dry_run` → `--dry-run`). Run `pin-actions --help` for the live, authoritative flag list.
 
+**Breaking change**: `--path` is now `--paths` and accepts multiple file/directory arguments. Default scans `.github/workflows/` (all workflows) plus root `action.yml` and `action.yaml` (composite actions).
+
 ::: pin_actions.config.Settings
 
 ## `pin-precommit`
@@ -9,7 +11,7 @@
 Pins GitHub-hosted `.pre-commit-config.yaml` `repos[].rev` entries; accepts the same flags as `pin-actions` (via `PrecommitSettings(Settings)`) plus:
 
 - `--host` — matches against `repos[].repo` clone URLs (default `github.com`)
-- Default `--path` is `.pre-commit-config.yaml` instead of `.github`
+- Default `--paths` is `[.pre-commit-config.yaml]` instead of the main default
 
 Run `pin-precommit --help` for the live flag list.
 
@@ -53,8 +55,11 @@ pin-actions --dry-run --github-token $GITHUB_TOKEN
 # Print a unified diff instead of a file list (implies --dry-run)
 pin-actions --diff --github-token $GITHUB_TOKEN
 
-# Pin workflows with custom concurrency
-pin-actions --path .workflows --concurrency 10 --github-token $GITHUB_TOKEN
+# Pin workflows with custom concurrency (single path)
+pin-actions --paths .workflows --concurrency 10 --github-token $GITHUB_TOKEN
+
+# Pin specific action file (not default scan)
+pin-actions --paths action.yml --github-token $GITHUB_TOKEN
 
 # Move pins to latest version within same major
 pin-actions --update minor --github-token $GITHUB_TOKEN

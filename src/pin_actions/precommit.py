@@ -5,6 +5,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from pydantic import Field
+
 from pin_actions._util import git_url_to_repo
 from pin_actions.client import GitHubClient
 from pin_actions.config import Settings
@@ -15,7 +17,7 @@ from pin_actions.errors import PinActionsError
 class PrecommitSettings(Settings):
     """CLI & environment configuration for pin-precommit."""
 
-    path: Path = Path(".pre-commit-config.yaml")
+    paths: list[Path] = Field(default_factory=lambda: [Path(".pre-commit-config.yaml")])
 
 
 def _collect_precommit_refs(doc: Any, *, host: str) -> list[tuple[tuple[Any, ...], str, str, bool]]:  # noqa: ANN401
@@ -96,7 +98,7 @@ def main() -> None:
             ) as client:
                 return await pin_precommit_file(
                     client,
-                    settings.path,
+                    settings.paths[0],
                     host=settings.host,
                     dry_run=settings.dry_run,
                     diff=settings.diff,
@@ -111,7 +113,7 @@ def main() -> None:
         print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
 
-    print(f"Pinned: {settings.path}" if modified else "No changes.")
+    print(f"Pinned: {settings.paths[0]}" if modified else "No changes.")
 
 
 if __name__ == "__main__":

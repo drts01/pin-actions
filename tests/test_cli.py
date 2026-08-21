@@ -25,7 +25,7 @@ class TestMainSuccess:
         workflow.write_text("name: Test\njobs:\n  test:\n    steps:\n      - uses: actions/checkout@v4\n")
 
         # Mock sys.argv for CLI parsing
-        test_args = ["pin-actions", "--path", str(workflows_dir), "--dry-run"]
+        test_args = ["pin-actions", "--paths", str(workflows_dir), "--dry-run"]
 
         async def mock_run(_settings) -> list[Path]:
             return [workflow]
@@ -110,27 +110,24 @@ class TestMainErrors:
         captured = capsys.readouterr()
         assert "Error:" in captured.err
 
-    def test_value_error_exit_1(self, capsys: pytest.CaptureFixture) -> None:
-        """Exit with code 1 on ValueError."""
+    def test_missing_paths_skipped_silently(self, capsys: pytest.CaptureFixture) -> None:
+        """Missing paths are skipped silently, no error raised."""
         # Arrange
-        test_args = ["pin-actions", "--path", "/nonexistent/path"]
+        test_args = ["pin-actions", "--paths", "/nonexistent/path"]
 
         async def mock_run(_settings) -> list[Path]:
-            msg = "Path does not exist: /nonexistent/path"
-            raise ValueError(msg)
+            return []
 
         # Act
         with (
             patch("sys.argv", test_args),
             patch("pin_actions.core.run", side_effect=mock_run),
-            pytest.raises(SystemExit) as exc_info,
         ):
             main()
 
         # Assert
-        assert exc_info.value.code == 1
         captured = capsys.readouterr()
-        assert "Error:" in captured.err
+        assert "No files modified" in captured.out
 
 
 class TestMainVerbosity:
@@ -142,7 +139,7 @@ class TestMainVerbosity:
         workflows_dir = tmp_path / ".github" / "workflows"
         workflows_dir.mkdir(parents=True)
 
-        test_args = ["pin-actions", "--path", str(workflows_dir), "-v", "2"]
+        test_args = ["pin-actions", "--paths", str(workflows_dir), "-v", "2"]
 
         async def mock_run(settings) -> list[Path]:
             assert settings.verbose == 2
@@ -161,7 +158,7 @@ class TestMainVerbosity:
         workflows_dir = tmp_path / ".github" / "workflows"
         workflows_dir.mkdir(parents=True)
 
-        test_args = ["pin-actions", "--path", str(workflows_dir), "--verbose", "1"]
+        test_args = ["pin-actions", "--paths", str(workflows_dir), "--verbose", "1"]
 
         async def mock_run(settings) -> list[Path]:
             assert settings.verbose == 1
@@ -184,7 +181,7 @@ class TestMainDryRun:
         workflows_dir = tmp_path / ".github" / "workflows"
         workflows_dir.mkdir(parents=True)
 
-        test_args = ["pin-actions", "--path", str(workflows_dir), "--dry-run"]
+        test_args = ["pin-actions", "--paths", str(workflows_dir), "--dry-run"]
 
         async def mock_run(settings) -> list[Path]:
             assert settings.dry_run is True
@@ -207,7 +204,7 @@ class TestMainUpdateFlag:
         workflows_dir = tmp_path / ".github" / "workflows"
         workflows_dir.mkdir(parents=True)
 
-        test_args = ["pin-actions", "--path", str(workflows_dir), "--update", "major"]
+        test_args = ["pin-actions", "--paths", str(workflows_dir), "--update", "major"]
 
         async def mock_run(settings) -> list[Path]:
             assert settings.update == "major"
@@ -226,7 +223,7 @@ class TestMainUpdateFlag:
         workflows_dir = tmp_path / ".github" / "workflows"
         workflows_dir.mkdir(parents=True)
 
-        test_args = ["pin-actions", "--path", str(workflows_dir), "--update", "minor"]
+        test_args = ["pin-actions", "--paths", str(workflows_dir), "--update", "minor"]
 
         async def mock_run(settings) -> list[Path]:
             assert settings.update == "minor"
@@ -245,7 +242,7 @@ class TestMainUpdateFlag:
         workflows_dir = tmp_path / ".github" / "workflows"
         workflows_dir.mkdir(parents=True)
 
-        test_args = ["pin-actions", "--path", str(workflows_dir), "--update", "patch"]
+        test_args = ["pin-actions", "--paths", str(workflows_dir), "--update", "patch"]
 
         async def mock_run(settings) -> list[Path]:
             assert settings.update == "patch"
@@ -288,7 +285,7 @@ class TestMainDiffFlag:
         original = "name: Test\njobs:\n  test:\n    steps:\n      - uses: actions/checkout@v4\n"
         workflow.write_text(original)
 
-        test_args = ["pin-actions", "--path", str(workflows_dir), "--diff"]
+        test_args = ["pin-actions", "--paths", str(workflows_dir), "--diff"]
 
         async def mock_run(settings) -> list[Path]:
             assert settings.dry_run is True
