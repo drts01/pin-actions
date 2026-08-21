@@ -29,6 +29,19 @@ class GitHubAPIError(PinActionsError):
     """Raised for GitHub API failures (network, auth, rate limits, invalid refs)."""
 
 
+class AuthError(GitHubAPIError):
+    """Raised on 403 responses that are not rate-limit related (bad/missing token)."""
+
+    def __init__(self, path: str) -> None:
+        """Initialize with the request path that was rejected.
+
+        Args:
+            path: API path that returned 403 with rate limit remaining.
+        """
+        self.path = path
+        super().__init__(f"Authentication/permission error requesting {path} (403, not rate-limited)")
+
+
 class InvalidRefError(GitHubAPIError):
     """Raised when a ref does not exist on the remote repository (404)."""
 

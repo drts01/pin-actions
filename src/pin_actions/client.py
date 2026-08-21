@@ -13,12 +13,58 @@ if TYPE_CHECKING:
 import httpx2
 
 from pin_actions._util import is_full_sha
-from pin_actions.errors import GitHubAPIError, InvalidRefError, NetworkError, RateLimitExhaustedError
+from pin_actions.errors import AuthError, GitHubAPIError, InvalidRefError, NetworkError, RateLimitExhaustedError
 
 logger = logging.getLogger(__name__)
 
 _MAX_TAG_PAGES = 10  # 100 tags/page cap; guards against runaway pagination on huge repos
 _TAGS_PER_PAGE = 100
+_USER_AGENT = "pin-actions"
+
+
+class _Cache[T]:
+    """LRU-with-single-flight-dedup cache for one kind of fetch."""
+
+    __slots__ = ("_inflight", "_store", "max_size")
+
+    def __init__(self, max_size: int) -> None:
+        """Initialize with an eviction threshold (0 = unbounded)."""
+        self.max_size = max_size
+        self._store: OrderedDict[Any, T] = OrderedDict()
+        self._inflight: dict[Any, asyncio.Task[T]] = {}
+
+    def __contains__(self, key: object) -> bool:
+        """Check membership without touching LRU order."""
+        return key in self._store
+
+    async def get_or_fetch(self, key: Any, fetch: Callable[[], Awaitable[T]]) -> T:  # noqa: ANN401
+        """Check cache → in-flight dedup → fetch → write-through cache.
+
+        Prevents cache stampede by de-duplicating concurrent requests for the same key.
+        """
+        if key in self._store:
+            self._store.move_to_end(key)
+            logger.debug("Cache hit: %s", key)
+            return self._store[key]
+
+        if key in self._inflight:
+            logger.debug("Awaiting in-flight fetch: %s", key)
+            return await self._inflight[key]
+
+        async def _fetch_and_store() -> T:
+            value = await fetch()
+            self._store[key] = value
+            if self.max_size and len(self._store) > self.max_size:
+                self._store.popitem(last=False)
+            return value
+
+        logger.debug("Cache miss (fetching): %s", key)
+        task: asyncio.Task[T] = asyncio.ensure_future(_fetch_and_store())
+        self._inflight[key] = task
+        try:
+            return await task
+        finally:
+            self._inflight.pop(key, None)
 
 
 class GitHubClient:
@@ -44,27 +90,27 @@ class GitHubClient:
         self.base_url = base_url.rstrip("/")
         self.token = token
         self.max_retries = max_retries
-        self.max_cache_size = max_cache_size
         self._semaphore = asyncio.Semaphore(concurrency)
-        self._cache: OrderedDict[tuple[str, str], str] = OrderedDict()
-        self._cache_inflight: dict[Any, asyncio.Task[str]] = {}
-        self._tags_cache: OrderedDict[str, list[tuple[str, str]]] = OrderedDict()
-        self._tags_cache_inflight: dict[Any, asyncio.Task[list[tuple[str, str]]]] = {}
-        self._commit_date_cache: OrderedDict[tuple[str, str], str] = OrderedDict()
-        self._commit_date_cache_inflight: dict[Any, asyncio.Task[str]] = {}
+        self._sha_cache = _Cache[str](max_cache_size)
+        self._tags_cache = _Cache[list[tuple[str, str]]](max_cache_size)
+        self._date_cache = _Cache[str](max_cache_size)
         self._http_client: httpx2.AsyncClient | None = None
         self._http_client_lock = asyncio.Lock()
 
     async def _get_http_client(self) -> httpx2.AsyncClient:
-        """Get or create the pooled HTTP client (lazy-init).
-
-        Thread-safe via asyncio.Lock; reuses the same client across all requests
-        for connection pooling and performance.
-        """
+        """Get or create the pooled HTTP client (lazy-init, thread-safe via asyncio.Lock)."""
         if self._http_client is None:
             async with self._http_client_lock:
                 if self._http_client is None:
-                    self._http_client = httpx2.AsyncClient()
+                    headers = {"Accept": "application/vnd.github+json", "User-Agent": _USER_AGENT}
+                    if self.token:
+                        headers["Authorization"] = f"token {self.token}"
+                    self._http_client = httpx2.AsyncClient(
+                        base_url=self.base_url,
+                        headers=headers,
+                        timeout=10.0,
+                        limits=httpx2.Limits(max_connections=self._semaphore._value),
+                    )
         return self._http_client
 
     async def aclose(self) -> None:
@@ -80,50 +126,57 @@ class GitHubClient:
         """Exit async context manager, closing pooled client."""
         await self.aclose()
 
-    async def _cached_fetch[T](
-        self,
-        cache: OrderedDict[Any, T],
-        inflight: dict[Any, asyncio.Task[T]],
-        key: Any,  # noqa: ANN401
-        fetch: Callable[[], Awaitable[T]],
-    ) -> T:
-        """Check in-memory cache → in-flight dedup → fetch → write-through cache.
-
-        Prevents cache stampede by de-duplicating concurrent requests for the same key.
+    async def _get_json(self, path: str, params: dict[str, Any] | None = None) -> Any:  # noqa: ANN401
+        """GET ``path`` with retry/backoff on 403/429/5xx, raising on 404 or exhaustion.
 
         Args:
-            cache: In-memory cache dict (e.g., _cache or _tags_cache).
-            inflight: Tracking dict for in-flight fetches (same type as cache).
-            key: Key for in-memory cache lookup/write.
-            fetch: Async callable that performs the remote fetch.
+            path: API path relative to ``base_url`` (e.g. '/repos/owner/repo/tags').
+            params: Optional query params.
 
         Returns:
-            Cached or freshly-fetched value.
+            Parsed JSON body.
+
+        Raises:
+            InvalidRefError: On 404 (caller supplies repo/ref context via subclassed callers).
+            AuthError: On 403 that isn't rate-limit related.
+            RateLimitExhaustedError: If retries are exhausted while rate-limited.
+            NetworkError: On unrecoverable network errors.
         """
-        if key in cache:
-            cache.move_to_end(key)
-            logger.debug("Cache hit: %s", key)
-            return cache[key]
+        client = await self._get_http_client()
+        for attempt in range(self.max_retries):
+            try:
+                async with self._semaphore:
+                    resp = await client.get(path, params=params)
+            except httpx2.RequestError as exc:
+                if attempt < self.max_retries - 1:
+                    await self._backoff(None, attempt)
+                    continue
+                msg = f"Network error requesting {path}"
+                raise NetworkError(msg) from exc
 
-        if key in inflight:
-            logger.debug("Awaiting in-flight fetch: %s", key)
-            return await inflight[key]
+            if resp.status_code == http.HTTPStatus.OK:
+                return resp.json()
+            if resp.status_code == http.HTTPStatus.NOT_FOUND:
+                raise InvalidRefError(self.base_url, path)
+            if resp.status_code == http.HTTPStatus.FORBIDDEN and resp.headers.get("x-ratelimit-remaining") == "0":
+                await self._backoff(resp, attempt)
+                continue
+            if resp.status_code == http.HTTPStatus.FORBIDDEN:
+                raise AuthError(path)
+            if (
+                resp.status_code == http.HTTPStatus.TOO_MANY_REQUESTS
+                or resp.status_code >= http.HTTPStatus.INTERNAL_SERVER_ERROR
+            ):
+                await self._backoff(resp, attempt)
+                continue
+            resp.raise_for_status()
 
-        async def _fetch_and_store() -> T:
-            async with self._semaphore:
-                value = await fetch()
-            cache[key] = value
-            if self.max_cache_size and len(cache) > self.max_cache_size:
-                cache.popitem(last=False)
-            return value
+        raise RateLimitExhaustedError(self.base_url, path, self.max_retries)
 
-        logger.debug("Cache miss (fetching): %s", key)
-        task: asyncio.Task[T] = asyncio.ensure_future(_fetch_and_store())
-        inflight[key] = task
-        try:
-            return await task
-        finally:
-            inflight.pop(key, None)
+    @staticmethod
+    def _owner_repo(repo: str) -> str:
+        """Strip a composite-action subpath (e.g. 'owner/repo/subdir') down to 'owner/repo'."""
+        return "/".join(repo.split("/")[:2])
 
     async def list_tags(self, repo: str) -> list[tuple[str, str]]:
         """List all tags for a repo as (tag_name, commit_sha) pairs.
@@ -140,55 +193,24 @@ class GitHubClient:
             RateLimitExhaustedError: If retries are exhausted while rate-limited.
             NetworkError: On unrecoverable network errors.
         """
-        owner_repo = "/".join(repo.split("/")[:2])
-        return await self._cached_fetch(
-            self._tags_cache,
-            self._tags_cache_inflight,
-            owner_repo,
-            lambda: self._fetch_all_tags(owner_repo),
-        )
+        owner_repo = self._owner_repo(repo)
+        return await self._tags_cache.get_or_fetch(owner_repo, lambda: self._fetch_all_tags(owner_repo))
 
     async def _fetch_all_tags(self, owner_repo: str) -> list[tuple[str, str]]:
         """Paginate ``GET /repos/{owner_repo}/tags`` and collect all (name, sha) pairs."""
-        headers: dict[str, str] = {}
-        if self.token:
-            headers["Authorization"] = f"token {self.token}"
-
+        path = f"/repos/{owner_repo}/tags"
         tags: list[tuple[str, str]] = []
-        client = await self._get_http_client()
         for page in range(1, _MAX_TAG_PAGES + 1):
-            url = f"{self.base_url}/repos/{owner_repo}/tags"
-            params = {"per_page": _TAGS_PER_PAGE, "page": page}
-
-            for attempt in range(self.max_retries):
-                try:
-                    resp = await client.get(url, headers=headers, params=params, timeout=10.0)
-                except httpx2.RequestError as exc:
-                    if attempt < self.max_retries - 1:
-                        await self._backoff(None, attempt)
-                        continue
-                    msg = f"Network error listing tags for {owner_repo}"
-                    raise NetworkError(msg) from exc
-
-                if resp.status_code == http.HTTPStatus.OK:
-                    break
-                if resp.status_code in (403, 429) or resp.status_code >= http.HTTPStatus.INTERNAL_SERVER_ERROR:
-                    await self._backoff(resp, attempt)
-                    continue
-                if resp.status_code == http.HTTPStatus.NOT_FOUND:
-                    msg = f"Repository not found: {owner_repo}"
-                    raise GitHubAPIError(msg)
-                resp.raise_for_status()
-            else:
-                raise RateLimitExhaustedError(owner_repo, "tags", self.max_retries)
-
-            data = resp.json()
+            try:
+                data = await self._get_json(path, params={"per_page": _TAGS_PER_PAGE, "page": page})
+            except InvalidRefError as exc:
+                msg = f"Repository not found: {owner_repo}"
+                raise GitHubAPIError(msg) from exc
             if not data:
                 break
             tags.extend((entry["name"], entry["commit"]["sha"]) for entry in data)
             if len(data) < _TAGS_PER_PAGE:
                 break
-
         return tags
 
     async def resolve_sha(self, repo: str, ref: str) -> str:
@@ -209,68 +231,16 @@ class GitHubClient:
         if is_full_sha(ref):
             return ref
 
-        return await self._cached_fetch(
-            self._cache,
-            self._cache_inflight,
-            (repo, ref),
-            lambda: self._request_with_backoff(repo, ref),
-        )
+        owner_repo = self._owner_repo(repo)
 
-    async def _request_with_backoff(self, repo: str, ref: str) -> str:
-        """Fetch commit SHA with exponential backoff on rate limits.
-
-        Args:
-            repo: Repository in 'owner/repo' format.
-            ref: Commit reference.
-
-        Returns:
-            40-character commit SHA.
-
-        Raises:
-            InvalidRefError: If the ref does not exist on the remote repository (404).
-            RateLimitExhaustedError: If retries are exhausted while rate-limited.
-            NetworkError: On unrecoverable network errors.
-        """
-        headers: dict[str, str] = {}
-        if self.token:
-            headers["Authorization"] = f"token {self.token}"
-
-        # `repo` may include a composite-action subpath (e.g. 'owner/repo/subdir'
-        # from 'uses: owner/repo/subdir@ref'); the commits API only accepts
-        # 'owner/repo', so strip anything past the second path segment.
-        owner_repo = "/".join(repo.split("/")[:2])
-        url = f"{self.base_url}/repos/{owner_repo}/commits/{ref}"
-
-        client = await self._get_http_client()
-        for attempt in range(self.max_retries):
+        async def _fetch() -> str:
             try:
-                resp = await client.get(url, headers=headers, timeout=10.0)
+                data = await self._get_json(f"/repos/{owner_repo}/commits/{ref}")
+            except InvalidRefError as exc:
+                raise InvalidRefError(repo, ref) from exc
+            return data["sha"]
 
-                if resp.status_code == http.HTTPStatus.OK:
-                    data = resp.json()
-                    return data["sha"]
-
-                if resp.status_code in (403, 429):
-                    await self._backoff(resp, attempt)
-                    continue
-
-                if resp.status_code == http.HTTPStatus.NOT_FOUND:
-                    raise InvalidRefError(repo, ref)
-
-                if resp.status_code >= http.HTTPStatus.INTERNAL_SERVER_ERROR:
-                    await self._backoff(resp, attempt)
-                    continue
-
-                resp.raise_for_status()
-
-            except httpx2.RequestError as exc:
-                if attempt < self.max_retries - 1:
-                    await self._backoff(None, attempt)
-                    continue
-                msg = f"Network error resolving {repo}@{ref}"
-                raise NetworkError(msg) from exc
-
-        raise RateLimitExhaustedError(repo, ref, self.max_retries)
+        return await self._sha_cache.get_or_fetch((repo, ref), _fetch)
 
     async def get_commit_date(self, repo: str, sha: str) -> str:
         """Fetch commit date as RFC 3339 string for a given SHA.
@@ -289,88 +259,39 @@ class GitHubClient:
             RateLimitExhaustedError: If retries are exhausted while rate-limited.
             NetworkError: On unrecoverable network errors.
         """
-        owner_repo = "/".join(repo.split("/")[:2])
-        return await self._cached_fetch(
-            self._commit_date_cache,
-            self._commit_date_cache_inflight,
-            (owner_repo, sha),
-            lambda: self._fetch_commit_date(owner_repo, sha),
-        )
+        owner_repo = self._owner_repo(repo)
 
-    async def _fetch_commit_date(self, owner_repo: str, sha: str) -> str:
-        """Fetch commit date with exponential backoff on rate limits.
-
-        Args:
-            owner_repo: Repository in 'owner/repo' format.
-            sha: Commit SHA.
-
-        Returns:
-            RFC 3339 timestamp string.
-
-        Raises:
-            InvalidRefError: If the commit does not exist (404).
-            RateLimitExhaustedError: If retries are exhausted while rate-limited.
-            NetworkError: On unrecoverable network errors.
-        """
-        headers: dict[str, str] = {}
-        if self.token:
-            headers["Authorization"] = f"token {self.token}"
-
-        url = f"{self.base_url}/repos/{owner_repo}/commits/{sha}"
-        client = await self._get_http_client()
-
-        for attempt in range(self.max_retries):
+        async def _fetch() -> str:
             try:
-                resp = await client.get(url, headers=headers, timeout=10.0)
+                data = await self._get_json(f"/repos/{owner_repo}/commits/{sha}")
+            except InvalidRefError as exc:
+                raise InvalidRefError(owner_repo, sha) from exc
+            return data["commit"]["committer"]["date"]
 
-                if resp.status_code == http.HTTPStatus.OK:
-                    data = resp.json()
-                    return data["commit"]["committer"]["date"]
-
-                if resp.status_code in (403, 429):
-                    await self._backoff(resp, attempt)
-                    continue
-
-                if resp.status_code == http.HTTPStatus.NOT_FOUND:
-                    raise InvalidRefError(owner_repo, sha)
-
-                if resp.status_code >= http.HTTPStatus.INTERNAL_SERVER_ERROR:
-                    await self._backoff(resp, attempt)
-                    continue
-
-                resp.raise_for_status()
-
-            except httpx2.RequestError as exc:
-                if attempt < self.max_retries - 1:
-                    await self._backoff(None, attempt)
-                    continue
-                msg = f"Network error fetching commit date for {owner_repo}@{sha}"
-                raise NetworkError(msg) from exc
-
-        raise RateLimitExhaustedError(owner_repo, sha, self.max_retries)
+        return await self._date_cache.get_or_fetch((owner_repo, sha), _fetch)
 
     async def _backoff(
         self,
         response: httpx2.Response | None,
         attempt: int,
     ) -> None:
-        """Wait with exponential backoff, respecting Retry-After header.
+        """Wait with exponential backoff, respecting Retry-After / X-RateLimit-Reset headers.
 
         Args:
             response: HTTP response (None if network error).
             attempt: Current attempt number (0-indexed).
         """
-        if response and "Retry-After" in response.headers:
-            # Parse Retry-After: can be seconds (int) or HTTP-date
-            retry_after_str = response.headers["Retry-After"]
-            try:
-                delay = float(retry_after_str)
-            except ValueError:
-                # Fallback: assume it's an HTTP-date, use exponential backoff
-                delay = 2**attempt
-        else:
-            # Exponential backoff with jitter: 2^attempt + random(0, 1)
-            delay = 2**attempt + random.random()  # noqa: S311 -- jitter, not crypto
+        delay: float = 2**attempt + random.random()  # noqa: S311 -- jitter, not crypto
+        if response:
+            for header in ("Retry-After", "x-ratelimit-reset"):
+                if header not in response.headers:
+                    continue
+                try:
+                    value = float(response.headers[header])
+                    delay = max(0.0, value if header == "Retry-After" else value - asyncio.get_event_loop().time())
+                except ValueError:
+                    continue
+                break
 
         status = f"(status {response.status_code})" if response else "(network error)"
         logger.warning("Retry attempt %d; backing off %.1fs %s", attempt + 1, delay, status)

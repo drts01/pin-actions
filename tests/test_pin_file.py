@@ -4,8 +4,10 @@ from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from pin_actions._duration import parse_exclude_newer
 from pin_actions.client import GitHubClient
-from pin_actions.core import pin_file
+from pin_actions.config import Settings
+from pin_actions.core import UpdateOptions, _build_update_options, pin_file
 from pin_actions.errors import InvalidRefError, YAMLParseError
 
 if TYPE_CHECKING:
@@ -395,7 +397,7 @@ class TestPinFileVersionConstraints:
             patch.object(client, "list_tags", new=AsyncMock(side_effect=mock_list_tags)),
             patch.object(client, "resolve_sha", new=AsyncMock(side_effect=mock_resolve_sha)),
         ):
-            modified = await pin_file(client, workflow_file, dry_run=False, update="major")
+            modified = await pin_file(client, workflow_file, dry_run=False, options=UpdateOptions(update="major"))
 
         # Assert
         assert modified
@@ -490,7 +492,7 @@ class TestPinFileVersionConstraintsUses:
             patch.object(client, "list_tags", new=AsyncMock(side_effect=mock_list_tags)),
             patch.object(client, "resolve_sha", new=AsyncMock(side_effect=mock_resolve_sha)),
         ):
-            modified = await pin_file(client, workflow_file, dry_run=False, update="patch")
+            modified = await pin_file(client, workflow_file, dry_run=False, options=UpdateOptions(update="patch"))
 
         # Assert
         assert modified
@@ -526,7 +528,7 @@ class TestPinFileVersionConstraintsUses:
             patch.object(client, "list_tags", new=AsyncMock(side_effect=mock_list_tags)),
             patch.object(client, "resolve_sha", new=AsyncMock(side_effect=mock_resolve_sha)),
         ):
-            modified = await pin_file(client, workflow_file, dry_run=False, update="minor")
+            modified = await pin_file(client, workflow_file, dry_run=False, options=UpdateOptions(update="minor"))
 
         # Assert
         assert modified
@@ -579,8 +581,7 @@ class TestPinFileExcludeNewer:
                 client,
                 workflow_file,
                 dry_run=False,
-                update="minor",
-                exclude_newer="2024-03-01T00:00:00Z",
+                options=UpdateOptions(update="minor", cutoff=parse_exclude_newer("2024-03-01T00:00:00Z")),
             )
 
         # Assert
@@ -620,8 +621,7 @@ class TestPinFileExcludeNewer:
                 client,
                 workflow_file,
                 dry_run=False,
-                update="minor",
-                exclude_newer="2024-03-01T00:00:00Z",
+                options=UpdateOptions(update="minor", cutoff=parse_exclude_newer("2024-03-01T00:00:00Z")),
             )
 
         # Assert
@@ -629,41 +629,8 @@ class TestPinFileExcludeNewer:
         assert workflow_file.read_text() == original_content
         assert "younger than cool-off cutoff" in caplog.text
 
-    @pytest.mark.asyncio
-    async def test_exclude_newer_invalid_value_ignored(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
-        """Invalid exclude_newer string logs a warning, cutoff ignored, normal update proceeds."""
-        # Arrange
-        client = GitHubClient(token="test", concurrency=1)
-        old_sha = "a" * 40
-        new_sha = "b" * 40
-        workflow_file = tmp_path / "workflow.yml"
-        workflow_file.write_text(
-            f"name: Test\njobs:\n  build:\n    steps:\n      - uses: actions/checkout@{old_sha}  # v4.0.0\n",
-        )
-
-        async def mock_list_tags(repo: str) -> list[tuple[str, str]]:
-            if repo == "actions/checkout":
-                return [("v4.0.0", old_sha), ("v4.9.0", new_sha)]
-            return []
-
-        async def mock_resolve_sha(_repo: str, _ref: str) -> str:
-            return old_sha
-
-        # Act
-        with (
-            patch.object(client, "list_tags", new=AsyncMock(side_effect=mock_list_tags)),
-            patch.object(client, "resolve_sha", new=AsyncMock(side_effect=mock_resolve_sha)),
-        ):
-            modified = await pin_file(
-                client,
-                workflow_file,
-                dry_run=False,
-                update="minor",
-                exclude_newer="not-a-valid-duration",
-            )
-
-        # Assert
-        assert modified
-        content = workflow_file.read_text()
-        assert f"@{new_sha}" in content
-        assert "invalid exclude-newer value" in caplog.text
+    def test_exclude_newer_invalid_value_raises(self) -> None:
+        """Invalid exclude_newer string raises ValueError from _build_update_options."""
+        settings = Settings(update="minor", exclude_newer="not-a-valid-duration")
+        with pytest.raises(ValueError, match="Invalid exclude-newer format"):
+            _build_update_options(settings)

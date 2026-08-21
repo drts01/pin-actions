@@ -29,6 +29,7 @@ class UpdateOptions:
     update: Literal["major", "minor", "patch"]
     full_version: bool = False
     exclude_newer: str | None = None
+    cutoff: datetime | None = None
 
 
 # PEP 695 type aliases for clarity
@@ -40,11 +41,6 @@ type ResolvedSHAs = dict[tuple[str, str], str]
 def _is_local_action(repo: str) -> bool:
     """Check if action is local (./...) or docker (docker://)."""
     return repo.startswith(("./", "docker://"))
-
-
-def _is_already_pinned(ref: str) -> bool:
-    """Check if ref is already a 40-character commit SHA."""
-    return is_full_sha(ref)
 
 
 def _parse_uses(uses_str: str) -> tuple[str, str] | None:
@@ -70,64 +66,41 @@ def _parse_uses(uses_str: str) -> tuple[str, str] | None:
     return repo, ref
 
 
-def _find_uses_paths(doc: Any) -> list[tuple[tuple[Any, ...], str]]:  # noqa: ANN401
-    """Find all 'uses' key paths in a yamlrocks round-trip document.
-
-    Uses ``doc.walk()`` which yields flat (path_tuple, value) pairs,
-    correctly traversing list items (returned as YAMLRocksDocumentView,
-    not plain list/dict), unlike a manual isinstance-based walk.
+def _collect_refs(doc: Any) -> list[tuple[tuple[Any, ...], str, str, bool]]:  # noqa: ANN401
+    """Single-pass walk collecting both uses: entries and checkout with.ref entries.
 
     Returns:
-        List of (path_tuple, uses_value) where path_tuple[-1] == "uses".
+        List of (item_path, repo, ref, is_uses) for every pinnable entry.
+        ``is_uses`` distinguishes uses: (write as repo@sha) from with.ref (bare sha).
     """
-    return [
-        (item_path, value)
-        for item_path, value in doc.walk()
-        if item_path and item_path[-1] == "uses" and isinstance(value, str)
-    ]
-
-
-def _find_with_ref_paths(doc: Any) -> list[tuple[tuple[Any, ...], str, str, bool]]:  # noqa: ANN401
-    """Find all with.ref + with.repository pairs for actions/checkout.
-
-    Scans for steps using actions/checkout, then checks if they have both
-    with.repository (string) and with.ref (string) siblings. Only returns
-    results for checkout actions with both fields present.
-
-    Returns:
-        List of (ref_path_tuple, repo, ref, is_uses=False) where ref_path_tuple[-1] == "ref".
-    """
-    # Collect all uses/with.repository/with.ref by step container
     step_uses: dict[tuple[Any, ...], str] = {}
     step_repository: dict[tuple[Any, ...], str] = {}
     step_ref: dict[tuple[Any, ...], tuple[tuple[Any, ...], str]] = {}  # step_path -> (ref_path, ref_value)
 
-    for item_path, value in doc.walk():
-        if not item_path:
-            continue
-
-        if item_path[-1] == "uses" and isinstance(value, str):
-            step_uses[item_path[:-1]] = value
-        elif item_path[-2:] == ("with", "repository") and isinstance(value, str):
-            step_repository[item_path[:-2]] = value
-        elif item_path[-2:] == ("with", "ref") and isinstance(value, str):
-            step_ref[item_path[:-2]] = (item_path, value)
-
     results: list[tuple[tuple[Any, ...], str, str, bool]] = []
 
-    # For each step with with.ref, check if it has both with.repository and uses=checkout
+    for item_path, value in doc.walk():
+        if not item_path or not isinstance(value, str):
+            continue
+
+        if item_path[-1] == "uses":
+            step_uses[item_path[:-1]] = value
+            parsed = _parse_uses(value)
+            if parsed:
+                repo, ref = parsed
+                results.append((item_path, repo, ref, True))
+        elif item_path[-2:] == ("with", "repository"):
+            step_repository[item_path[:-2]] = value
+        elif item_path[-2:] == ("with", "ref"):
+            step_ref[item_path[:-2]] = (item_path, value)
+
     for step_path, (ref_path, ref_value) in step_ref.items():
         if step_path not in step_repository or step_path not in step_uses:
             continue
-
-        # Verify uses is actions/checkout
-        uses_value = step_uses[step_path]
-        parsed_uses = _parse_uses(uses_value)
+        parsed_uses = _parse_uses(step_uses[step_path])
         if not parsed_uses or not parsed_uses[0].startswith("actions/checkout"):
             continue
-
-        repo = step_repository[step_path]
-        results.append((ref_path, repo, ref_value, False))
+        results.append((ref_path, step_repository[step_path], ref_value, False))
 
     return results
 
@@ -166,11 +139,75 @@ async def resolve_and_rewrite(
     resolved: ResolvedSHAs = dict(zip(keys, values, strict=True))
 
     for (repo, tag), new_sha in resolved.items():
-        for item_path, current_sha, is_uses in refs_to_resolve.get((repo, tag), []):
+        for item_path, current_sha, is_uses in refs_to_resolve[(repo, tag)]:
             if new_sha == current_sha:
                 continue
             _set_path(doc, item_path, f"{repo}@{new_sha}" if is_uses else new_sha)
             doc.locate(item_path).comment = tag
+
+
+async def apply_version_constrained_tag(
+    doc: Any,  # noqa: ANN401
+    client: GitHubClient,
+    item_path: tuple[Any, ...],
+    repo: str,
+    tag: str,
+    current_sha: str,
+    *,
+    is_uses: bool = True,
+    options: UpdateOptions,
+) -> None:
+    """Rewrite a single already-pinned semver tag to the latest version within constraint.
+
+    Warns to stderr (and leaves the entry untouched) if no tag on the remote
+    satisfies the constraint relative to ``tag`` or if cool-off period excludes all candidates.
+
+    Args:
+        doc: YAML document to mutate.
+        client: GitHub API client for fetching tags.
+        item_path: Path tuple to the item to rewrite.
+        repo: Repository in 'owner/repo' format.
+        tag: Current tag recorded in the comment.
+        current_sha: Current SHA already in the file.
+        is_uses: If True, write as 'repo@sha' (uses:); if False, write as bare 'sha' (with.ref).
+        options: Version update config (update mode, full_version, pre-parsed cutoff).
+    """
+    tags = await client.list_tags(repo)
+    candidates = select_latest_tags(
+        tags,
+        tag,
+        latest_patch=(options.update == "patch"),
+        latest_minor=(options.update == "minor"),
+        latest_major=(options.update == "major"),
+        full_version=options.full_version,
+    )
+    if not candidates:
+        logger.warning("no tag matching version constraint for %s@%s; leaving pinned as-is", repo, tag)
+        return
+
+    chosen: tuple[str, str] | None = None
+    if options.cutoff:
+        for candidate_tag, candidate_sha in candidates:
+            try:
+                commit_date = datetime.fromisoformat(await client.get_commit_date(repo, candidate_sha))
+            except Exception as exc:  # noqa: BLE001 -- broad catch for any error fetching/parsing date
+                logger.warning("failed to check commit date for %s@%s: %s; skipping", repo, candidate_sha, exc)
+                continue
+            if commit_date < options.cutoff:
+                chosen = (candidate_tag, candidate_sha)
+                break
+        if chosen is None:
+            logger.warning("all candidates for %s@%s are younger than cool-off cutoff; leaving pinned as-is", repo, tag)
+            return
+    else:
+        chosen = candidates[0]
+
+    new_tag, new_sha = chosen
+    if new_sha == current_sha and new_tag == tag:
+        return
+
+    _set_path(doc, item_path, f"{repo}@{new_sha}" if is_uses else new_sha)
+    doc.locate(item_path).comment = new_tag
 
 
 async def _resolve_pinned_ref(
@@ -187,7 +224,9 @@ async def _resolve_pinned_ref(
     """Handle re-resolve logic for an already-pinned uses:/with.ref entry.
 
     Extracts the common resolution logic for pinned entries that need re-resolution
-    against their recorded tag/branch or version update constraints.
+    against their recorded tag/branch or version update constraints. Version-constrained
+    updates are awaited directly (caller gathers these concurrently); plain re-resolves
+    are accumulated into ``refs_to_resolve`` for batch resolution.
 
     Args:
         doc: yamlrocks round-trip document to mutate.
@@ -225,10 +264,9 @@ async def _resolve_pinned_ref(
 async def pin_file(
     client: GitHubClient,
     path: Path,
+    *,
     dry_run: bool = False,
-    update: Literal["major", "minor", "patch"] | None = None,
-    full_version: bool = False,
-    exclude_newer: str | None = None,
+    options: UpdateOptions | None = None,
 ) -> bool:
     """Pin mutable action refs in a workflow or action file to their commit SHAs.
 
@@ -236,13 +274,9 @@ async def pin_file(
         client: GitHub API client.
         path: Path to .yaml/.yml file.
         dry_run: If True, don't write changes.
-        update: Update strategy for pinned semver tags: 'major' (absolute latest,
-            crossing majors, e.g. v4.0.5 -> v9.1.2), 'minor' (same major, e.g.
-            v4.0.5 -> v4.9.0), 'patch' (same major.minor, e.g. v4.2.3 -> v4.2.9),
-            or None (re-resolve exact tag/branch recorded in the comment).
-        full_version: If True, record the full resolved tag version in the comment
-            instead of truncating to match the original precision.
-        exclude_newer: Cool-off period; see :func:`_apply_version_constrained_tag`.
+        options: Version update config (``update`` strategy, ``full_version``,
+            pre-parsed ``cutoff``), or None to re-resolve exact tags/branches
+            recorded in comments.
 
     Returns:
         True if file was modified, False otherwise.
@@ -268,57 +302,34 @@ async def pin_file(
     # we can tell after resolution whether the tag has moved and a rewrite is actually needed.
     # ``is_uses`` distinguishes uses: (write as repo@sha) from with.ref (write as bare sha).
     refs_to_resolve: RefsToResolve = {}
+    version_constrained: list[Any] = []
 
-    # Build update options if needed
-    update_opts = (
-        UpdateOptions(update=update, full_version=full_version, exclude_newer=exclude_newer) if update else None
-    )
-
-    # Process uses: entries
-    for item_path, uses_str in _find_uses_paths(doc):
-        parsed = _parse_uses(uses_str)
-        if not parsed:
+    for item_path, repo, ref, is_uses in _collect_refs(doc):
+        if is_uses and _is_local_action(repo):
             continue
 
-        repo, ref = parsed
-        if _is_local_action(repo):
+        if not is_full_sha(ref):
+            refs_to_resolve.setdefault((repo, ref), []).append((item_path, None, is_uses))
             continue
 
-        if not _is_already_pinned(ref):
-            refs_to_resolve.setdefault((repo, ref), []).append((item_path, None, True))
-            continue
-
-        await _resolve_pinned_ref(
-            doc,
-            client,
-            item_path,
-            repo,
-            ref,
-            is_uses=True,
-            update_options=update_opts,
-            refs_to_resolve=refs_to_resolve,
+        version_constrained.append(
+            _resolve_pinned_ref(
+                doc,
+                client,
+                item_path,
+                repo,
+                ref,
+                is_uses=is_uses,
+                update_options=options,
+                refs_to_resolve=refs_to_resolve,
+            ),
         )
 
-    # Process with.ref entries (checkout-only, requires with.repository)
-    for ref_path, repo, ref, _is_uses in _find_with_ref_paths(doc):
-        if not _is_already_pinned(ref):
-            refs_to_resolve.setdefault((repo, ref), []).append((ref_path, None, False))
-            continue
-
-        await _resolve_pinned_ref(
-            doc,
-            client,
-            ref_path,
-            repo,
-            ref,
-            is_uses=False,
-            update_options=update_opts,
-            refs_to_resolve=refs_to_resolve,
-        )
-
+    # Version-constrained updates each make their own API calls (list_tags, get_commit_date);
+    # run them concurrently rather than serially awaiting one pin at a time.
+    await asyncio.gather(*version_constrained)
     await resolve_and_rewrite(doc, client, refs_to_resolve)
 
-    # Write if changed
     new_content = doc.to_yaml()
     if new_content == content:
         return False
@@ -329,83 +340,21 @@ async def pin_file(
     return True
 
 
-async def apply_version_constrained_tag(
-    doc: Any,  # noqa: ANN401
-    client: GitHubClient,
-    item_path: tuple[Any, ...],
-    repo: str,
-    tag: str,
-    current_sha: str,
-    *,
-    is_uses: bool = True,
-    options: UpdateOptions,
-) -> None:
-    """Rewrite a single already-pinned semver tag to the latest version within constraint.
+def _build_update_options(settings: Settings) -> UpdateOptions | None:
+    """Build ``UpdateOptions`` from settings, pre-parsing the cool-off cutoff once.
 
-    Warns to stderr (and leaves the entry untouched) if no tag on the remote
-    satisfies the constraint relative to ``tag`` or if cool-off period excludes all candidates.
-
-    Args:
-        doc: YAML document to mutate.
-        client: GitHub API client for fetching tags.
-        item_path: Path tuple to the item to rewrite.
-        repo: Repository in 'owner/repo' format.
-        tag: Current tag recorded in the comment.
-        current_sha: Current SHA already in the file.
-        is_uses: If True, write as 'repo@sha' (uses:); if False, write as bare 'sha' (with.ref).
-        options: Version update config (update mode, full_version, cool-off period).
+    Raises:
+        ValueError: If ``settings.exclude_newer`` is set but not a valid duration/timestamp.
     """
-    # Parse exclude_newer once per call
-    cutoff: datetime | None = None
-    if options.exclude_newer:
-        try:
-            cutoff = parse_exclude_newer(options.exclude_newer)
-        except ValueError as exc:
-            logger.warning("invalid exclude-newer value for %s@%s: %s; ignoring", repo, tag, exc)
-
-    tags = await client.list_tags(repo)
-    candidates = select_latest_tags(
-        tags,
-        tag,
-        latest_patch=(options.update == "patch"),
-        latest_minor=(options.update == "minor"),
-        latest_major=(options.update == "major"),
-        full_version=options.full_version,
+    if not settings.update:
+        return None
+    cutoff = parse_exclude_newer(settings.exclude_newer) if settings.exclude_newer else None
+    return UpdateOptions(
+        update=settings.update,
+        full_version=settings.full_version,
+        exclude_newer=settings.exclude_newer,
+        cutoff=cutoff,
     )
-    if not candidates:
-        logger.warning("no tag matching version constraint for %s@%s; leaving pinned as-is", repo, tag)
-        return
-
-    # If cool-off period is set, iterate candidates best-first and skip those too new
-    if cutoff:
-        for candidate_tag, candidate_sha in candidates:
-            try:
-                commit_date_str = await client.get_commit_date(repo, candidate_sha)
-                # Parse commit_date_str (RFC 3339 format)
-                commit_date = datetime.fromisoformat(commit_date_str)
-                if commit_date < cutoff:
-                    # This tag is old enough; use it
-                    new_tag, new_sha = candidate_tag, candidate_sha
-                    break
-            except Exception as exc:  # noqa: BLE001 -- broad catch for any error fetching/parsing date
-                logger.warning("failed to check commit date for %s@%s: %s; skipping", repo, candidate_sha, exc)
-                continue
-        else:
-            # No candidate passed the age check
-            logger.warning("all candidates for %s@%s are younger than cool-off cutoff; leaving pinned as-is", repo, tag)
-            return
-    else:
-        # No cool-off; take the best candidate
-        new_tag, new_sha = candidates[0]
-
-    if new_sha == current_sha and new_tag == tag:
-        return
-
-    if is_uses:
-        _set_path(doc, item_path, f"{repo}@{new_sha}")
-    else:
-        _set_path(doc, item_path, new_sha)
-    doc.locate(item_path).comment = new_tag
 
 
 async def run(settings: Settings, *, client: GitHubClient | None = None) -> list[Path]:
@@ -429,7 +378,8 @@ async def run(settings: Settings, *, client: GitHubClient | None = None) -> list
         List of modified file paths.
 
     Raises:
-        ValueError: If ``settings.path`` does not exist.
+        ValueError: If ``settings.path`` does not exist, or if ``exclude_newer``
+            is set but not a valid duration/timestamp.
         ExceptionGroup[PinActionsError]: If one or more files failed to
             process; no partial results are returned in that case. Callers
             needing per-file results despite failures should call
@@ -439,16 +389,18 @@ async def run(settings: Settings, *, client: GitHubClient | None = None) -> list
         msg = f"Path does not exist: {settings.path}"
         raise ValueError(msg)
 
-    # Gather all workflow and action files
-    files = []
-    for pattern in ("**/*.yml", "**/*.yaml"):
-        files.extend(settings.path.glob(pattern))
+    options = _build_update_options(settings)
 
+    files = (
+        [settings.path]
+        if settings.path.is_file()
+        else [f for pattern in ("**/*.yml", "**/*.yaml") for f in settings.path.glob(pattern)]
+    )
     if not files:
         return []
 
     if client is not None:
-        return await _process_files(client, files, settings)
+        return await _process_files(client, files, settings, options)
 
     token = settings.github_token.get_secret_value() if settings.github_token else None
 
@@ -458,16 +410,22 @@ async def run(settings: Settings, *, client: GitHubClient | None = None) -> list
         concurrency=settings.concurrency,
         max_retries=settings.max_retries,
     ) as gh_client:
-        return await _process_files(gh_client, files, settings)
+        return await _process_files(gh_client, files, settings, options)
 
 
-async def _process_files(client: GitHubClient, files: list[Path], settings: Settings) -> list[Path]:
-    """Process all workflow files using the provided client.
+async def _process_files(
+    client: GitHubClient,
+    files: list[Path],
+    settings: Settings,
+    options: UpdateOptions | None,
+) -> list[Path]:
+    """Process all workflow files concurrently using the provided client.
 
     Args:
         client: GitHub API client (caller retains ownership/closing responsibility).
         files: List of workflow/action files to process.
-        settings: Configuration (for dry_run, update mode, etc.).
+        settings: Configuration (for dry_run).
+        options: Pre-built version-update config, or None.
 
     Returns:
         List of modified file paths.
@@ -475,18 +433,7 @@ async def _process_files(client: GitHubClient, files: list[Path], settings: Sett
     Raises:
         ExceptionGroup[PinActionsError]: If one or more files failed.
     """
-    # Process all files concurrently (semaphore in client bounds API calls)
-    tasks = [
-        pin_file(
-            client,
-            f,
-            dry_run=settings.dry_run,
-            update=settings.update,
-            full_version=settings.full_version,
-            exclude_newer=settings.exclude_newer,
-        )
-        for f in files
-    ]
+    tasks = [pin_file(client, f, dry_run=settings.dry_run, options=options) for f in files]
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
     errors = [(f, r) for f, r in zip(files, results, strict=True) if isinstance(r, Exception)]
@@ -512,16 +459,13 @@ _LEVELS_BY_VERBOSITY: list[dict[str, int]] = [
     {"pin_actions": logging.DEBUG, "httpx2": logging.DEBUG, "httpcore": logging.DEBUG},
 ]
 
-# Dedicated always-on CLI loggers for user-facing output (independent of -v verbosity)
-_cli_out = logging.getLogger("pin_actions.cli.out")
-_cli_err = logging.getLogger("pin_actions.cli.err")
-for _log in (_cli_out, _cli_err):
-    _log.propagate = False
-    _log.setLevel(logging.INFO)
-
 
 def _configure_logging(verbose: int) -> None:
-    """Configure logging levels per namespace based on verbosity count.
+    """Configure diagnostic logging levels per namespace based on verbosity count.
+
+    User-facing CLI output (results/errors) goes through ``print()``, not
+    logging, so it's independent of ``-v`` and works correctly under
+    ``capsys``/output redirection without any handler bookkeeping.
 
     Args:
         verbose: Verbosity count (0-3+).
@@ -530,11 +474,6 @@ def _configure_logging(verbose: int) -> None:
     levels = _LEVELS_BY_VERBOSITY[min(verbose, 3)]
     for namespace, level in levels.items():
         logging.getLogger(namespace).setLevel(level)
-
-    # Rebuild CLI loggers' handlers for test isolation (capsys-safe: fresh stream references).
-    for log, stream in ((_cli_out, sys.stdout), (_cli_err, sys.stderr)):
-        log.handlers.clear()
-        log.addHandler(logging.StreamHandler(stream))
 
 
 def main() -> None:
@@ -553,20 +492,20 @@ def main() -> None:
         _configure_logging(settings.verbose)
         modified = asyncio.run(run(settings))
     except PinActionsError as exc:
-        _cli_err.error(f"Error: {exc}")
+        print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
     except ExceptionGroup as eg:
-        _cli_err.error(f"Error: {eg}")
+        print(f"Error: {eg}", file=sys.stderr)
         for exc in eg.exceptions:
-            _cli_err.error(f"  - {exc}")
+            print(f"  - {exc}", file=sys.stderr)
         sys.exit(1)
     except ValueError as exc:
-        _cli_err.error(f"Error: {exc}")
+        print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
 
     if modified:
-        _cli_out.info(f"Pinned {len(modified)} file(s):")
+        print(f"Pinned {len(modified)} file(s):")
         for path in modified:
-            _cli_out.info(f"  {path}")
+            print(f"  {path}")
     else:
-        _cli_out.info("No files modified.")
+        print("No files modified.")

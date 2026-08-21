@@ -5,7 +5,7 @@ from typing import Any
 from hypothesis import given
 from hypothesis import strategies as st
 from pin_actions._util import git_url_to_repo, is_full_sha
-from pin_actions.core import _is_already_pinned, _is_local_action, _parse_uses
+from pin_actions.core import _is_local_action, _parse_uses
 
 
 class TestIsFullSha:
@@ -47,30 +47,6 @@ class TestIsFullSha:
     def test_property_non_40_char_is_not_sha(self, s: str) -> None:
         """Property: only 40-char strings can be SHAs."""
         assert not is_full_sha(s)
-
-
-class TestIsAlreadyPinned:
-    """Test ref pinning detection via is_full_sha."""
-
-    def test_pinned_valid_sha(self) -> None:
-        """Recognize 40-char hex SHA."""
-        assert _is_already_pinned("abc1234def5678abc1234def5678abc1234def56")
-        assert _is_already_pinned("0123456789abcdef0123456789abcdef01234567")
-
-    def test_not_pinned_semver(self) -> None:
-        """Reject semver tags."""
-        assert not _is_already_pinned("v4")
-        assert not _is_already_pinned("v4.5")
-        assert not _is_already_pinned("v4.5.2")
-
-    def test_not_pinned_branch(self) -> None:
-        """Reject branch names."""
-        assert not _is_already_pinned("main")
-        assert not _is_already_pinned("develop")
-
-    def test_not_pinned_short_sha(self) -> None:
-        """Reject partial SHA."""
-        assert not _is_already_pinned("abc1234")
 
 
 class TestIsLocalAction:
