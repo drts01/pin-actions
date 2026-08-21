@@ -1,5 +1,7 @@
 """Pin GitHub Actions to immutable commit SHAs."""
 
+from importlib.metadata import version
+
 from pin_actions._util import git_url_to_repo
 from pin_actions.client import GitHubClient
 from pin_actions.config import Settings
@@ -13,7 +15,7 @@ from pin_actions.errors import (
     YAMLParseError,
 )
 
-__version__ = "0.1.0"
+__version__ = version("pin-actions")
 
 __all__ = [
     "GitHubAPIError",

@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from typing import Literal, override
 
-from pydantic import AliasChoices, Field, SecretStr
+from pydantic import AliasChoices, Field, SecretStr, model_validator
 from pydantic_settings import (
     BaseSettings,
     PydanticBaseSettingsSource,
@@ -76,8 +76,8 @@ class Settings(BaseSettings):
         )
 
     path: Path = Field(
-        default=Path(".github/workflows"),
-        description="Path to scan for workflow/action files",
+        default=Path(".github"),
+        description="File or directory to scan for workflow/action files",
     )
     github_token: SecretStr | None = Field(
         default=None,
@@ -88,6 +88,10 @@ class Settings(BaseSettings):
     dry_run: bool = Field(
         default=False,
         description="Print changes without writing",
+    )
+    diff: bool = Field(
+        default=False,
+        description="Print a unified diff of changes (implies --dry-run)",
     )
     concurrency: int = Field(
         default=5,
@@ -139,3 +143,10 @@ class Settings(BaseSettings):
             "(e.g., 7 days, 24 hours, 1 week). Only applies to --update"
         ),
     )
+
+    @model_validator(mode="after")
+    def _diff_implies_dry_run(self) -> Settings:
+        """--diff never writes; treat it as an alias that also sets dry_run."""
+        if self.diff:
+            self.dry_run = True
+        return self

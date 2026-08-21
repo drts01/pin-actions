@@ -42,6 +42,7 @@ urls.Homepage = "https://github.com/drts01/pin-actions"
 urls.Issues = "https://github.com/drts01/pin-actions/issues"
 urls.Repository = "https://github.com/drts01/pin-actions"
 scripts.pin-actions = "pin_actions.core:main"
+scripts.pin-precommit = "pin_actions.precommit:main"
 
 [dependency-groups]
 test = [

@@ -16,7 +16,7 @@ class TestSettingsDefaults:
         settings = Settings()
 
         # Assert
-        assert settings.path == Path(".github/workflows")
+        assert settings.path == Path(".github")
         assert settings.github_token is None
         assert settings.dry_run is False
         assert settings.concurrency == 5

@@ -634,3 +634,36 @@ class TestPinFileExcludeNewer:
         settings = Settings(update="minor", exclude_newer="not-a-valid-duration")
         with pytest.raises(ValueError, match="Invalid exclude-newer format"):
             _build_update_options(settings)
+
+
+class TestPinFileDiff:
+    """Test pin_file diff=True unified-diff output."""
+
+    @pytest.mark.asyncio
+    async def test_diff_prints_unified_diff_and_does_not_write(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture,
+    ) -> None:
+        """diff=True prints a unified diff to stdout and never writes the file."""
+        # Arrange
+        client = GitHubClient(token="test", concurrency=1)
+        workflow_file = tmp_path / "workflow.yml"
+        original_content = "name: Test\njobs:\n  build:\n    steps:\n      - uses: actions/checkout@v4\n"
+        workflow_file.write_text(original_content)
+
+        async def mock_resolve_sha(_repo: str, ref: str) -> str:
+            return "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" if ref == "v4" else ref
+
+        # Act
+        with patch.object(client, "resolve_sha", new=AsyncMock(side_effect=mock_resolve_sha)):
+            modified = await pin_file(client, workflow_file, dry_run=True, diff=True)
+
+        # Assert
+        assert modified
+        assert workflow_file.read_text() == original_content
+        captured = capsys.readouterr()
+        assert f"--- {workflow_file}" in captured.out
+        assert f"+++ {workflow_file}" in captured.out
+        assert "+      - uses: actions/checkout@aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" in captured.out
+        assert "-      - uses: actions/checkout@v4" in captured.out

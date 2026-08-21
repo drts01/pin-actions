@@ -1,6 +1,7 @@
 """Core parsing and pinning logic."""
 
 import asyncio
+import difflib
 import logging
 import sys
 from dataclasses import dataclass
@@ -187,13 +188,17 @@ async def apply_version_constrained_tag(
 
     chosen: tuple[str, str] | None = None
     if options.cutoff:
-        for candidate_tag, candidate_sha in candidates:
-            try:
-                commit_date = datetime.fromisoformat(await client.get_commit_date(repo, candidate_sha))
-            except Exception as exc:  # noqa: BLE001 -- broad catch for any error fetching/parsing date
-                logger.warning("failed to check commit date for %s@%s: %s; skipping", repo, candidate_sha, exc)
+        # Prefetch all candidate dates concurrently rather than awaiting serially
+        # until one passes the cutoff.
+        dates = await asyncio.gather(
+            *(client.get_commit_date(repo, sha) for _, sha in candidates),
+            return_exceptions=True,
+        )
+        for (candidate_tag, candidate_sha), date_result in zip(candidates, dates, strict=True):
+            if isinstance(date_result, BaseException):
+                logger.warning("failed to check commit date for %s@%s: %s; skipping", repo, candidate_sha, date_result)
                 continue
-            if commit_date < options.cutoff:
+            if datetime.fromisoformat(date_result) < options.cutoff:
                 chosen = (candidate_tag, candidate_sha)
                 break
         if chosen is None:
@@ -261,21 +266,28 @@ async def _resolve_pinned_ref(
     refs_to_resolve.setdefault((repo, tag), []).append((item_path, ref, is_uses))
 
 
-async def pin_file(
+type CollectFn = Any  # (doc) -> list[tuple[tuple[Any, ...], str, str, bool]]
+
+
+async def _pin_doc(
     client: GitHubClient,
     path: Path,
+    collect_fn: CollectFn,
     *,
     dry_run: bool = False,
+    diff: bool = False,
     options: UpdateOptions | None = None,
 ) -> bool:
-    """Pin mutable action refs in a workflow or action file to their commit SHAs.
+    """Load, resolve, and rewrite pinnable refs in a YAML doc; shared by pin_file/pin_precommit_file.
 
     Args:
         client: GitHub API client.
-        path: Path to .yaml/.yml file.
+        path: Path to the YAML file (workflow, action, or pre-commit config).
+        collect_fn: Callable taking the parsed doc and returning
+            (item_path, repo, ref, is_uses) tuples for every pinnable entry.
         dry_run: If True, don't write changes.
-        options: Version update config (``update`` strategy, ``full_version``,
-            pre-parsed ``cutoff``), or None to re-resolve exact tags/branches
+        diff: If True, print a unified diff of changes to stdout (implies dry_run).
+        options: Version update config, or None to re-resolve exact tags/branches
             recorded in comments.
 
     Returns:
@@ -304,7 +316,7 @@ async def pin_file(
     refs_to_resolve: RefsToResolve = {}
     version_constrained: list[Any] = []
 
-    for item_path, repo, ref, is_uses in _collect_refs(doc):
+    for item_path, repo, ref, is_uses in collect_fn(doc):
         if is_uses and _is_local_action(repo):
             continue
 
@@ -334,10 +346,53 @@ async def pin_file(
     if new_content == content:
         return False
 
+    if diff:
+        sys.stdout.writelines(
+            line + "\n"
+            for line in difflib.unified_diff(
+                content.decode().splitlines(),
+                new_content.decode().splitlines(),
+                fromfile=str(path),
+                tofile=str(path),
+                lineterm="",
+            )
+        )
+
     if not dry_run:
         path.write_bytes(new_content)  # noqa: ASYNC240 -- sync IO on Path, no async equivalent needed
 
     return True
+
+
+async def pin_file(
+    client: GitHubClient,
+    path: Path,
+    *,
+    dry_run: bool = False,
+    diff: bool = False,
+    options: UpdateOptions | None = None,
+) -> bool:
+    """Pin mutable action refs in a workflow or action file to their commit SHAs.
+
+    Args:
+        client: GitHub API client.
+        path: Path to .yaml/.yml file.
+        dry_run: If True, don't write changes.
+        diff: If True, print a unified diff of changes to stdout (implies dry_run).
+        options: Version update config (``update`` strategy, ``full_version``,
+            pre-parsed ``cutoff``), or None to re-resolve exact tags/branches
+            recorded in comments.
+
+    Returns:
+        True if file was modified, False otherwise.
+
+    Raises:
+        YAMLParseError: If the file cannot be parsed as YAML.
+        GitHubAPIError: If a ref cannot be resolved (invalid ref, rate limit
+            exhausted, or network failure). Subclass of ``PinActionsError``.
+        OSError: If the file cannot be read or written.
+    """
+    return await _pin_doc(client, path, _collect_refs, dry_run=dry_run, diff=diff, options=options)
 
 
 def _build_update_options(settings: Settings) -> UpdateOptions | None:
@@ -424,7 +479,7 @@ async def _process_files(
     Args:
         client: GitHub API client (caller retains ownership/closing responsibility).
         files: List of workflow/action files to process.
-        settings: Configuration (for dry_run).
+        settings: Configuration (for dry_run and diff).
         options: Pre-built version-update config, or None.
 
     Returns:
@@ -433,7 +488,7 @@ async def _process_files(
     Raises:
         ExceptionGroup[PinActionsError]: If one or more files failed.
     """
-    tasks = [pin_file(client, f, dry_run=settings.dry_run, options=options) for f in files]
+    tasks = [pin_file(client, f, dry_run=settings.dry_run, diff=settings.diff, options=options) for f in files]
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
     errors = [(f, r) for f, r in zip(files, results, strict=True) if isinstance(r, Exception)]
@@ -482,6 +537,12 @@ def main() -> None:
     Parses ``sys.argv`` via pydantic-settings (supports ``--help``), runs the
     pin operation, and reports results. Exits with status 1 on any error.
     """
+    if "--version" in sys.argv:
+        from pin_actions import __version__  # noqa: PLC0415 -- deferred to avoid import cost when unused
+
+        print(f"pin-actions {__version__}")
+        return
+
     try:
         settings = Settings(
             _cli_parse_args=True,

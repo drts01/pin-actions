@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import pytest
+from pin_actions import __version__
 from pin_actions.config import Settings
 from pin_actions.core import main
 from pin_actions.errors import InvalidRefError, YAMLParseError
@@ -256,6 +257,53 @@ class TestMainUpdateFlag:
             patch("pin_actions.core.run", side_effect=mock_run),
         ):
             main()
+
+
+class TestMainVersion:
+    """Test --version flag."""
+
+    def test_version_prints_and_returns(self, capsys: pytest.CaptureFixture) -> None:
+        """--version prints 'pin-actions <version>' and does not error."""
+        # Arrange
+        test_args = ["pin-actions", "--version"]
+
+        # Act
+        with patch("sys.argv", test_args):
+            main()
+
+        # Assert
+        captured = capsys.readouterr()
+        assert captured.out.strip() == f"pin-actions {__version__}"
+
+
+class TestMainDiffFlag:
+    """Test --diff flag."""
+
+    def test_diff_implies_dry_run_and_prints_unified_diff(self, tmp_path: Path) -> None:
+        """--diff prints a unified diff and never writes the file."""
+        # Arrange
+        workflows_dir = tmp_path / ".github" / "workflows"
+        workflows_dir.mkdir(parents=True)
+        workflow = workflows_dir / "ci.yml"
+        original = "name: Test\njobs:\n  test:\n    steps:\n      - uses: actions/checkout@v4\n"
+        workflow.write_text(original)
+
+        test_args = ["pin-actions", "--path", str(workflows_dir), "--diff"]
+
+        async def mock_run(settings) -> list[Path]:
+            assert settings.dry_run is True
+            assert settings.diff is True
+            return []
+
+        # Act
+        with (
+            patch("sys.argv", test_args),
+            patch("pin_actions.core.run", side_effect=mock_run),
+        ):
+            main()
+
+        # Assert: run() was never allowed to write since dry_run forced True
+        assert workflow.read_text() == original
 
 
 class TestHelpFlagDrift:

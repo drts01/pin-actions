@@ -8,3 +8,4 @@
 .coverage*
 *.pstats
 *.prof
+benchmark.json
