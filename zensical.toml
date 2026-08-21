@@ -18,11 +18,11 @@ nav = [
   ] },
   { "How-To Guides" = [
     { "Update Pinned Tags" = "how-to/update-pinned-tags.md" },
-    { "Checkout Another Repo" = "how-to/checkout-another-repo.md" },
-    { "Pin Composite Actions" = "how-to/pin-composite-actions.md" },
+    { "Pin Non-Standard Refs" = "how-to/pin-non-standard-refs.md" },
+    { "Pin Pre-Commit Hooks" = "how-to/pin-pre-commit-hooks.md" },
     { "Use as a Library" = "how-to/use-as-a-library.md" },
     { "Multi-Repo Automation" = "how-to/multi-repo-automation.md" },
-    { "Configure Caching" = "how-to/configure-caching.md" },
+    { "Run in CI" = "how-to/run-in-ci.md" },
     { "Handle Errors" = "how-to/handle-errors.md" },
     { "Profiling & Performance" = "how-to/profiling-and-performance.md" },
   ] },
@@ -37,7 +37,9 @@ nav = [
   { "Explanation" = [
     { "Architecture Overview" = "explanation/architecture.md" },
     { "Design Decisions" = "explanation/design-decisions.md" },
+    { "Caching" = "explanation/caching.md" },
   ] },
+
 ]
 
 [project.theme]

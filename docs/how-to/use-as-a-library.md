@@ -165,8 +165,8 @@ async def _try_pin(client: GitHubClient, repo_dir: Path, settings: UpdateReposSe
         dry_run=settings.dry_run,
         update=settings.update,
         full_version=settings.full_version,
-        cache=False,
     )
+
     try:
         result.modified = await run(pin_settings, client=client)
     except ExceptionGroup as eg:
@@ -190,38 +190,30 @@ See [Multi-Repo Automation](./multi-repo-automation.md) for full CLI options and
 
 ## Pin Pre-Commit Hook Revs
 
-[`scripts/update_precommit.py`](https://github.com/drts01/pin-actions/blob/main/scripts/update_precommit.py) pins GitHub-hosted `.pre-commit-config.yaml` hook revisions (tags or branches) to their immutable commit SHAs, preserving the original rev as a trailing YAML comment:
+`pin_actions.precommit` pins GitHub-hosted `.pre-commit-config.yaml` `repos[].rev` entries the same way `core.pin_file` pins workflow refs — both share the `_pin_doc()` load/resolve/rewrite pipeline:
 
 ```python
-async def pin_precommit_config(client: GitHubClient, path: Path, *, dry_run: bool = False) -> bool:
-    """Rewrite each GitHub-hosted repos[].rev to a SHA + '# <original rev>' comment."""
-    content = path.read_bytes()
-    doc = yamlrocks.loads(content, option=yamlrocks.OPT_ROUND_TRIP)
-    refs_to_resolve: RefsToResolve = {}
-    for i, repo_entry in enumerate(doc["repos"]):
-        repo = git_url_to_repo(repo_entry.get("repo"))
-        rev = repo_entry.get("rev")
-        if not repo or not rev:
-            continue
-        rev_path = ("repos", i, "rev")
-        if is_full_sha(rev):
-            # Already pinned; re-resolve if comment tag moved
-            ...
-        else:
-            # New pin or re-resolve branch/tag
-            refs_to_resolve.setdefault((repo, rev), []).append((rev_path, None, False))
-    if refs_to_resolve:
-        await resolve_and_rewrite(doc, client, refs_to_resolve)
-    # Write and return True if changed
+import asyncio
+from pathlib import Path
+from pin_actions import GitHubClient
+from pin_actions.precommit import pin_precommit_file
+
+
+async def main():
+    async with GitHubClient(token="ghp_xxxx") as client:
+        modified = await pin_precommit_file(
+            client,
+            Path(".pre-commit-config.yaml"),
+            dry_run=False,
+        )
+        if modified:
+            print("Pre-commit config was updated")
+
+
+asyncio.run(main())
 ```
 
-Run it:
-
-```bash
-uv run --with-editable . scripts/update_precommit.py .pre-commit-config.yaml --dry-run
-```
-
-This reuses the schema-agnostic `resolve_and_rewrite()` and `git_url_to_repo()` primitives; it's a compact example of extending pin-actions beyond GitHub Actions workflows.
+See [Pin Pre-Commit Hooks](./pin-pre-commit-hooks.md) for the `pin-precommit` CLI, or run `uv run --with-editable . scripts/update_precommit.py --help` for the equivalent standalone-script shim.
 
 ## See Also
 
@@ -229,3 +221,4 @@ This reuses the schema-agnostic `resolve_and_rewrite()` and `git_url_to_repo()` 
 - [Reference: client](../reference/client.md) — `GitHubClient` full API
 - [Reference: errors](../reference/errors.md) — Exception hierarchy
 - [How-To: Multi-Repo Automation](./multi-repo-automation.md) — Batch script for organizations
+- [How-To: Pin Pre-Commit Hooks](./pin-pre-commit-hooks.md) — `pin-precommit` CLI usage

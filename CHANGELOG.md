@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking Changes
 - Consolidated `api_base_url` + `git_host` into a single `host` field; use `--host github.example.com` for GHE Server (API URL is derived automatically)
+- `pin_file(client, path, *, dry_run=False, options=None)` — collapsed from 6 params to 3; `UpdateOptions` now carries pre-parsed `cutoff: datetime | None`
+- `Settings.path` default changed from `.github/workflows` to `.github` (also scans `.github/actions/**/action.yml`)
+- Removed `versioning.select_latest_tag` (deprecated; use `select_latest_tags`, which returns a list)
 
 ### Removed
 - **Disk caching (`diskcache-rs`)** — Persistent disk cache removed. Rationale: in-memory cache already dedupes refs within a single run; disk cache across separate invocations violated documented re-resolution safety invariant without adding value in CI/CD (ephemeral runners) or batch multi-repo scenarios (staleness at scale). Kept: in-memory LRU cache (thread-safe, zero-cost dedup within-run).
@@ -22,6 +25,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Enterprise Server (GHE) support via `--host` setting: single flag automatically derives both API base URL and clone-URL hostname
 - Cool-off period (`--exclude-newer`) for tag auto-selection: mitigates same-day supply-chain attacks by skipping tags younger than cutoff; accepts RFC 3339 timestamps, ISO 8601 durations, and friendly durations (e.g., `7 days`)
 - `scripts/update_repos.py`: added `--host` (GHE Server support with automatic API URL derivation and `GH_HOST` env override) and `--verbose`/`-v` (0–3 logging control); uses modern Python 3.14 idioms (PEP 695 type aliases)
+- `--diff`: print a unified diff of pending changes instead of writing files (implies `--dry-run`)
+- `--version`: print the installed `pin-actions` version and exit
+- New `pin-precommit` entry point (`pin_actions/precommit.py`): pins GitHub-hosted `.pre-commit-config.yaml` `repos[].rev` entries using the same resolution/versioning pipeline as `pin-actions`; `scripts/update_precommit.py` is now a thin shim calling it
+- `AuthError` exception for 403 responses with exhausted rate limit (distinct from `RateLimitExhaustedError`)
+- Concurrent commit-date prefetch for `--exclude-newer` candidate tags (was serial)
+- `--host` file-or-directory `--path` handling: `pin-actions --path some/file.yml` now works alongside directory paths
+- Redocumented per Diátaxis: split flag matrices/exception hierarchies out of how-to guides into `reference/cli.md`/`reference/errors.md`; merged `checkout-another-repo.md` + `pin-composite-actions.md` into `how-to/pin-non-standard-refs.md`; new `how-to/run-in-ci.md` and `how-to/pin-pre-commit-hooks.md`
+
 
 ## [0.1.0] - 2026-08-11
 

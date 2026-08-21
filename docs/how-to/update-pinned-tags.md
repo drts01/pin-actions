@@ -42,15 +42,7 @@ pin-actions --update patch --github-token $GITHUB_TOKEN
 
 ## Precision Preservation
 
-The rewritten tag comment matches the original's precision:
-
-| Original | Latest Tag | Result |
-|----------|-----------|--------|
-| `v4` | `v4.9.0` | `v4` (major-only preserved) |
-| `v4.0.5` | `v9.1.2` | `v9.1.2` (full precision kept) |
-| `v4.0` | `v4.9.3` | `v4.9` (major.minor preserved) |
-
-Use `--full-version` to record the full tag version instead:
+Use `--full-version` to record the full tag version instead of matching the original's precision — see [Reference: CLI](../reference/cli.md#precision-preservation-full-version) for the precision table:
 
 ```bash
 pin-actions --update minor --full-version --github-token $GITHUB_TOKEN
@@ -96,5 +88,5 @@ This is safer than silently dropping a pin or raising an error mid-batch.
 
 ## See Also
 
-- [Design Decisions](../explanation/design-decisions.md) — Version constraint rationale and more
-- [Reference: Settings](../reference/config.md) — All CLI options
+- [Reference: CLI](../reference/cli.md) — Flag matrix and precision table
+- [Explanation: Design Decisions](../explanation/design-decisions.md) — Version constraint rationale

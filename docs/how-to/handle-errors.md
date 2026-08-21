@@ -1,23 +1,8 @@
 # Handle Errors
 
-Understand pin-actions' exception hierarchy and how to handle errors robustly.
+Recover from common pin-actions failure modes.
 
-## Exception Hierarchy
-
-All pin-actions exceptions inherit from `PinActionsError`:
-
-```
-PinActionsError                    # base for all errors
-├── YAMLParseError                # malformed YAML
-└── GitHubAPIError                # base for API failures
-    ├── InvalidRefError           # 404: ref doesn't exist
-    ├── RateLimitExhaustedError   # retries exhausted on 429/403
-    └── NetworkError              # unrecoverable network failure
-```
-
-## Common Errors
-
-### YAML Parse Error
+## YAML Parse Error
 
 Raised when a workflow or action file is not valid YAML:
 
@@ -30,7 +15,7 @@ except YAMLParseError as exc:
     print(f"Bad YAML in {exc.path}: {exc.reason}")
 ```
 
-### Invalid Ref Error
+## Invalid Ref Error
 
 Raised when a ref (branch, tag, or SHA) doesn't exist on the remote:
 
@@ -43,7 +28,7 @@ except InvalidRefError as exc:
     print(f"Ref not found: {exc.repo}@{exc.ref}")
 ```
 
-### Rate Limit Exhausted
+## Rate Limit Exhausted
 
 Raised when GitHub API rate limits are hit and retries are exhausted:
 
@@ -57,11 +42,27 @@ except RateLimitExhaustedError as exc:
 ```
 
 Mitigate with:
+
 - Authenticated requests (use `--github-token`)
 - Increased `--max-retries`
 - Reduced `--concurrency` (fewer simultaneous requests)
 
-### Network Error
+## Auth Error
+
+Raised on 401/403 responses that aren't rate-limiting (bad token, insufficient scope):
+
+```python
+from pin_actions import AuthError
+
+try:
+    sha = await client.resolve_sha("actions/checkout", "v4")
+except AuthError as exc:
+    print(f"Auth failed: {exc}")
+```
+
+Check that `--github-token`/`GITHUB_TOKEN` is set and has `repo` read scope.
+
+## Network Error
 
 Raised on DNS, connection, or timeout failures:
 
@@ -97,12 +98,8 @@ The CLI catches all `PinActionsError` subclasses and prints them to stderr:
 
 ```bash
 $ pin-actions --github-token $TOKEN .github/workflows
-pin-actions: error: Ref not found: actions/checkout@fake-ref
+Error: Ref not found: actions/checkout@fake-ref
 ```
-
-Exit codes:
-- `0` — success
-- `1` — any error (YAML parse, invalid ref, rate limit, network, etc.)
 
 ## Best Practices
 
@@ -114,5 +111,5 @@ Exit codes:
 
 ## See Also
 
-- [Reference: errors](../reference/errors.md) — Exception class details
+- [Reference: errors](../reference/errors.md) — Exception hierarchy and exit codes
 - [Tutorial: Getting Started](../tutorials/getting-started.md) — CLI example
