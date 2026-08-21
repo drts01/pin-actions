@@ -2,7 +2,7 @@
 
 from hypothesis import given
 from hypothesis import strategies as st
-from pin_actions.versioning import parse_tag_version, select_latest_tag, select_latest_tags
+from pin_actions.versioning import parse_tag_version, select_latest_tags
 
 
 class TestParseTagVersion:
@@ -70,8 +70,8 @@ class TestParseTagVersion:
         parse_tag_version(tag)
 
 
-class TestSelectLatestTag:
-    """Test semver tag selection with constraints."""
+class TestSelectLatestTags:
+    """Test semver tag selection with constraints (returns sorted list, best first)."""
 
     def test_patch_constraint_downgrades_regression(self) -> None:
         """Patch constraint on major-only comment doesn't spuriously narrow to minor==0.
@@ -86,13 +86,10 @@ class TestSelectLatestTag:
         ]
 
         # Act
-        result = select_latest_tag(tags, "v4", latest_patch=True)
+        result = select_latest_tags(tags, "v4", latest_patch=True)
 
         # Assert
-        assert result is not None
-        tag_name, sha = result
-        assert tag_name == "v4"
-        assert sha == "sha_v4_9_0"
+        assert result[0] == ("v4", "sha_v4_9_0")
 
     def test_patch_constraint_full_precision(self) -> None:
         """Patch constraint with full precision."""
@@ -104,13 +101,10 @@ class TestSelectLatestTag:
         ]
 
         # Act
-        result = select_latest_tag(tags, "v4.2.3", latest_patch=True)
+        result = select_latest_tags(tags, "v4.2.3", latest_patch=True)
 
         # Assert
-        assert result is not None
-        tag_name, sha = result
-        assert tag_name == "v4.2.9"
-        assert sha == "sha_v4_2_9"
+        assert result[0] == ("v4.2.9", "sha_v4_2_9")
 
     def test_minor_constraint(self) -> None:
         """Minor constraint picks highest v4.x but not v5.x."""
@@ -122,13 +116,10 @@ class TestSelectLatestTag:
         ]
 
         # Act
-        result = select_latest_tag(tags, "v4", latest_minor=True)
+        result = select_latest_tags(tags, "v4", latest_minor=True)
 
         # Assert
-        assert result is not None
-        tag_name, sha = result
-        assert tag_name == "v4"
-        assert sha == "sha_v4_9_5"
+        assert result[0] == ("v4", "sha_v4_9_5")
 
     def test_major_constraint(self) -> None:
         """Major constraint picks globally highest tag."""
@@ -140,13 +131,10 @@ class TestSelectLatestTag:
         ]
 
         # Act
-        result = select_latest_tag(tags, "v4", latest_major=True)
+        result = select_latest_tags(tags, "v4", latest_major=True)
 
         # Assert
-        assert result is not None
-        tag_name, sha = result
-        assert tag_name == "v9"
-        assert sha == "sha_v9_0_0"
+        assert result[0] == ("v9", "sha_v9_0_0")
 
     def test_full_version_flag(self) -> None:
         """With full_version=True, preserve full resolved tag precision."""
@@ -158,18 +146,12 @@ class TestSelectLatestTag:
         ]
 
         # Act: without full_version
-        result = select_latest_tag(tags, "v4", latest_minor=True, full_version=False)
-        assert result is not None
-        tag_name, sha = result
-        assert tag_name == "v4"
-        assert sha == "sha_v4_9_2"
+        result = select_latest_tags(tags, "v4", latest_minor=True, full_version=False)
+        assert result[0] == ("v4", "sha_v4_9_2")
 
         # Act: with full_version
-        result = select_latest_tag(tags, "v4", latest_minor=True, full_version=True)
-        assert result is not None
-        tag_name, sha = result
-        assert tag_name == "v4.9.2"
-        assert sha == "sha_v4_9_2"
+        result = select_latest_tags(tags, "v4", latest_minor=True, full_version=True)
+        assert result[0] == ("v4.9.2", "sha_v4_9_2")
 
     def test_calver_dot_separated(self) -> None:
         """CalVer with dot separators."""
@@ -181,13 +163,10 @@ class TestSelectLatestTag:
         ]
 
         # Act
-        result = select_latest_tag(tags, "2023.01.05", latest_major=True)
+        result = select_latest_tags(tags, "2023.01.05", latest_major=True)
 
         # Assert
-        assert result is not None
-        tag_name, sha = result
-        assert tag_name == "2024.1.2"
-        assert sha == "sha_2024_01_02"
+        assert result[0] == ("2024.1.2", "sha_2024_01_02")
 
     def test_calver_dash_separated(self) -> None:
         """CalVer with dash separators."""
@@ -199,13 +178,10 @@ class TestSelectLatestTag:
         ]
 
         # Act
-        result = select_latest_tag(tags, "2024-01-05", latest_minor=True)
+        result = select_latest_tags(tags, "2024-01-05", latest_minor=True)
 
         # Assert
-        assert result is not None
-        tag_name, sha = result
-        assert tag_name == "2024.9.30"
-        assert sha == "sha_2024_09_30"
+        assert result[0] == ("2024.9.30", "sha_2024_09_30")
 
     def test_calver_patch_constraint(self) -> None:
         """CalVer with patch constraint."""
@@ -217,35 +193,32 @@ class TestSelectLatestTag:
         ]
 
         # Act
-        result = select_latest_tag(tags, "2024.05.05", latest_patch=True)
+        result = select_latest_tags(tags, "2024.05.05", latest_patch=True)
 
         # Assert
-        assert result is not None
-        tag_name, sha = result
-        assert tag_name == "2024.5.15"
-        assert sha == "sha_2024_05_15"
+        assert result[0] == ("2024.5.15", "sha_2024_05_15")
 
     def test_no_constraint(self) -> None:
-        """Return None if no constraint is set."""
+        """Return empty list if no constraint is set."""
         # Arrange
         tags = [("v1.0.0", "sha")]
 
         # Act
-        result = select_latest_tag(tags, "v1.0.0")
+        result = select_latest_tags(tags, "v1.0.0")
 
         # Assert
-        assert result is None
+        assert result == []
 
     def test_unparseable_current_tag(self) -> None:
-        """Return None if current_tag isn't a valid version."""
+        """Return empty list if current_tag isn't a valid version."""
         # Arrange
         tags = [("v1.0.0", "sha")]
 
         # Act
-        result = select_latest_tag(tags, "main", latest_major=True)
+        result = select_latest_tags(tags, "main", latest_major=True)
 
         # Assert
-        assert result is None
+        assert result == []
 
     @given(
         st.lists(
@@ -259,15 +232,11 @@ class TestSelectLatestTag:
         ),
     )
     def test_property_select_latest_never_crashes(self, tags: list[tuple[str, str]]) -> None:
-        """Property: select_latest_tag never crashes on arbitrary tag inputs."""
+        """Property: select_latest_tags never crashes on arbitrary tag inputs."""
         # Should not raise
-        select_latest_tag(tags, "v1.0.0", latest_major=True)
-        select_latest_tag(tags, "v1.0.0", latest_minor=True)
-        select_latest_tag(tags, "v1.0.0", latest_patch=True)
-
-
-class TestSelectLatestTags:
-    """Property-based tests for select_latest_tags (plural, returns sorted list)."""
+        select_latest_tags(tags, "v1.0.0", latest_major=True)
+        select_latest_tags(tags, "v1.0.0", latest_minor=True)
+        select_latest_tags(tags, "v1.0.0", latest_patch=True)
 
     @given(
         st.lists(

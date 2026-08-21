@@ -2,6 +2,7 @@
 
 _SHA_LENGTH = 40
 _URL_OWNER_REPO_PARTS = 2
+_HEX = frozenset("0123456789abcdefABCDEF")
 
 
 def is_full_sha(ref: str) -> bool:
@@ -13,7 +14,7 @@ def is_full_sha(ref: str) -> bool:
     Returns:
         True if ``ref`` is exactly 40 hex characters (case-insensitive), False otherwise.
     """
-    return len(ref) == _SHA_LENGTH and all(c in "0123456789abcdefABCDEF" for c in ref)
+    return len(ref) == _SHA_LENGTH and _HEX.issuperset(ref)
 
 
 def git_url_to_repo(url: str, host: str = "github.com") -> str | None:
