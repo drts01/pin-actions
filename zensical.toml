@@ -38,6 +38,7 @@ nav = [
     { "Architecture Overview" = "explanation/architecture.md" },
     { "Design Decisions" = "explanation/design-decisions.md" },
     { "Caching" = "explanation/caching.md" },
+    { "Threat Model" = "explanation/threat-model.md" },
   ] },
 
 ]
