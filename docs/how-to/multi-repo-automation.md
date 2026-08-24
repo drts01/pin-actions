@@ -71,6 +71,19 @@ uv run --with-editable . scripts/update_repos.py --repos org/repo1 --repos org/r
 
 Creates feature branches, pushes them, and opens PRs via `gh pr create`. Each repo's actual default branch (auto-detected) is used as the PR base.
 
+### Pin via a fork (limited-write-access workflow)
+
+If you lack direct write access to target repositories, use `--fork` to push to a fork and create cross-fork PRs:
+
+```bash
+uv run --with-editable . scripts/update_repos.py --repos upstream/repo1 --repos upstream/repo2 --fork --push
+```
+
+- `--fork`: Creates a fork (if needed) and pushes branches there. Idempotent; re-running on an existing fork is a no-op.
+- `--fork-org <organization>`: Fork into an organization account instead of your personal account (requires suitable token scopes).
+
+The script detects your fork's owner automatically and opens PRs from the fork's branch into the upstream repo's default branch.
+
 ### Load repositories from a file
 
 ```bash
@@ -336,6 +349,15 @@ The script uses exponential backoff with jitter (default 5 retries, up to 60s); 
 - Ensure each repo has `.github/workflows/*.yml` or `.github/actions/*` directories
 - Verify the clone succeeded (`--dry-run` shows `base_branch` but no files? → try without `--dry-run` to see actual error)
 - Some repos may legitimately have no GitHub Actions to pin
+
+### Fork creation fails (`gh repo fork` error)
+
+When using `--fork`, ensure:
+- Token has `repo` and `workflow` scopes (fork creation requires repo access)
+- GitHub account (or target `--fork-org` organization) is not rate-limited or suspended
+- For `--fork-org`: Authenticated user has permission to create forks in that organization
+
+If target organization's forking is disabled, the fork will fail with an HTTP 403 error.
 
 ## Library Integration
 

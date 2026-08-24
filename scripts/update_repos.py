@@ -8,6 +8,7 @@ import io
 import json
 import logging
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -66,6 +67,11 @@ class UpdateReposSettings(BaseSettings):
         description="PR base branch; defaults to each repo's actual default branch",
     )
     push: bool = Field(default=False, description="Push and open a PR via gh (requires gh auth login)")
+    fork: bool = Field(default=False, description="Push to a fork instead of origin (creates fork if needed)")
+    fork_org: str | None = Field(
+        default=None,
+        description="Create fork in this organization instead of authenticated user's account",
+    )
     commit_message: str = Field(default=DEFAULT_COMMIT_MESSAGE, description="Commit message and PR title")
     pr_body: str = Field(default=DEFAULT_PR_BODY, description="Pull request body text")
     format: Literal["table", "markdown", "json", "csv", "tsv"] = Field(  # pyrefly: ignore[bad-assignment]
@@ -108,6 +114,7 @@ class RepoResult(BaseModel):
     branch: str | None = None
     base_branch: str | None = None
     pr_url: str | None = None
+    fork_owner: str | None = None
 
 
 def _run(*cmd: str, cwd: Path, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
@@ -202,21 +209,73 @@ async def _try_pin(client: GitHubClient, repo_dir: Path, settings: UpdateReposSe
 
 def _push_branch(repo: str, repo_dir: Path, branch: str, settings: UpdateReposSettings, env: EnvDict) -> None:
     """Commit and force-push feature branch (always our latest pins)."""
+    remote = "fork" if settings.fork else "origin"
     for args in (
-        ("checkout", "-b", branch),
+        ("checkout", "-b", "--", branch),
         ("add", "-A"),
         ("commit", "-m", settings.commit_message),
-        ("push", "--force", "origin", branch),
+        ("push", "--force", remote, "--", branch),
     ):
         _run("git", *args, cwd=repo_dir, env=env)
-    logger.debug("%s: pushed branch %s (forced)", repo, branch)
+    logger.debug("%s: pushed branch %s to %s (forced)", repo, branch, remote)
 
 
-def _upsert_pr(repo: str, branch: str, base_branch: str, settings: UpdateReposSettings, env: EnvDict) -> str:
+def _extract_fork_owner(remote_url: str) -> str:
+    """Extract fork owner from a git remote URL (HTTPS or SSH).
+
+    >>> _extract_fork_owner("https://github.com/octocat/Hello-World.git")
+    'octocat'
+    >>> _extract_fork_owner("git@github.com:octocat/Hello-World.git")
+    'octocat'
+    """
+    # Match HTTPS: https://github.com/OWNER/repo[.git]
+    # Match SSH: git@github.com:OWNER/repo[.git]
+    match = re.search(r"(?:https://[^/]+/|git@[^:]+:)([^/]+)/", remote_url)
+    if match:
+        return match.group(1)
+    msg = f"Cannot extract owner from remote URL: {remote_url}"
+    raise ValueError(msg)
+
+
+def _ensure_fork(repo_dir: Path, repo: str, settings: UpdateReposSettings, env: EnvDict) -> str:
+    """Create fork if needed and add as remote; return fork owner.
+
+    Idempotent: re-running on existing fork is a no-op.
+    Raises CalledProcessError on auth/network failure.
+    """
+    fork_args = ["gh", "repo", "fork", "--remote", "--remote-name", "fork"]
+    if settings.fork_org:
+        fork_args.extend(["--org", settings.fork_org])
+
+    _run(*fork_args, cwd=repo_dir, env=env)
+    logger.debug("%s: fork created/verified", repo)
+
+    remote_url = _run("git", "remote", "get-url", "fork", cwd=repo_dir, env=env).stdout.strip()
+    fork_owner = _extract_fork_owner(remote_url)
+    logger.info("%s: fork owner is %s", repo, fork_owner)
+    return fork_owner
+
+
+def _upsert_pr(repo: str, head: str, base_branch: str, settings: UpdateReposSettings, env: EnvDict) -> str:
     """Return PR URL: reuse existing or create new. Logs action taken."""
-    view_cmd = ("gh", "pr", "view", "--repo", repo, "--head", branch, "--json", "url", "--jq", ".url")
+    # Use gh pr list with --head to find existing PR by branch name (works for same-repo and fork PRs).
+    list_cmd = (
+        "gh",
+        "pr",
+        "list",
+        "--repo",
+        repo,
+        "--head",
+        head.split(":", maxsplit=1)[0] if ":" in head else head,  # Extract plain branch name for lookup
+        "--state",
+        "all",
+        "--json",
+        "url",
+        "--jq",
+        ".[0].url",
+    )
     with contextlib.suppress(subprocess.CalledProcessError):
-        if existing_url := _run(*view_cmd, cwd=Path.cwd(), env=env).stdout.strip():
+        if existing_url := _run(*list_cmd, cwd=Path.cwd(), env=env).stdout.strip():
             logger.info("%s: PR exists: %s (updating branch)", repo, existing_url)
             return existing_url
 
@@ -229,7 +288,7 @@ def _upsert_pr(repo: str, branch: str, base_branch: str, settings: UpdateReposSe
         "--base",
         base_branch,
         "--head",
-        branch,
+        head,
         "--title",
         settings.commit_message,
         "--body",
@@ -248,10 +307,13 @@ def _publish(repo: str, repo_dir: Path, settings: UpdateReposSettings, result: R
     result.branch = branch
     env = _gh_env(settings.github_token, settings.host)
     try:
+        if settings.fork:
+            result.fork_owner = _ensure_fork(repo_dir, repo, settings, env)
         _push_branch(repo, repo_dir, branch, settings, env)
         if settings.push:
             assert result.base_branch is not None, "base_branch set by _try_clone before _publish runs"  # noqa: S101
-            result.pr_url = _upsert_pr(repo, branch, result.base_branch, settings, env)
+            head = f"{result.fork_owner}:{branch}" if settings.fork else branch
+            result.pr_url = _upsert_pr(repo, head, result.base_branch, settings, env)
     except subprocess.CalledProcessError as exc:
         _fail(result, repo, f"git/gh op failed: {exc.stderr.strip()}")
 
@@ -290,7 +352,7 @@ async def _run_all(settings: UpdateReposSettings) -> list[RepoResult]:
         return await asyncio.gather(*(bound(r, client) for r in repos))
 
 
-_HEADERS = ("repo", "modified", "branch", "base_branch", "pr_url", "status")
+_HEADERS = ("repo", "modified", "branch", "base_branch", "fork_owner", "pr_url", "status")
 
 
 def _rows(results: list[RepoResult]) -> list[dict[str, str]]:
@@ -307,6 +369,7 @@ def _rows(results: list[RepoResult]) -> list[dict[str, str]]:
             "modified": str(len(r.modified)),
             "branch": r.branch or "—",
             "base_branch": r.base_branch or "—",
+            "fork_owner": r.fork_owner or "—",
             "pr_url": r.pr_url or "—",
             "status": "OK" if r.error is None else f"ERROR: {r.error}",
         }
