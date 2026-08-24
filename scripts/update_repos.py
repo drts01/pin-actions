@@ -16,8 +16,7 @@ from functools import partial
 from pathlib import Path
 from typing import Literal
 
-from pin_actions import GitHubClient, PinActionsError, Settings, run
-from pin_actions.core import _LEVELS_BY_VERBOSITY
+from pin_actions import LEVELS_BY_VERBOSITY, GitHubClient, PinActionsError, Settings, configure_logging, run
 from pydantic import AliasChoices, BaseModel, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -378,11 +377,15 @@ def _rows(results: list[RepoResult]) -> list[dict[str, str]]:
 
 
 def _configure_logging(verbose: int) -> None:
-    """Configure logging levels per namespace based on verbosity count."""
-    logging.basicConfig(format="%(levelname)s:%(name)s: %(message)s", force=True)
-    levels = _LEVELS_BY_VERBOSITY[min(verbose, 3)]
-    for namespace, level in levels.items():
-        logging.getLogger(namespace).setLevel(level)
+    """Configure logging levels per namespace based on verbosity count.
+
+    Calls the shared core logging configuration, then applies update_repos-specific
+    customizations (script logger level + CLI output handler setup for capsys isolation).
+    """
+    configure_logging(verbose)
+
+    # update_repos-specific customizations
+    levels = LEVELS_BY_VERBOSITY[min(verbose, 3)]
     logger.setLevel(levels["pin_actions"])
 
     # Rebuild CLI logger's handlers for test isolation (capsys-safe: fresh stream references).

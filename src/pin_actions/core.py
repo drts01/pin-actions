@@ -614,12 +614,15 @@ async def _process_files(
     return [f for f, r in zip(files, results, strict=True) if r is True]
 
 
-# Verbosity → per-namespace logging levels
-# 0 (default): pin_actions=WARNING, httpx2/httpcore=WARNING
-# 1 (-v):      pin_actions=INFO, httpx2/httpcore=WARNING
-# 2 (-vv):     pin_actions=DEBUG, httpx2/httpcore=INFO
-# 3+ (-vvv):   pin_actions=DEBUG, httpx2/httpcore=DEBUG
-_LEVELS_BY_VERBOSITY: list[dict[str, int]] = [
+"""Verbosity count → per-namespace logging level mapping.
+
+Maps verbosity levels (0-3+) to logging level dicts for core libraries:
+- 0 (default): pin_actions=WARNING, httpx2/httpcore=WARNING
+- 1 (-v):      pin_actions=INFO, httpx2/httpcore=WARNING
+- 2 (-vv):     pin_actions=DEBUG, httpx2/httpcore=INFO
+- 3+ (-vvv):   pin_actions=DEBUG, httpx2/httpcore=DEBUG
+"""
+LEVELS_BY_VERBOSITY: list[dict[str, int]] = [
     {"pin_actions": logging.WARNING, "httpx2": logging.WARNING, "httpcore": logging.WARNING},
     {"pin_actions": logging.INFO, "httpx2": logging.WARNING, "httpcore": logging.WARNING},
     {"pin_actions": logging.DEBUG, "httpx2": logging.INFO, "httpcore": logging.INFO},
@@ -627,7 +630,7 @@ _LEVELS_BY_VERBOSITY: list[dict[str, int]] = [
 ]
 
 
-def _configure_logging(verbose: int) -> None:
+def configure_logging(verbose: int) -> None:
     """Configure diagnostic logging levels per namespace based on verbosity count.
 
     User-facing CLI output (results/errors) goes through ``print()``, not
@@ -638,7 +641,7 @@ def _configure_logging(verbose: int) -> None:
         verbose: Verbosity count (0-3+).
     """
     logging.basicConfig(format="%(levelname)s:%(name)s: %(message)s", force=True)
-    levels = _LEVELS_BY_VERBOSITY[min(verbose, 3)]
+    levels = LEVELS_BY_VERBOSITY[min(verbose, 3)]
     for namespace, level in levels.items():
         logging.getLogger(namespace).setLevel(level)
 
@@ -662,7 +665,7 @@ def main() -> None:
             _cli_implicit_flags=True,
             _cli_prog_name="pin-actions",
         )
-        _configure_logging(settings.verbose)
+        configure_logging(settings.verbose)
         modified = asyncio.run(run(settings))
     except PinActionsError as exc:
         print(f"Error: {exc}", file=sys.stderr)

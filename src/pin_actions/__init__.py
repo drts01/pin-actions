@@ -5,7 +5,15 @@ from importlib.metadata import version
 from pin_actions._util import git_url_to_repo
 from pin_actions.client import GitHubClient
 from pin_actions.config import Settings
-from pin_actions.core import UpdateOptions, apply_version_constrained_tag, pin_file, resolve_and_rewrite, run
+from pin_actions.core import (
+    LEVELS_BY_VERBOSITY,
+    UpdateOptions,
+    apply_version_constrained_tag,
+    configure_logging,
+    pin_file,
+    resolve_and_rewrite,
+    run,
+)
 from pin_actions.errors import (
     GitHubAPIError,
     InvalidRefError,
@@ -18,6 +26,7 @@ from pin_actions.errors import (
 __version__ = version("pin-actions")
 
 __all__ = [
+    "LEVELS_BY_VERBOSITY",
     "GitHubAPIError",
     "GitHubClient",
     "InvalidRefError",
@@ -28,6 +37,7 @@ __all__ = [
     "UpdateOptions",
     "YAMLParseError",
     "apply_version_constrained_tag",
+    "configure_logging",
     "git_url_to_repo",
     "pin_file",
     "resolve_and_rewrite",
