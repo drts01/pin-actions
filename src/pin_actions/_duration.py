@@ -25,6 +25,16 @@ def parse_exclude_newer(value: str, *, now: datetime | None = None) -> datetime:
 
     Raises:
         ValueError: If value doesn't match any accepted format.
+
+    Example:
+        >>> from datetime import UTC, datetime
+        >>> parse_exclude_newer("2006-12-02T02:07:43Z")
+        datetime.datetime(2006, 12, 2, 2, 7, 43, tzinfo=datetime.timezone.utc)
+        >>> now = datetime(2024, 1, 8, tzinfo=UTC)
+        >>> parse_exclude_newer("P7D", now=now) == datetime(2024, 1, 1, tzinfo=UTC)
+        True
+        >>> parse_exclude_newer("7 days", now=now) == datetime(2024, 1, 1, tzinfo=UTC)
+        True
     """
     _now = now or datetime.now(UTC)
 

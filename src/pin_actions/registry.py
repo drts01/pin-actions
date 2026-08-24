@@ -36,6 +36,12 @@ def is_image_digest(ref: str) -> bool:
 
     Returns:
         True if ``ref`` is ``sha256:`` followed by exactly 64 hex characters.
+
+    Example:
+        >>> is_image_digest("sha256:" + "a" * 64)
+        True
+        >>> is_image_digest("latest")
+        False
     """
     prefix = "sha256:"
     if not ref.startswith(prefix):
@@ -56,6 +62,14 @@ def parse_image_ref(image_str: str) -> tuple[str, str, str] | None:
 
     Returns:
         (registry, name, tag_or_digest) tuple, or None if unparsable.
+
+    Example:
+        >>> parse_image_ref("postgres:15")
+        ('registry-1.docker.io', 'library/postgres', '15')
+        >>> parse_image_ref("ghcr.io/owner/image:v1")
+        ('ghcr.io', 'owner/image', 'v1')
+        >>> parse_image_ref("docker://alpine:3.18")
+        ('registry-1.docker.io', 'library/alpine', '3.18')
     """
     image_str = image_str.removeprefix("docker://")
     if not image_str:

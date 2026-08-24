@@ -17,6 +17,14 @@ def parse_tag_version(tag: str) -> Version | None:
 
     Returns:
         Parsed version, or None if ``tag`` isn't a valid version.
+
+    Example:
+        >>> parse_tag_version("v1.2.3").release
+        (1, 2, 3)
+        >>> parse_tag_version("2024-05-01").release
+        (2024, 5, 1)
+        >>> parse_tag_version("main") is None
+        True
     """
     candidate = tag[1:] if tag.lower().startswith("v") and len(tag) > 1 else tag
     try:

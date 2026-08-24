@@ -179,6 +179,7 @@ python-version = "3.14"
 [tool.pytest]
 addopts = [
   "--cov",
+  "--doctest-modules",
   "--strict-markers",
   "--tb=short",
 ]
@@ -188,7 +189,7 @@ markers = [
   "integration: Tests with mocked external APIs",
   "unit: Fast unit tests with mocked dependencies",
 ]
-testpaths = [ "tests", "scripts" ]
+testpaths = [ "tests", "scripts", "src" ]
 
 [tool.coverage]
 run.omit = [ "**/__pycache__/*", "tests/*" ]
