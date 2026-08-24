@@ -153,12 +153,17 @@ With `Retry-After` header, GitHub's advised delay is respected.
 
 ### In-memory LRU cache
 
-Caches are safe under asyncio's single-threaded cooperative scheduling (no `threading.Lock` needed; critical sections contain no `await`):
+`_Cache[T]` (`pin_actions/client.py`) guards its `OrderedDict` store and
+in-flight task map with a `threading.Lock`, held only around the dict
+mutations themselves — never across an `await`. This makes the cache
+correct both under asyncio's single-threaded cooperative scheduling *and*
+under a free-threaded (PEP 779, no-GIL) interpreter where multiple OS
+threads might drive separate event loops against the same client instance.
 
 ```python
-_cache: OrderedDict[(repo, ref), sha]
-_tags_cache: OrderedDict[repo, tags]
-_commit_date_cache: OrderedDict[(repo, sha), date]
+_sha_cache: _Cache[str]                       # (repo, ref) -> sha
+_tags_cache: _Cache[list[tuple[str, str]]]    # repo -> tags
+_date_cache: _Cache[str]                      # (repo, sha) -> commit date
 ```
 
 **Pattern:** in-memory cache → fetch (semaphore-gated) → write-through cache
@@ -197,4 +202,5 @@ patterns as `GitHubClient`. Toggle via `Settings.image_pin` (default `True`).
 ## See Also
 
 - [Design Decisions](design-decisions.md) — Why these choices
+- [Threat Model](threat-model.md) — The supply-chain attack model this tool defends against
 - [Reference: client](../reference/client.md) — `GitHubClient` API

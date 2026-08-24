@@ -4,6 +4,7 @@ import asyncio
 import http
 import logging
 import random
+import threading
 from collections import OrderedDict
 from typing import TYPE_CHECKING, Any, Self
 
@@ -23,48 +24,65 @@ _USER_AGENT = "pin-actions"
 
 
 class _Cache[T]:
-    """LRU-with-single-flight-dedup cache for one kind of fetch."""
+    """LRU-with-single-flight-dedup cache for one kind of fetch.
 
-    __slots__ = ("_inflight", "_store", "max_size")
+    Dict mutations (``_store``/``_inflight``) are guarded by a
+    :class:`threading.Lock` so the cache stays correct under a
+    free-threaded (PEP 779, no-GIL) interpreter driving multiple OS
+    threads concurrently, not just asyncio's single-threaded cooperative
+    scheduling. The lock is held only around the dict operations
+    themselves, never across an ``await``, so it can't deadlock or
+    serialize actual network I/O.
+    """
+
+    __slots__ = ("_inflight", "_lock", "_store", "max_size")
 
     def __init__(self, max_size: int) -> None:
         """Initialize with an eviction threshold (0 = unbounded)."""
         self.max_size = max_size
         self._store: OrderedDict[Any, T] = OrderedDict()
         self._inflight: dict[Any, asyncio.Task[T]] = {}
+        self._lock = threading.Lock()
 
     def __contains__(self, key: object) -> bool:
         """Check membership without touching LRU order."""
-        return key in self._store
+        with self._lock:
+            return key in self._store
 
     async def get_or_fetch(self, key: Any, fetch: Callable[[], Awaitable[T]]) -> T:  # noqa: ANN401
         """Check cache → in-flight dedup → fetch → write-through cache.
 
         Prevents cache stampede by de-duplicating concurrent requests for the same key.
         """
-        if key in self._store:
-            self._store.move_to_end(key)
-            logger.debug("Cache hit: %s", key)
-            return self._store[key]
+        with self._lock:
+            if key in self._store:
+                self._store.move_to_end(key)
+                logger.debug("Cache hit: %s", key)
+                return self._store[key]
 
-        if key in self._inflight:
+            inflight_task = self._inflight.get(key)
+
+        if inflight_task is not None:
             logger.debug("Awaiting in-flight fetch: %s", key)
-            return await self._inflight[key]
+            return await inflight_task
 
         async def _fetch_and_store() -> T:
             value = await fetch()
-            self._store[key] = value
-            if self.max_size and len(self._store) > self.max_size:
-                self._store.popitem(last=False)
+            with self._lock:
+                self._store[key] = value
+                if self.max_size and len(self._store) > self.max_size:
+                    self._store.popitem(last=False)
             return value
 
         logger.debug("Cache miss (fetching): %s", key)
         task: asyncio.Task[T] = asyncio.ensure_future(_fetch_and_store())
-        self._inflight[key] = task
+        with self._lock:
+            self._inflight[key] = task
         try:
             return await task
         finally:
-            self._inflight.pop(key, None)
+            with self._lock:
+                self._inflight.pop(key, None)
 
 
 class GitHubClient:
