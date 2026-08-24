@@ -158,6 +158,12 @@ def _fail(result: RepoResult, repo: str, msg: str) -> bool:
     return False
 
 
+def _git_config(repo_dir: Path, env: dict[str, str] | None = None) -> None:
+    """Set git user config for commits (required in CI environments)."""
+    _run("git", "config", "user.email", "pin-actions@github.com", cwd=repo_dir, env=env)
+    _run("git", "config", "user.name", "pin-actions", cwd=repo_dir, env=env)
+
+
 def _try_clone(repo: str, repo_dir: Path, settings: UpdateReposSettings, result: RepoResult) -> bool:
     """Clone repo and record its default branch; sets result.error on failure."""
     try:
@@ -165,6 +171,11 @@ def _try_clone(repo: str, repo_dir: Path, settings: UpdateReposSettings, result:
     except subprocess.CalledProcessError as exc:
         return _fail(result, repo, f"clone failed: {exc.stderr.strip()}")
     result.base_branch = settings.base_branch or _default_branch(repo_dir)
+    env = _gh_env(settings.github_token, settings.host)
+    try:
+        _git_config(repo_dir, env)
+    except subprocess.CalledProcessError as exc:
+        return _fail(result, repo, f"git config failed: {exc.stderr.strip()}")
     return True
 
 
@@ -188,37 +199,72 @@ async def _try_pin(client: GitHubClient, repo_dir: Path, settings: UpdateReposSe
     return True
 
 
+def _push_branch(repo: str, repo_dir: Path, branch: str, settings: UpdateReposSettings, env: EnvDict) -> None:
+    """Commit and force-push feature branch (always our latest pins)."""
+    _run("git", "checkout", "-b", branch, cwd=repo_dir, env=env)
+    _run("git", "add", "-A", cwd=repo_dir, env=env)
+    _run("git", "commit", "-m", settings.commit_message, cwd=repo_dir, env=env)
+    _run("git", "push", "--force", "origin", branch, cwd=repo_dir, env=env)
+    logger.debug("%s: pushed branch %s (forced)", repo, branch)
+
+
+def _upsert_pr(repo: str, branch: str, base_branch: str, settings: UpdateReposSettings, env: EnvDict) -> str:
+    """Return PR URL: reuse existing or create new. Logs action taken."""
+    try:
+        pr_check = _run(
+            "gh",
+            "pr",
+            "view",
+            "--repo",
+            repo,
+            "--head",
+            branch,
+            "--json",
+            "url",
+            "--jq",
+            ".url",
+            cwd=Path.cwd(),
+            env=env,
+        )
+        existing_url = pr_check.stdout.strip()
+        if existing_url:
+            logger.info("%s: PR exists: %s (updating branch)", repo, existing_url)
+            return existing_url
+    except subprocess.CalledProcessError:
+        pass  # No existing PR; create one below.
+
+    pr = _run(
+        "gh",
+        "pr",
+        "create",
+        "--repo",
+        repo,
+        "--base",
+        base_branch,
+        "--head",
+        branch,
+        "--title",
+        settings.commit_message,
+        "--body",
+        settings.pr_body,
+        cwd=Path.cwd(),
+        env=env,
+    )
+    pr_url = pr.stdout.strip()
+    logger.info("%s: PR created: %s", repo, pr_url)
+    return pr_url
+
+
 def _publish(repo: str, repo_dir: Path, settings: UpdateReposSettings, result: RepoResult) -> None:
-    """Commit modified files to a new branch, and push/open a PR if requested."""
+    """Commit modified files to a new branch, and push/open or update a PR if requested."""
     branch = f"{settings.branch_prefix}/{repo.replace('/', '-')}"
     result.branch = branch
     env = _gh_env(settings.github_token, settings.host)
     try:
-        _run("git", "checkout", "-b", branch, cwd=repo_dir, env=env)
-        _run("git", "add", "-A", cwd=repo_dir, env=env)
-        _run("git", "commit", "-m", settings.commit_message, cwd=repo_dir, env=env)
+        _push_branch(repo, repo_dir, branch, settings, env)
         if settings.push:
-            _run("git", "push", "origin", branch, cwd=repo_dir, env=env)
             assert result.base_branch is not None, "base_branch set by _try_clone before _publish runs"  # noqa: S101
-            pr = _run(
-                "gh",
-                "pr",
-                "create",
-                "--repo",
-                repo,
-                "--base",
-                result.base_branch,
-                "--head",
-                branch,
-                "--title",
-                settings.commit_message,
-                "--body",
-                settings.pr_body,
-                cwd=repo_dir,
-                env=env,
-            )
-            result.pr_url = pr.stdout.strip()
-            logger.info("%s: PR opened: %s", repo, result.pr_url)
+            result.pr_url = _upsert_pr(repo, branch, result.base_branch, settings, env)
     except subprocess.CalledProcessError as exc:
         _fail(result, repo, f"git/gh op failed: {exc.stderr.strip()}")
 

@@ -11,6 +11,7 @@ The `update_repos.py` script:
 - Scans `.github/workflows` and `.github/actions` directories
 - Pins all mutable action refs to their commit SHAs
 - Optionally commits, pushes, and opens PRs via the `gh` CLI
+- **Idempotent** — safe to re-run; force-pushes updates to the same branch and reuses the existing PR instead of erroring
 - Processes repos concurrently while sharing a single GitHub API client (connection pooling + in-memory cache)
 
 Perfect for organizations with many repositories sharing common actions like `actions/checkout@v4`.
@@ -128,7 +129,7 @@ uv run --with-editable . scripts/update_repos.py --repos-file repos.txt --dry-ru
 | `--base-branch` | string | repo's default | PR base branch; auto-detected per repo if unset |
 | `--push` | flag | off | Push branch and open PR via `gh` |
 | `--commit-message` | string | `chore: pin GitHub Actions to immutable commit SHAs` | Commit message and PR title |
-| `--pr-body` | string | `Automated by pin-actions.` | Pull request body text |
+| `--pr-body` | string | `Pinned by [pin-actions](https://github.com/drts01/pin-actions).` | Pull request body text |
 | `--format` | choice | `table` | Output format: `table`, `markdown`, `json`, `csv`, `tsv` |
 | `--output-file` | path | stdout | Write summary to file instead of stdout |
 | `--host` | string | `github.com` | GitHub hostname; use for GHE Server (e.g. `github.example.com`) |
@@ -309,6 +310,8 @@ Ensure:
 - Each repo's base branch is correct (auto-detected, or set with `--base-branch`)
 
 PR URLs appear in the `pr_url` field/column of the summary output (JSON, markdown, table, CSV) — use them to follow up with reviews directly.
+
+Re-running the script on the same repos is safe: it detects existing PRs via `gh pr view` and updates them in-place instead of failing. The feature branch is force-pushed with the latest pins, and the PR body remains unchanged. If all pins are already up-to-date, the branch will reflect that and the PR won't require changes.
 
 ### Out of memory with many repos
 
