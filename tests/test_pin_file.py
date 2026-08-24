@@ -8,7 +8,8 @@ from pin_actions._duration import parse_exclude_newer
 from pin_actions.client import GitHubClient
 from pin_actions.config import Settings
 from pin_actions.core import UpdateOptions, _build_update_options, pin_file
-from pin_actions.errors import InvalidRefError, YAMLParseError
+from pin_actions.errors import InvalidRefError, UnsupportedRegistryError, YAMLParseError
+from pin_actions.registry import ContainerRegistryClient
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -667,3 +668,119 @@ class TestPinFileDiff:
         assert f"+++ {workflow_file}" in captured.out
         assert "+      - uses: actions/checkout@aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" in captured.out
         assert "-      - uses: actions/checkout@v4" in captured.out
+
+
+class TestPinFileImagePinning:
+    """Test pin_file container image pinning (docker://, container.image, services[*].image)."""
+
+    @pytest.mark.asyncio
+    async def test_pins_docker_step(self, tmp_path: Path) -> None:
+        """Rewrite a docker:// step ref to its content digest."""
+        client = GitHubClient(token="test", concurrency=1)
+        registry_client = ContainerRegistryClient()
+        digest = "sha256:" + "a" * 64
+        workflow_file = tmp_path / "workflow.yml"
+        workflow_file.write_text(
+            "name: Test\njobs:\n  build:\n    steps:\n      - uses: docker://alpine:3.18\n",
+        )
+
+        with patch.object(registry_client, "resolve_digest", new=AsyncMock(return_value=digest)):
+            modified = await pin_file(client, workflow_file, dry_run=False, registry_client=registry_client)
+
+        assert modified
+        content = workflow_file.read_text()
+        assert f"docker://library/alpine@{digest}" in content
+        assert "# 3.18" in content
+
+    @pytest.mark.asyncio
+    async def test_pins_container_image(self, tmp_path: Path) -> None:
+        """Rewrite jobs.<job>.container.image to its content digest."""
+        client = GitHubClient(token="test", concurrency=1)
+        registry_client = ContainerRegistryClient()
+        digest = "sha256:" + "b" * 64
+        workflow_file = tmp_path / "workflow.yml"
+        workflow_file.write_text(
+            "name: Test\njobs:\n  build:\n    container:\n      image: node:20\n    steps:\n      - run: echo hi\n",
+        )
+
+        with patch.object(registry_client, "resolve_digest", new=AsyncMock(return_value=digest)):
+            modified = await pin_file(client, workflow_file, dry_run=False, registry_client=registry_client)
+
+        assert modified
+        content = workflow_file.read_text()
+        assert f"node@{digest}" in content
+        assert "# 20" in content
+
+    @pytest.mark.asyncio
+    async def test_pins_service_image(self, tmp_path: Path) -> None:
+        """Rewrite jobs.<job>.services.<name>.image to its content digest."""
+        client = GitHubClient(token="test", concurrency=1)
+        registry_client = ContainerRegistryClient()
+        digest = "sha256:" + "c" * 64
+        workflow_file = tmp_path / "workflow.yml"
+        workflow_file.write_text(
+            "name: Test\njobs:\n  build:\n    services:\n      postgres:\n        image: postgres:15\n    steps:\n"
+            "      - run: echo hi\n",
+        )
+
+        with patch.object(registry_client, "resolve_digest", new=AsyncMock(return_value=digest)):
+            modified = await pin_file(client, workflow_file, dry_run=False, registry_client=registry_client)
+
+        assert modified
+        content = workflow_file.read_text()
+        assert f"postgres@{digest}" in content
+        assert "# 15" in content
+
+    @pytest.mark.asyncio
+    async def test_no_registry_client_skips_image_pinning(self, tmp_path: Path) -> None:
+        """When registry_client is None, docker:// steps are left untouched."""
+        client = GitHubClient(token="test", concurrency=1)
+        workflow_file = tmp_path / "workflow.yml"
+        original_content = "name: Test\njobs:\n  build:\n    steps:\n      - uses: docker://alpine:3.18\n"
+        workflow_file.write_text(original_content)
+
+        modified = await pin_file(client, workflow_file, dry_run=False, registry_client=None)
+
+        assert not modified
+        assert workflow_file.read_text() == original_content
+
+    @pytest.mark.asyncio
+    async def test_already_pinned_image_digest_skipped(self, tmp_path: Path) -> None:
+        """Already-pinned image@sha256:... is left untouched, no resolve_digest call."""
+        client = GitHubClient(token="test", concurrency=1)
+        registry_client = ContainerRegistryClient()
+        digest = "sha256:" + "d" * 64
+        workflow_file = tmp_path / "workflow.yml"
+        original_content = f"name: Test\njobs:\n  build:\n    steps:\n      - uses: docker://alpine@{digest}\n"
+        workflow_file.write_text(original_content)
+
+        mock_resolve = AsyncMock(return_value="sha256:" + "e" * 64)
+        with patch.object(registry_client, "resolve_digest", new=mock_resolve):
+            modified = await pin_file(client, workflow_file, dry_run=False, registry_client=registry_client)
+
+        assert not modified
+        assert workflow_file.read_text() == original_content
+        mock_resolve.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_unsupported_registry_skipped(self, tmp_path: Path) -> None:
+        """UnsupportedRegistryError from resolve_digest leaves the entry untouched."""
+        client = GitHubClient(token="test", concurrency=1)
+        registry_client = ContainerRegistryClient()
+        workflow_file = tmp_path / "workflow.yml"
+        original_content = (
+            "name: Test\njobs:\n  build:\n    container:\n      image: 123.dkr.ecr.us-east-1.amazonaws.com/app:v1\n"
+            "    steps:\n      - run: echo hi\n"
+        )
+        workflow_file.write_text(original_content)
+
+        async def raise_unsupported(_image: str, _ref: str) -> str:
+            registry = "ecr"
+            msg = "no bearer auth"
+            raise UnsupportedRegistryError(registry, msg)
+
+        with patch.object(registry_client, "resolve_digest", new=AsyncMock(side_effect=raise_unsupported)):
+            modified = await pin_file(client, workflow_file, dry_run=False, registry_client=registry_client)
+
+        assert not modified
+        assert workflow_file.read_text() == original_content

@@ -174,6 +174,26 @@ _commit_date_cache: OrderedDict[(repo, sha), date]
 | Same 10 workflows again, warm cache | ~10-50ms |
 | Batch with 429 retry | ~60s worst-case |
 
+## Container image pinning
+
+`ContainerRegistryClient` (`pin_actions/registry.py`) resolves `docker://` step
+refs, `jobs.<job>.container.image`, and `jobs.<job>.services[*].image` tags to
+immutable `sha256:` content digests, using the same OCI Distribution Spec /
+Docker Registry v2 Bearer-token flow shared by all public registries (Docker
+Hub, GHCR, Quay.io, MCR, etc.):
+
+1. Anonymous `HEAD /v2/{name}/manifests/{tag}` request.
+2. If `401` with a `WWW-Authenticate: Bearer realm=...,service=...,scope=...`
+   challenge, exchange it anonymously for a token (GitHub token only injected
+   for `ghcr.io`, enabling private GHCR image resolution).
+3. Retry the `HEAD` with the token; read `Docker-Content-Digest`.
+
+Registries using non-Bearer auth (ECR SigV4, GCR OAuth) raise
+`UnsupportedRegistryError`, which is caught per-image — the entry is left
+untouched and a warning logged, rather than failing the whole file. Reuses
+the same `_Cache[T]` (LRU + single-flight dedup) and lazy `httpx2.AsyncClient`
+patterns as `GitHubClient`. Toggle via `Settings.image_pin` (default `True`).
+
 ## See Also
 
 - [Design Decisions](design-decisions.md) — Why these choices

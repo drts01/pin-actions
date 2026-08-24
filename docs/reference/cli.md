@@ -15,7 +15,29 @@ Pins GitHub-hosted `.pre-commit-config.yaml` `repos[].rev` entries; accepts the 
 
 Run `pin-precommit --help` for the live flag list.
 
+## Container image pinning (`--image-pin`)
+
+By default, `pin-actions` also pins container image references to `sha256:` content digests:
+
+- `uses: docker://image:tag` (step-level docker actions)
+- `jobs.<job>.container.image`
+- `jobs.<job>.services.<name>.image`
+
+Resolution uses the OCI Distribution Spec Bearer-token auth flow, which works anonymously
+for any public registry (Docker Hub, GHCR, Quay.io, MCR, etc. — no credentials required).
+`--github-token` is additionally used for `ghcr.io` private image resolution. Registries
+requiring non-Bearer auth (e.g. ECR, GCR) are skipped with a warning rather than failing
+the whole file. Disable entirely with `--no-image-pin`.
+
+```yaml
+# Before
+image: postgres:15
+# After
+image: postgres@sha256:a8560b36...  # 15
+```
+
 ## `--update` flag matrix
+
 
 | Mode | Constraint | Example |
 |------|-----------|---------|

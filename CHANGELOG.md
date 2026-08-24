@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Updated docs: `configure-caching.md` now covers in-memory cache only
 
 ### Added
+- **Container image pinning** (`--image-pin`, default on): pins `uses: docker://` steps, `jobs.<job>.container.image`, and `jobs.<job>.services[*].image` tags to immutable `sha256:` content digests via the new `pin_actions.registry.ContainerRegistryClient`. Anonymous-first OCI Distribution Spec / Docker Registry v2 Bearer-token flow works against any public registry (Docker Hub, GHCR, Quay.io, MCR, etc.); GitHub token is used only for `ghcr.io` token exchange (enables private GHCR images). Non-Bearer registries (ECR, GCR) are skipped per-image with a warning via the new `UnsupportedRegistryError`. Disable with `--no-image-pin` or `Settings.image_pin = False`
 - GitHub Enterprise Server (GHE) support via `--host` setting: single flag automatically derives both API base URL and clone-URL hostname
 - Cool-off period (`--exclude-newer`) for tag auto-selection: mitigates same-day supply-chain attacks by skipping tags younger than cutoff; accepts RFC 3339 timestamps, ISO 8601 durations, and friendly durations (e.g., `7 days`)
 - `scripts/update_repos.py`: added `--host` (GHE Server support with automatic API URL derivation and `GH_HOST` env override) and `--verbose`/`-v` (0–3 logging control); uses modern Python 3.14 idioms (PEP 695 type aliases)

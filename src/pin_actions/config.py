@@ -107,6 +107,12 @@ class Settings(BaseSettings):
         default="github.com",
         description="GitHub hostname: 'github.com' or GHE Server hostname (e.g. 'github.example.com')",
     )
+    image_pin: bool = Field(
+        default=True,
+        description="Pin container image tags (docker:// steps, container.image, services[*].image) "
+        "to sha256 content digests. Resolves anonymously for public registries (Docker Hub, GHCR, "
+        "Quay.io, etc.); private registries requiring non-Bearer auth (ECR, GCR) are skipped with a warning",
+    )
 
     @property
     def api_base_url(self) -> str:

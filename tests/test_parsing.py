@@ -5,7 +5,7 @@ from typing import Any
 from hypothesis import given
 from hypothesis import strategies as st
 from pin_actions._util import git_url_to_repo, is_full_sha
-from pin_actions.core import _is_local_action, _parse_uses
+from pin_actions.core import _is_docker_ref, _is_local_action, _parse_uses
 
 
 class TestIsFullSha:
@@ -58,11 +58,6 @@ class TestIsLocalAction:
         assert _is_local_action("./path/to/action")
         assert _is_local_action("./__local__")
 
-    def test_local_docker(self) -> None:
-        """Detect docker:// actions."""
-        assert _is_local_action("docker://ubuntu:latest")
-        assert _is_local_action("docker://my-image:v1")
-
     def test_not_local_remote_action(self) -> None:
         """Reject remote actions (owner/repo format)."""
         assert not _is_local_action("owner/repo")
@@ -71,6 +66,20 @@ class TestIsLocalAction:
     def test_not_local_with_sha(self) -> None:
         """Reject remote actions even with SHA."""
         assert not _is_local_action("owner/repo@abc1234def5678abc1234def5678abc1234def56")
+
+
+class TestIsDockerRef:
+    """Test docker:// step ref detection (routed to image pinning, not local skip)."""
+
+    def test_docker_ref(self) -> None:
+        """Detect docker:// image refs."""
+        assert _is_docker_ref("docker://ubuntu:latest")
+        assert _is_docker_ref("docker://my-image:v1")
+
+    def test_not_docker_ref(self) -> None:
+        """Reject non-docker refs."""
+        assert not _is_docker_ref("owner/repo")
+        assert not _is_docker_ref("./local-action")
 
 
 class TestParseUses:

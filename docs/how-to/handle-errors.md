@@ -75,7 +75,26 @@ except NetworkError as exc:
     print(f"Network error: {exc}")
 ```
 
+## Unsupported Registry
+
+Raised when a container registry doesn't support anonymous Bearer auth (e.g. ECR, GCR).
+`run()`/`pin_file()` catch this per-image internally — the entry is left untouched and a
+warning is logged, so this only surfaces if you call `ContainerRegistryClient.resolve_digest()`
+directly:
+
+```python
+from pin_actions.errors import UnsupportedRegistryError
+from pin_actions.registry import ContainerRegistryClient
+
+client = ContainerRegistryClient()
+try:
+    digest = await client.resolve_digest("123456789.dkr.ecr.us-east-1.amazonaws.com/app", "v1")
+except UnsupportedRegistryError as exc:
+    print(f"Cannot pin {exc.registry}: {exc.reason}")
+```
+
 ## Batch Processing
+
 
 When using `run()`, per-file errors are collected into an `ExceptionGroup`:
 

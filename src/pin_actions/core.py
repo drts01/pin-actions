@@ -15,7 +15,8 @@ from pin_actions._duration import parse_exclude_newer
 from pin_actions._util import is_full_sha
 from pin_actions.client import GitHubClient
 from pin_actions.config import Settings
-from pin_actions.errors import PinActionsError, YAMLParseError
+from pin_actions.errors import PinActionsError, UnsupportedRegistryError, YAMLParseError
+from pin_actions.registry import ContainerRegistryClient, is_image_digest, parse_image_ref
 from pin_actions.versioning import parse_tag_version, select_latest_tags
 
 logger = logging.getLogger(__name__)
@@ -35,11 +36,19 @@ class UpdateOptions:
 type UsesWithRefTuple = tuple[tuple[Any, ...], str | None, bool]
 type RefsToResolve = dict[tuple[str, str], list[UsesWithRefTuple]]
 type ResolvedSHAs = dict[tuple[str, str], str]
+type ImageRefsToResolve = dict[tuple[str, str], list[tuple[Any, ...]]]
+
+_SERVICES_IMAGE_MIN_PATH_LEN = 3
 
 
 def _is_local_action(repo: str) -> bool:
-    """Check if action is local (./...) or docker (docker://)."""
-    return repo.startswith(("./", "docker://"))
+    """Check if action is local (./...)."""
+    return repo.startswith("./")
+
+
+def _is_docker_ref(repo: str) -> bool:
+    """Check if a uses: value is a step-level docker:// image reference."""
+    return repo.startswith("docker://")
 
 
 def _parse_uses(uses_str: str) -> tuple[str, str] | None:
@@ -100,6 +109,35 @@ def _collect_refs(doc: Any) -> list[tuple[tuple[Any, ...], str, str, bool]]:  # 
         if not parsed_uses or not parsed_uses[0].startswith("actions/checkout"):
             continue
         results.append((ref_path, step_repository[step_path], ref_value, False))
+
+    return [r for r in results if not (r[3] and _is_docker_ref(r[1]))]
+
+
+def _collect_image_refs(doc: Any) -> list[tuple[tuple[Any, ...], str, str]]:  # noqa: ANN401
+    """Single-pass walk collecting container image references.
+
+    Covers ``uses: docker://image:tag`` steps, ``jobs.<job>.container.image``,
+    and ``jobs.<job>.services.<name>.image``.
+
+    Returns:
+        List of (item_path, image, tag_or_digest) for every pinnable image entry.
+    """
+    results: list[tuple[tuple[Any, ...], str, str]] = []
+    for item_path, value in doc.walk():
+        if not item_path or not isinstance(value, str):
+            continue
+
+        if (item_path[-1] == "uses" and _is_docker_ref(value)) or (
+            item_path[-1] == "image"
+            and (
+                item_path[-2] == "container"
+                or (len(item_path) >= _SERVICES_IMAGE_MIN_PATH_LEN and item_path[-3] == "services")
+            )
+        ):
+            parsed = parse_image_ref(value)
+            if parsed:
+                _registry, name, tag = parsed
+                results.append((item_path, name, tag))
 
     return results
 
@@ -267,6 +305,42 @@ async def _resolve_pinned_ref(
 type CollectFn = Any  # (doc) -> list[tuple[tuple[Any, ...], str, str, bool]]
 
 
+async def _resolve_and_rewrite_images(
+    doc: Any,  # noqa: ANN401
+    registry_client: ContainerRegistryClient,
+    image_refs: list[tuple[tuple[Any, ...], str, str]],
+) -> None:
+    """Resolve container image tags to digests and rewrite matching doc entries in place.
+
+    Unresolvable registries (non-Bearer auth, e.g. ECR/GCR) are logged as a
+    warning and left untouched rather than failing the whole file.
+
+    Args:
+        doc: yamlrocks round-trip document to mutate.
+        registry_client: Container registry client.
+        image_refs: (item_path, image, tag_or_digest) tuples to resolve.
+    """
+    to_resolve = [(item_path, image, ref) for item_path, image, ref in image_refs if not is_image_digest(ref)]
+    if not to_resolve:
+        return
+
+    async def _resolve(image: str, ref: str) -> str | UnsupportedRegistryError:
+        try:
+            return await registry_client.resolve_digest(image, ref)
+        except UnsupportedRegistryError as exc:
+            logger.warning("skipping unsupported registry for %s:%s: %s", image, ref, exc)
+            return exc
+
+    results = await asyncio.gather(*(_resolve(image, ref) for _, image, ref in to_resolve))
+
+    for (item_path, image, ref), result in zip(to_resolve, results, strict=True):
+        if isinstance(result, UnsupportedRegistryError):
+            continue
+        prefix = "docker://" if item_path[-1] == "uses" else ""
+        _set_path(doc, item_path, f"{prefix}{image}@{result}")
+        doc.locate(item_path).comment = ref
+
+
 async def _pin_doc(
     client: GitHubClient,
     path: Path,
@@ -275,6 +349,8 @@ async def _pin_doc(
     dry_run: bool = False,
     diff: bool = False,
     options: UpdateOptions | None = None,
+    registry_client: ContainerRegistryClient | None = None,
+    collect_images_fn: CollectFn | None = None,
 ) -> bool:
     """Load, resolve, and rewrite pinnable refs in a YAML doc; shared by pin_file/pin_precommit_file.
 
@@ -287,6 +363,9 @@ async def _pin_doc(
         diff: If True, print a unified diff of changes to stdout (implies dry_run).
         options: Version update config, or None to re-resolve exact tags/branches
             recorded in comments.
+        registry_client: Container registry client for image pinning, or None to skip.
+        collect_images_fn: Callable taking the parsed doc and returning
+            (item_path, image, tag) tuples for every pinnable image entry.
 
     Returns:
         True if file was modified, False otherwise.
@@ -340,6 +419,9 @@ async def _pin_doc(
     await asyncio.gather(*version_constrained)
     await resolve_and_rewrite(doc, client, refs_to_resolve)
 
+    if registry_client is not None and collect_images_fn is not None:
+        await _resolve_and_rewrite_images(doc, registry_client, collect_images_fn(doc))
+
     new_content = doc.to_yaml()
     if new_content == content:
         return False
@@ -369,6 +451,7 @@ async def pin_file(
     dry_run: bool = False,
     diff: bool = False,
     options: UpdateOptions | None = None,
+    registry_client: ContainerRegistryClient | None = None,
 ) -> bool:
     """Pin mutable action refs in a workflow or action file to their commit SHAs.
 
@@ -380,6 +463,9 @@ async def pin_file(
         options: Version update config (``update`` strategy, ``full_version``,
             pre-parsed ``cutoff``), or None to re-resolve exact tags/branches
             recorded in comments.
+        registry_client: Container registry client for pinning container images
+            (``uses: docker://``, ``container.image``, ``services[*].image``),
+            or None to skip image pinning entirely.
 
     Returns:
         True if file was modified, False otherwise.
@@ -390,7 +476,16 @@ async def pin_file(
             exhausted, or network failure). Subclass of ``PinActionsError``.
         OSError: If the file cannot be read or written.
     """
-    return await _pin_doc(client, path, _collect_refs, dry_run=dry_run, diff=diff, options=options)
+    return await _pin_doc(
+        client,
+        path,
+        _collect_refs,
+        dry_run=dry_run,
+        diff=diff,
+        options=options,
+        registry_client=registry_client,
+        collect_images_fn=_collect_image_refs if registry_client is not None else None,
+    )
 
 
 def _build_update_options(settings: Settings) -> UpdateOptions | None:
@@ -457,19 +552,25 @@ async def run(settings: Settings, *, client: GitHubClient | None = None, cwd: Pa
         return []
 
     options = _build_update_options(settings)
-
-    if client is not None:
-        return await _process_files(client, files, settings, options)
-
     token = settings.github_token.get_secret_value() if settings.github_token else None
+    registry_client = (
+        ContainerRegistryClient(github_token=token, concurrency=settings.concurrency) if settings.image_pin else None
+    )
 
-    async with GitHubClient(
-        token=token,
-        base_url=settings.api_base_url,
-        concurrency=settings.concurrency,
-        max_retries=settings.max_retries,
-    ) as gh_client:
-        return await _process_files(gh_client, files, settings, options)
+    try:
+        if client is not None:
+            return await _process_files(client, files, settings, options, registry_client)
+
+        async with GitHubClient(
+            token=token,
+            base_url=settings.api_base_url,
+            concurrency=settings.concurrency,
+            max_retries=settings.max_retries,
+        ) as gh_client:
+            return await _process_files(gh_client, files, settings, options, registry_client)
+    finally:
+        if registry_client is not None:
+            await registry_client.aclose()
 
 
 async def _process_files(
@@ -477,6 +578,7 @@ async def _process_files(
     files: list[Path],
     settings: Settings,
     options: UpdateOptions | None,
+    registry_client: ContainerRegistryClient | None = None,
 ) -> list[Path]:
     """Process all workflow files concurrently using the provided client.
 
@@ -485,6 +587,7 @@ async def _process_files(
         files: List of workflow/action files to process.
         settings: Configuration (for dry_run and diff).
         options: Pre-built version-update config, or None.
+        registry_client: Container registry client for image pinning, or None to skip.
 
     Returns:
         List of modified file paths.
@@ -492,7 +595,12 @@ async def _process_files(
     Raises:
         ExceptionGroup[PinActionsError]: If one or more files failed.
     """
-    tasks = [pin_file(client, f, dry_run=settings.dry_run, diff=settings.diff, options=options) for f in files]
+    tasks = [
+        pin_file(
+            client, f, dry_run=settings.dry_run, diff=settings.diff, options=options, registry_client=registry_client
+        )
+        for f in files
+    ]
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
     errors = [(f, r) for f, r in zip(files, results, strict=True) if isinstance(r, Exception)]

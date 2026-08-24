@@ -76,3 +76,18 @@ class RateLimitExhaustedError(GitHubAPIError):
 
 class NetworkError(GitHubAPIError):
     """Raised on unrecoverable network errors (DNS, connection, timeout)."""
+
+
+class UnsupportedRegistryError(PinActionsError):
+    """Raised when a container registry doesn't support anonymous Bearer auth (e.g. ECR, GCR)."""
+
+    def __init__(self, registry: str, reason: str) -> None:
+        """Initialize with the registry host and underlying reason.
+
+        Args:
+            registry: Registry hostname that could not be resolved.
+            reason: Human-readable explanation.
+        """
+        self.registry = registry
+        self.reason = reason
+        super().__init__(reason)

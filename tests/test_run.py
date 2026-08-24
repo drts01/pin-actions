@@ -236,3 +236,62 @@ class TestRunSharedClient:
         mock_client_class.assert_called_once()
         assert len(modified) == 1
         assert workflow in modified
+
+
+class TestRunImagePinToggle:
+    """Test run() respecting settings.image_pin."""
+
+    @pytest.mark.asyncio
+    async def test_image_pin_disabled_no_registry_client_created(self, tmp_path: Path) -> None:
+        """settings.image_pin=False: no ContainerRegistryClient instantiated, docker:// step untouched."""
+        workflows_dir = tmp_path / ".github" / "workflows"
+        workflows_dir.mkdir(parents=True)
+        workflow = workflows_dir / "ci.yml"
+        original_content = "name: CI\njobs:\n  test:\n    steps:\n      - uses: docker://alpine:3.18\n"
+        workflow.write_text(original_content)
+
+        settings = Settings(paths=[workflows_dir], github_token=None, dry_run=False, concurrency=1, image_pin=False)
+
+        with patch("pin_actions.core.ContainerRegistryClient") as mock_registry_class:
+            modified = await run(settings)
+
+        mock_registry_class.assert_not_called()
+        assert modified == []
+        assert workflow.read_text() == original_content
+
+    @pytest.mark.asyncio
+    async def test_image_pin_enabled_by_default_resolves_docker_step(self, tmp_path: Path) -> None:
+        """settings.image_pin defaults True: docker:// step is resolved via ContainerRegistryClient."""
+        workflows_dir = tmp_path / ".github" / "workflows"
+        workflows_dir.mkdir(parents=True)
+        workflow = workflows_dir / "ci.yml"
+        workflow.write_text("name: CI\njobs:\n  test:\n    steps:\n      - uses: docker://alpine:3.18\n")
+
+        settings = Settings(paths=[workflows_dir], github_token=None, dry_run=False, concurrency=1)
+        digest = "sha256:" + "a" * 64
+
+        async def mock_resolve_sha(_repo: str, ref: str) -> str:
+            return ref
+
+        with (
+            patch("pin_actions.core.GitHubClient") as mock_client_class,
+            patch("pin_actions.core.ContainerRegistryClient") as mock_registry_class,
+        ):
+            mock_client = MagicMock()
+            mock_client.resolve_sha = AsyncMock(side_effect=mock_resolve_sha)
+            mock_client.aclose = AsyncMock()
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=None)
+            mock_client_class.return_value = mock_client
+
+            mock_registry = MagicMock()
+            mock_registry.resolve_digest = AsyncMock(return_value=digest)
+            mock_registry.aclose = AsyncMock()
+            mock_registry_class.return_value = mock_registry
+
+            modified = await run(settings)
+
+        mock_registry_class.assert_called_once()
+        assert len(modified) == 1
+        content = workflow.read_text()
+        assert f"docker://library/alpine@{digest}" in content
