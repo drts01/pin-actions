@@ -42,7 +42,6 @@ urls.Homepage = "https://github.com/drts01/pin-actions"
 urls.Issues = "https://github.com/drts01/pin-actions/issues"
 urls.Repository = "https://github.com/drts01/pin-actions"
 scripts.pin-actions = "pin_actions.core:main"
-scripts.pin-precommit = "pin_actions.precommit:main"
 
 [dependency-groups]
 test = [
@@ -132,9 +131,20 @@ lint.ignore = [
   "D213",   # multi-line-summary-second-line (conflicts with black)
 ]
 lint.explicit-preview-rules = true
+lint.per-file-ignores."scripts/test_*.py" = [
+  "ANN",     # flake8-annotations — test signatures use minimal types
+  "D",       # pydocstyle — tests don't need comprehensive docstrings
+  "I",       # isort — import sorting in test files is flexible
+  "PLR2004", # Pylint magic-value-comparison — asserting literal expected values is normal in tests
+  "S101",    # flake8-bandit assert_used — assertions in tests expected
+  "S105",    # flake8-bandit hardcoded_password_string — test tokens are hardcoded
+  "S106",    # flake8-bandit hardcoded_password_func_arg — test token defaults expected
+  "S107",    # flake8-bandit hardcoded_password_default — test fixture defaults are intentional
+]
 lint.per-file-ignores."tests/*" = [
   "ANN",     # flake8-annotations — test signatures use minimal types
   "D",       # pydocstyle — tests don't need comprehensive docstrings
+  "I",       # isort — import sorting in test files is flexible
   "PLR2004", # Pylint magic-value-comparison — asserting literal expected values is normal in tests
   "S101",    # flake8-bandit assert_used — assertions in tests expected
   "S105",    # flake8-bandit hardcoded_password_string — test tokens are hardcoded
@@ -156,6 +166,7 @@ fail-under = 100
 ignore-semiprivate = true
 ignore-private = true
 ignore-nested-functions = true
+ignore-regex = [ "^mock_.*" ]
 exclude = [ "tests/" ]
 verbose = 2
 style = "google"
@@ -177,7 +188,7 @@ markers = [
   "integration: Tests with mocked external APIs",
   "unit: Fast unit tests with mocked dependencies",
 ]
-testpaths = [ "tests" ]
+testpaths = [ "tests", "scripts" ]
 
 [tool.coverage]
 run.omit = [ "**/__pycache__/*", "tests/*" ]

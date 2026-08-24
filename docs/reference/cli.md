@@ -6,14 +6,14 @@
 
 ::: pin_actions.config.Settings
 
-## `pin-precommit`
+## `pin-precommit` (standalone script)
 
-Pins GitHub-hosted `.pre-commit-config.yaml` `repos[].rev` entries; accepts the same flags as `pin-actions` (via `PrecommitSettings(Settings)`) plus:
+Pins GitHub-hosted `.pre-commit-config.yaml` `repos[].rev` entries to immutable commit SHAs. Available as a standalone `uv run` script (`scripts/update_precommit.py`); accepts the same flags as `pin-actions` (via `PrecommitSettings(Settings)`) plus:
 
 - `--host` — matches against `repos[].repo` clone URLs (default `github.com`)
 - Default `--paths` is `[.pre-commit-config.yaml]` instead of the main default
 
-Run `pin-precommit --help` for the live flag list.
+Run `uv run --with-editable . scripts/update_precommit.py --help` for the live flag list.
 
 ## Container image pinning (`--image-pin`)
 
@@ -103,8 +103,8 @@ pin-actions --max-retries 10 --github-token $GITHUB_TOKEN
 pin-actions --version
 
 
-# Pin pre-commit hook revs instead of GitHub Actions
-pin-precommit --github-token $GITHUB_TOKEN
+# Pin pre-commit hook revs instead of GitHub Actions (standalone script)
+uv run --with-editable . scripts/update_precommit.py --github-token $GITHUB_TOKEN
 ```
 
 ## See also

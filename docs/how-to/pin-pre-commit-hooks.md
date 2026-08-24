@@ -1,12 +1,12 @@
 # Pin Pre-Commit Hooks
 
-Pin GitHub-hosted `.pre-commit-config.yaml` `repos[].rev` entries to immutable commit SHAs using the `pin-precommit` entry point.
+Pin GitHub-hosted `.pre-commit-config.yaml` `repos[].rev` entries to immutable commit SHAs using the `pin-precommit` standalone script.
 
 ## Dry-Run Preview
 
 ```bash
 export GITHUB_TOKEN=ghp_xxxx
-pin-precommit --dry-run
+uv run --with-editable . scripts/update_precommit.py --dry-run
 ```
 
 By default, `pin-precommit` reads `.pre-commit-config.yaml` in the current directory. Use `--paths` to specify different files or glob patterns (e.g., `--paths "**/pre-commit-config.yaml"` for monorepos with multiple configs).
@@ -14,7 +14,7 @@ By default, `pin-precommit` reads `.pre-commit-config.yaml` in the current direc
 ## Apply the Changes
 
 ```bash
-pin-precommit --github-token $GITHUB_TOKEN
+uv run --with-editable . scripts/update_precommit.py --github-token $GITHUB_TOKEN
 ```
 
 Each pinned `rev` becomes a commit SHA with the original tag/branch preserved as a trailing comment:
@@ -27,14 +27,14 @@ repos:
 
 ## Version Constraints & Diffs
 
-`pin-precommit` accepts the same flags as `pin-actions` — `--update`, `--full-version`, `--exclude-newer`, `--diff`, `--concurrency`, `--host`, etc. See the [CLI reference](../reference/cli.md#pin-precommit) for the full flag list.
+`pin-precommit` accepts the same flags as `pin-actions` — `--update`, `--full-version`, `--exclude-newer`, `--diff`, `--concurrency`, `--host`, etc. See the [CLI reference](../reference/cli.md#pin-precommit-standalone-script) for the full flag list.
 
 ```bash
 # Preview a unified diff without writing
-pin-precommit --diff
+uv run --with-editable . scripts/update_precommit.py --diff
 
 # Move pins forward within the same major version
-pin-precommit --update minor --github-token $GITHUB_TOKEN
+uv run --with-editable . scripts/update_precommit.py --update minor --github-token $GITHUB_TOKEN
 ```
 
 ## Non-GitHub Repos
@@ -43,6 +43,6 @@ pin-precommit --update minor --github-token $GITHUB_TOKEN
 
 ## See Also
 
-- [Reference: CLI](../reference/cli.md#pin-precommit) — full `pin-precommit` flag list
+- [Reference: CLI](../reference/cli.md#pin-precommit-standalone-script) — full `pin-precommit` flag list
 - [How-to: Update pinned tags](./update-pinned-tags.md) — version constraint recipes shared with `pin-actions`
-- [Use as a Library](./use-as-a-library.md) — programmatic access via `pin_actions.precommit`
+- [Use as a Library](./use-as-a-library.md) — programmatic access via the `pin_precommit_file` function

@@ -190,13 +190,17 @@ See [Multi-Repo Automation](./multi-repo-automation.md) for full CLI options and
 
 ## Pin Pre-Commit Hook Revs
 
-`pin_actions.precommit` pins GitHub-hosted `.pre-commit-config.yaml` `repos[].rev` entries the same way `core.pin_file` pins workflow refs — both share the `_pin_doc()` load/resolve/rewrite pipeline:
+The `pin_precommit_file` function pins GitHub-hosted `.pre-commit-config.yaml` `repos[].rev` entries the same way `core.pin_file` pins workflow refs — both share the `_pin_doc()` load/resolve/rewrite pipeline. Import it from the standalone script (`scripts/update_precommit.py`):
 
 ```python
 import asyncio
 from pathlib import Path
 from pin_actions import GitHubClient
-from pin_actions.precommit import pin_precommit_file
+
+# Import from the script (not installed via pip, must be in repo)
+import sys
+sys.path.insert(0, "scripts")
+from update_precommit import pin_precommit_file
 
 
 async def main():
@@ -213,7 +217,8 @@ async def main():
 asyncio.run(main())
 ```
 
-See [Pin Pre-Commit Hooks](./pin-pre-commit-hooks.md) for the `pin-precommit` CLI, or run `uv run --with-editable . scripts/update_precommit.py --help` for the equivalent standalone-script shim.
+See [Pin Pre-Commit Hooks](./pin-pre-commit-hooks.md) for the `pin-precommit` CLI, or run `uv run --with-editable . scripts/update_precommit.py --help` for the equivalent standalone-script invocation.
+
 
 ## See Also
 

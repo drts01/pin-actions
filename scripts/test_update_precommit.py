@@ -1,12 +1,16 @@
-"""Tests for pin_precommit_file (pre-commit config rev pinning)."""
+"""Tests for scripts/update_precommit.py (pre-commit config rev pinning)."""
 
+import sys
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
+
+sys.path.insert(0, str(Path(__file__).parent))
+from update_precommit import PrecommitSettings, pin_precommit_file
+
 from pin_actions.client import GitHubClient
 from pin_actions.errors import YAMLParseError
-from pin_actions.precommit import PrecommitSettings, pin_precommit_file
 
 
 class TestPrecommitDefaults:
