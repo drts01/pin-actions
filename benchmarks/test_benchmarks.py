@@ -4,13 +4,14 @@ import asyncio
 from typing import TYPE_CHECKING, Any
 
 import pytest
+from conftest import bench_async
 from pin_actions._util import is_full_sha
 from pin_actions.core import resolve_and_rewrite
 
-from conftest import bench_async
-
 if TYPE_CHECKING:
     from unittest.mock import AsyncMock
+
+    from pin_actions.client import _Cache
 
 pytest.importorskip("pytest_benchmark")
 
@@ -31,10 +32,10 @@ def test_is_full_sha(benchmark: pytest.benchmark.fixture.BenchmarkFixture, input
 @pytest.mark.benchmark(group="cache")
 def test_cached_fetch_cache_hit(
     benchmark: pytest.benchmark.fixture.BenchmarkFixture,
-    cached_fetch_setup: tuple[Any, dict[Any, Any], Any],
+    cached_fetch_setup: _Cache[str],
 ) -> None:
-    """Benchmark cache-hit latency in _cached_fetch."""
-    cache, inflight, client = cached_fetch_setup
+    """Benchmark cache-hit latency in _Cache.get_or_fetch."""
+    cache = cached_fetch_setup
 
     async def mock_fetch() -> str:
         """Mock fetch (shouldn't be called on cache hit)."""
@@ -43,12 +44,7 @@ def test_cached_fetch_cache_hit(
 
     async def run_cache_hit() -> str:
         """Run a single cache hit."""
-        return await client._cached_fetch(
-            cache,
-            inflight,
-            ("actions/checkout", "v4"),
-            mock_fetch,
-        )
+        return await cache.get_or_fetch(("actions/checkout", "v4"), mock_fetch)
 
     bench_async(benchmark, run_cache_hit)
 

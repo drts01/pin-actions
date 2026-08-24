@@ -60,6 +60,11 @@ repos:
           - pyflakes>=3.4.0
           - shellcheck-py>=0.11.0.1
 
+  - repo: https://github.com/zizmorcore/zizmor-pre-commit
+    rev: v1.29.0
+    hooks:
+      - id: zizmor
+
   - repo: https://github.com/adrienverge/yamllint.git
     rev: v1.38.0
     hooks:
