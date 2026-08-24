@@ -2,6 +2,7 @@
 """Batch-pin GitHub Actions across repositories using pin_actions as a library."""
 
 import asyncio
+import contextlib
 import csv
 import io
 import json
@@ -160,8 +161,8 @@ def _fail(result: RepoResult, repo: str, msg: str) -> bool:
 
 def _git_config(repo_dir: Path, env: dict[str, str] | None = None) -> None:
     """Set git user config for commits (required in CI environments)."""
-    _run("git", "config", "user.email", "pin-actions@github.com", cwd=repo_dir, env=env)
-    _run("git", "config", "user.name", "pin-actions", cwd=repo_dir, env=env)
+    for key, val in (("user.email", "pin-actions@github.com"), ("user.name", "pin-actions")):
+        _run("git", "config", key, val, cwd=repo_dir, env=env)
 
 
 def _try_clone(repo: str, repo_dir: Path, settings: UpdateReposSettings, result: RepoResult) -> bool:
@@ -201,37 +202,23 @@ async def _try_pin(client: GitHubClient, repo_dir: Path, settings: UpdateReposSe
 
 def _push_branch(repo: str, repo_dir: Path, branch: str, settings: UpdateReposSettings, env: EnvDict) -> None:
     """Commit and force-push feature branch (always our latest pins)."""
-    _run("git", "checkout", "-b", branch, cwd=repo_dir, env=env)
-    _run("git", "add", "-A", cwd=repo_dir, env=env)
-    _run("git", "commit", "-m", settings.commit_message, cwd=repo_dir, env=env)
-    _run("git", "push", "--force", "origin", branch, cwd=repo_dir, env=env)
+    for args in (
+        ("checkout", "-b", branch),
+        ("add", "-A"),
+        ("commit", "-m", settings.commit_message),
+        ("push", "--force", "origin", branch),
+    ):
+        _run("git", *args, cwd=repo_dir, env=env)
     logger.debug("%s: pushed branch %s (forced)", repo, branch)
 
 
 def _upsert_pr(repo: str, branch: str, base_branch: str, settings: UpdateReposSettings, env: EnvDict) -> str:
     """Return PR URL: reuse existing or create new. Logs action taken."""
-    try:
-        pr_check = _run(
-            "gh",
-            "pr",
-            "view",
-            "--repo",
-            repo,
-            "--head",
-            branch,
-            "--json",
-            "url",
-            "--jq",
-            ".url",
-            cwd=Path.cwd(),
-            env=env,
-        )
-        existing_url = pr_check.stdout.strip()
-        if existing_url:
+    view_cmd = ("gh", "pr", "view", "--repo", repo, "--head", branch, "--json", "url", "--jq", ".url")
+    with contextlib.suppress(subprocess.CalledProcessError):
+        if existing_url := _run(*view_cmd, cwd=Path.cwd(), env=env).stdout.strip():
             logger.info("%s: PR exists: %s (updating branch)", repo, existing_url)
             return existing_url
-    except subprocess.CalledProcessError:
-        pass  # No existing PR; create one below.
 
     pr = _run(
         "gh",
