@@ -25,7 +25,7 @@ logger = logging.getLogger("update_repos")
 _cli_out = logging.getLogger("update_repos.cli.out")
 
 DEFAULT_COMMIT_MESSAGE = "chore: pin GitHub Actions to immutable commit SHAs"
-DEFAULT_PR_BODY = "Automated by pin-actions."
+DEFAULT_PR_BODY = "Pinned by [pin-actions](https://github.com/drts01/pin-actions)."
 
 
 class UpdateReposSettings(BaseSettings):
