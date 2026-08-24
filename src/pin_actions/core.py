@@ -488,11 +488,31 @@ async def pin_file(
     )
 
 
-def _build_update_options(settings: Settings) -> UpdateOptions | None:
+def build_update_options(settings: Settings) -> UpdateOptions | None:
     """Build ``UpdateOptions`` from settings, pre-parsing the cool-off cutoff once.
+
+    Public so library callers building custom pin pipelines (e.g. a
+    pre-commit-config pinner) can reuse the same ``--update``/``--exclude-newer``
+    parsing logic as the CLI instead of re-implementing it.
+
+    Args:
+        settings: CLI/library settings; ``update``, ``full_version``, and
+            ``exclude_newer`` fields are consumed.
+
+    Returns:
+        ``UpdateOptions`` with a pre-parsed ``cutoff`` datetime, or ``None``
+        if ``settings.update`` is unset (re-resolve exact tags/branches instead).
 
     Raises:
         ValueError: If ``settings.exclude_newer`` is set but not a valid duration/timestamp.
+
+    Example:
+        >>> from pin_actions.config import Settings
+        >>> build_update_options(Settings(update=None)) is None
+        True
+        >>> opts = build_update_options(Settings(update="minor", full_version=True))
+        >>> (opts.update, opts.full_version)
+        ('minor', True)
     """
     if not settings.update:
         return None
@@ -551,7 +571,7 @@ async def run(settings: Settings, *, client: GitHubClient | None = None, cwd: Pa
     if not files:
         return []
 
-    options = _build_update_options(settings)
+    options = build_update_options(settings)
     token = settings.github_token.get_secret_value() if settings.github_token else None
     registry_client = (
         ContainerRegistryClient(github_token=token, concurrency=settings.concurrency) if settings.image_pin else None

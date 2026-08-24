@@ -7,7 +7,7 @@ import pytest
 from pin_actions._duration import parse_exclude_newer
 from pin_actions.client import GitHubClient
 from pin_actions.config import Settings
-from pin_actions.core import UpdateOptions, _build_update_options, pin_file
+from pin_actions.core import UpdateOptions, build_update_options, pin_file
 from pin_actions.errors import InvalidRefError, UnsupportedRegistryError, YAMLParseError
 from pin_actions.registry import ContainerRegistryClient
 
@@ -631,10 +631,10 @@ class TestPinFileExcludeNewer:
         assert "younger than cool-off cutoff" in caplog.text
 
     def test_exclude_newer_invalid_value_raises(self) -> None:
-        """Invalid exclude_newer string raises ValueError from _build_update_options."""
+        """Invalid exclude_newer string raises ValueError from build_update_options."""
         settings = Settings(update="minor", exclude_newer="not-a-valid-duration")
         with pytest.raises(ValueError, match="Invalid exclude-newer format"):
-            _build_update_options(settings)
+            build_update_options(settings)
 
 
 class TestPinFileDiff:

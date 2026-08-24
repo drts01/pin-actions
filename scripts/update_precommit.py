@@ -9,7 +9,7 @@ from typing import Any
 from pin_actions._util import git_url_to_repo
 from pin_actions.client import GitHubClient
 from pin_actions.config import Settings
-from pin_actions.core import _build_update_options, _pin_doc
+from pin_actions.core import _pin_doc, build_update_options
 from pin_actions.errors import PinActionsError
 from pydantic import Field
 
@@ -98,7 +98,7 @@ def main() -> None:
                 files.append(_cwd / p)
             # Directories: skip (pre-commit configs are files, not discovered recursively)
 
-        options = _build_update_options(settings)
+        options = build_update_options(settings)
         token = settings.github_token.get_secret_value() if settings.github_token else None
 
         async def _run() -> list[Path]:
