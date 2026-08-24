@@ -1,13 +1,12 @@
 """Shared fixtures for benchmark tests."""
 
 import asyncio
-from collections import OrderedDict
 from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock
 
 import pytest
 import yamlrocks
-from pin_actions.client import GitHubClient
+from pin_actions.client import GitHubClient, _Cache
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -53,11 +52,8 @@ uses_artifact: actions/upload-artifact@v4
 
 
 @pytest.fixture
-def cached_fetch_setup(
-    github_client: GitHubClient,
-) -> tuple[OrderedDict[tuple[str, str], str], dict[Any, asyncio.Task[str]], GitHubClient]:
-    """Pre-configured cache and inflight dict for cache-hit benchmarks."""
-    cache: OrderedDict[tuple[str, str], str] = OrderedDict()
-    cache[("actions/checkout", "v4")] = "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b"
-    inflight: dict[Any, asyncio.Task[str]] = {}
-    return cache, inflight, github_client
+def cached_fetch_setup() -> _Cache[str]:
+    """Pre-configured _Cache instance (with one warm entry) for cache-hit benchmarks."""
+    cache: _Cache[str] = _Cache(max_size=1000)
+    cache._store[("actions/checkout", "v4")] = "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b"
+    return cache

@@ -146,7 +146,7 @@ async def run_benchmark(settings: BenchSettings) -> None:
 
         # Build pin-actions settings
         pin_settings = Settings(
-            path=tmppath,
+            paths=[tmppath],
             github_token=None,
             concurrency=settings.concurrency,
             dry_run=True,
