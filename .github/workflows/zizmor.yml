@@ -1,0 +1,45 @@
+name: GitHub Actions Security Analysis with zizmor
+
+on:
+  push:
+    branches: [trunk]
+  pull_request:
+    branches: ['**']
+  workflow_call: {}
+
+env:
+  ZIZMOR_VERSION: 1.29.0
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  zizmor:
+    name: zizmor via PyPI
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write # Required for upload-sarif to upload SARIF files.
+      contents: read # Needed to clone the repo.
+      actions: read # Needed for upload-sarif to read workflow run info.
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+
+      - name: Run zizmor
+        run: uvx "zizmor@${ZIZMOR_VERSION}" --format=sarif . > results.sarif
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload SARIF file
+        uses: github/codeql-action/upload-sarif@4e94bd11f71e507f7f87df81788dff88d1dacbfb # v4.31.0
+        with:
+          sarif_file: results.sarif
+          category: zizmor

@@ -28,6 +28,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup uv
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
@@ -79,11 +81,13 @@ jobs:
 
       - name: Embed flamegraph SVG and benchmarks in summary
         if: matrix.python-version == '3.14' && always()
+        env:
+          TABLE: ${{ steps.metrics.outputs.table }}
         run: |
           {
             echo "### 📊 Performance Benchmarks (Python 3.14)"
             echo ""
-            echo "${{ steps.metrics.outputs.table }}"
+            echo "$TABLE"
             echo ""
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -128,6 +132,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup uv
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
