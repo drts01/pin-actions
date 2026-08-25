@@ -175,6 +175,7 @@ style = "google"
 preset = "strict"
 project-includes = [ "src", "scripts" ]
 python-version = "3.14"
+search-path = [ "scripts" ]
 
 [tool.pytest]
 addopts = [

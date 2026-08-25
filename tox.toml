@@ -27,7 +27,6 @@ commands = [ [ "zensical", { replace = "posargs", default = [ "build" ], extend 
 
 [env.flamegraph]
 description = "Generate SVG flamegraph via py-spy (Linux: no sudo; macOS: requires sudo)"
-package = "editable"
 dependency_groups = [ "profile" ]
 commands = [
   [
@@ -51,7 +50,6 @@ commands = [ [ "prek", { replace = "posargs", default = [ "run", "-a" ], extend 
 
 [env.profile]
 description = "Performance profiling: pytest-benchmark micro-benchmarks + scenario load test"
-package = "editable"
 skip_install = false
 dependency_groups = [
   "profile",
@@ -84,7 +82,6 @@ ignore_outcome = true
 [env.tachyon-py315]
 description = "Python 3.15/3.15t Tachyon (profiling.sampling) wall-clock async-aware profiler"
 base_python = [ "python3.15" ]
-package = "editable"
 dependency_groups = [ "profile" ]
 ignore_outcome = true
 commands = [
@@ -110,7 +107,10 @@ base = [ "tachyon-py315" ]
 
 [env.typecheck]
 description = "Static type checking with Pyrefly"
-dependency_groups = [ "typecheck" ]
+dependency_groups = [
+  "test",
+  "typecheck",
+]
 commands = [ [ "pyrefly", { replace = "posargs", default = [ "check" ], extend = true } ] ]
 
 [tox]
