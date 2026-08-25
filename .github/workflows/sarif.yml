@@ -1,4 +1,4 @@
-name: GitHub Actions Security Analysis with zizmor
+name: SARIF files
 
 on:
   push:
@@ -6,9 +6,6 @@ on:
   pull_request:
     branches: ['**']
   workflow_call: {}
-
-env:
-  ZIZMOR_VERSION: 1.29.0
 
 permissions: {}
 
@@ -30,16 +27,19 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install the latest version of uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
-
-      - name: Run zizmor
-        run: uvx "zizmor@${ZIZMOR_VERSION}" --format=sarif . > results.sarif
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Generate SARIF files
+        uses: j178/prek-action@4e14d07f9231acabce116ccfca13b13dd9755ece  # v3.0.0
+        with:
+          extra-args: --color=always --all-files ruff-sarif zizmor-sarif
 
       - name: Upload SARIF file
         uses: github/codeql-action/upload-sarif@4e94bd11f71e507f7f87df81788dff88d1dacbfb # v4.31.0
         with:
-          sarif_file: results.sarif
+          sarif_file: ruff.sarif
+          category: ruff
+
+      - name: Upload SARIF file
+        uses: github/codeql-action/upload-sarif@4e94bd11f71e507f7f87df81788dff88d1dacbfb # v4.31.0
+        with:
+          sarif_file: zizmor.sarif
           category: zizmor

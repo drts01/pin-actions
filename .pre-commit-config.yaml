@@ -28,6 +28,18 @@ repos:
       - id: ruff-check
         args: [--fix, --exit-non-zero-on-fix]
       - id: ruff-format
+      - id: ruff-check
+        description: Run `ruff check` with GitHub annotations.
+        name: ruff github
+        alias: ruff-github
+        args: [--output-format=github]
+        stages: [manual]
+      - id: ruff-check
+        description: Run `ruff check` with sarif output.
+        name: ruff sarif
+        alias: ruff-sarif
+        args: [--output-format=sarif, --output-file=ruff.sarif]
+        stages: [manual]
 
   # - repo: https://github.com/returntocorp/semgrep
   #   rev: v1.171.0
@@ -64,6 +76,18 @@ repos:
     rev: v1.29.0
     hooks:
       - id: zizmor
+        args: [--no-progress, --persona=auditor, --fix]
+      - id: zizmor
+        name: zizmor github
+        alias: zizmor-github
+        args: [--no-progress, --persona=auditor, --format=github]
+        stages: [manual]
+      - id: zizmor
+        name: zizmor sarif
+        alias: zizmor-sarif
+        entry: bash -c 'zizmor --no-progress --persona=auditor --format=sarif . > zizmor-report.sarif'
+        stages: [manual]
+        pass_filenames: false
 
   - repo: https://github.com/adrienverge/yamllint.git
     rev: v1.38.0

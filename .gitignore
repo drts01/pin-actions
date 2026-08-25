@@ -9,3 +9,5 @@
 *.pstats
 *.prof
 benchmark.json
+
+*.sarif
