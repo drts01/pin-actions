@@ -39,6 +39,7 @@ nav = [
     { "Design Decisions" = "explanation/design-decisions.md" },
     { "Caching" = "explanation/caching.md" },
     { "Threat Model" = "explanation/threat-model.md" },
+    { "Comparison with Similar Tools" = "explanation/comparison.md" },
   ] },
 
 ]

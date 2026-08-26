@@ -61,8 +61,6 @@ A SHA with a trailing comment (`repo@sha # tag`) is re-resolved on every run:
 - If the tag hasn't moved → no-op
 - A bare SHA with no comment is left untouched (nothing to re-resolve against)
 
-This mirrors [mheap/pin-github-action](https://github.com/mheap/pin-github-action)'s default behavior.
-
 ## with.ref Pinning (Checkout)
 
 `pin-actions` **only** pins `with.ref` when:

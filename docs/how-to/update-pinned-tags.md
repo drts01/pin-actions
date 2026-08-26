@@ -10,8 +10,6 @@ Without any `--update` flag, a tag like `v4` is resolved fresh on every run. If 
 pin-actions --github-token $GITHUB_TOKEN
 ```
 
-This mirrors the behavior of [mheap/pin-github-action](https://github.com/mheap/pin-github-action).
-
 ## Moving to Latest Version
 
 Use `--update major`, `--update minor`, or `--update patch` to move pins to newer versions:

@@ -61,6 +61,7 @@ jobs:
 - **[Reference](https://drts01.github.io/pin-actions/reference/cli/)** — Full API and CLI documentation
 - **[Explanation](https://drts01.github.io/pin-actions/explanation/architecture/)** — Design, architecture, and rationale
 - **[Threat Model](https://drts01.github.io/pin-actions/explanation/threat-model/)** — The supply-chain attack model this tool defends against
+- **[Comparison with Similar Tools](https://drts01.github.io/pin-actions/explanation/comparison/)** — How `pin-actions` stacks up against zizmor, pinact, and pin-github-action
 
 ## Development
 
