@@ -41,7 +41,6 @@ nav = [
     { "Threat Model" = "explanation/threat-model.md" },
     { "Comparison with Similar Tools" = "explanation/comparison.md" },
   ] },
-
 ]
 
 [project.theme]
@@ -76,14 +75,16 @@ admonition = {}
 attr_list = {}
 def_list = {}
 toc = { permalink = true }
-pymdownx.superfences = { custom_fences = [{ name = "mermaid", class = "mermaid", format = "pymdownx.superfences.fence_code_format" }] }
+pymdownx.superfences = { custom_fences = [
+  { name = "mermaid", class = "mermaid", format = "pymdownx.superfences.fence_code_format" }
+] }
 pymdownx.tabbed.alternate_style = true
 pymdownx.tabbed.combine_header_slug = true
 pymdownx.tabbed.slugify.object = "pymdownx.slugs.slugify"
 pymdownx.tabbed.slugify.kwds.case = "lower"
-pymdownx.highlight = { anchor_linenums = true , pygments_lang_class = true, linenums_style = "pymdownx-inline", line_spans = "__span"}
+pymdownx.highlight = { anchor_linenums = true, pygments_lang_class = true, linenums_style = "pymdownx-inline", line_spans = "__span" }
 pymdownx.inlinehilite = {}
-pymdownx.snippets = { check_paths = true, base_path = ["."] }
+pymdownx.snippets = { check_paths = true, base_path = [ "." ] }
 pymdownx.tasklist.clickable_checkbox = true
 pymdownx.emoji.emoji_generator = "zensical.extensions.emoji.to_svg"
 pymdownx.emoji.emoji_index = "zensical.extensions.emoji.twemoji"
@@ -98,10 +99,9 @@ footnotes = {}
 tables = {}
 md_in_html = {}
 
-
 [project.plugins.mkdocstrings]
 [project.plugins.mkdocstrings.config.handlers.python]
-paths = ["src"]
+paths = [ "src" ]
 
 [project.plugins.mkdocstrings.config.handlers.python.options]
 docstring_style = "google"
