@@ -784,3 +784,82 @@ class TestPinFileImagePinning:
 
         assert not modified
         assert workflow_file.read_text() == original_content
+
+
+class TestPinFileReusableWorkflows:
+    """Test pin_file rewriting Reusable Workflow refs (org/repo/.github/workflows/x.yml@ref)."""
+
+    @pytest.mark.asyncio
+    async def test_pins_reusable_workflow_ref(self, tmp_path: Path) -> None:
+        """Pin a fresh org/repo/.github/workflows/x.yml@ref uses: entry."""
+        # Arrange
+        client = GitHubClient(token="test", concurrency=1)
+        workflow_file = tmp_path / "workflow.yml"
+        workflow_file.write_text(
+            "jobs:\n  call-reusable:\n    uses: octo-org/example-repo/.github/workflows/reusable.yml@v1\n",
+        )
+        new_sha = "a" * 40
+
+        async def mock_resolve_sha(repo: str, ref: str) -> str:
+            assert repo == "octo-org/example-repo/.github/workflows/reusable.yml"
+            assert ref == "v1"
+            return new_sha
+
+        # Act
+        with patch.object(client, "resolve_sha", new=AsyncMock(side_effect=mock_resolve_sha)):
+            modified = await pin_file(client, workflow_file, dry_run=False)
+
+        # Assert
+        assert modified
+        content = workflow_file.read_text()
+        assert f"uses: octo-org/example-repo/.github/workflows/reusable.yml@{new_sha} # v1" in content
+
+    @pytest.mark.asyncio
+    async def test_reusable_workflow_already_pinned_updates_if_moved(self, tmp_path: Path) -> None:
+        """Re-resolve an already-pinned reusable workflow ref; rewrite SHA if the tag moved."""
+        # Arrange
+        client = GitHubClient(token="test", concurrency=1)
+        old_sha = "b" * 40
+        new_sha = "c" * 40
+        workflow_file = tmp_path / "workflow.yml"
+        workflow_file.write_text(
+            "jobs:\n"
+            "  call-reusable:\n"
+            f"    uses: octo-org/example-repo/.github/workflows/reusable.yml@{old_sha}  # v1\n",
+        )
+
+        async def mock_resolve_sha(_repo: str, _ref: str) -> str:
+            return new_sha
+
+        # Act
+        with patch.object(client, "resolve_sha", new=AsyncMock(side_effect=mock_resolve_sha)):
+            modified = await pin_file(client, workflow_file, dry_run=False)
+
+        # Assert
+        assert modified
+        content = workflow_file.read_text()
+        assert f"uses: octo-org/example-repo/.github/workflows/reusable.yml@{new_sha} # v1" in content
+        assert old_sha not in content
+
+    @pytest.mark.asyncio
+    async def test_reusable_workflow_already_pinned_unchanged_when_sha_same(self, tmp_path: Path) -> None:
+        """No-op when the reusable workflow's tag still resolves to the same SHA."""
+        # Arrange
+        client = GitHubClient(token="test", concurrency=1)
+        sha = "d" * 40
+        workflow_file = tmp_path / "workflow.yml"
+        original_content = (
+            f"jobs:\n  call-reusable:\n    uses: octo-org/example-repo/.github/workflows/reusable.yml@{sha}  # v1\n"
+        )
+        workflow_file.write_text(original_content)
+
+        async def mock_resolve_sha(_repo: str, _ref: str) -> str:
+            return sha
+
+        # Act
+        with patch.object(client, "resolve_sha", new=AsyncMock(side_effect=mock_resolve_sha)):
+            modified = await pin_file(client, workflow_file, dry_run=False)
+
+        # Assert
+        assert not modified
+        assert workflow_file.read_text() == original_content
