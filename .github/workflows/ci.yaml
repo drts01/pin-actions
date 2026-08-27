@@ -31,7 +31,9 @@ jobs:
           path: ~/.cache/prek
           key: prek-${{ runner.os }}-${{ hashFiles('prek.toml', '.pre-commit-config.yaml') }}
       - name: Run prek
-        run: uvx --managed-python prek run --show-diff-on-failure --color=always --all-files
+        run: uvx --managed-python prek run --show-diff-on-failure --color=always --all-files --hook-stage manual
+        env:
+          SKIP: zizmor-sarif,ruff-sarif
 
   test:
     name: Test
