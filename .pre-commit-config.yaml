@@ -131,6 +131,7 @@ repos:
         args: [--fix]
       - id: rumdl
         args: [--output-format=github]
+        stages: [manual]
 
   - repo: https://github.com/crate-ci/typos
     rev: v1.49.0
