@@ -135,4 +135,5 @@ Open an issue or discussion on GitHub — we're happy to help!
 
 ---
 
-Thank you for contributing to pin-actions! 🙏
+Thank you for contributing to pin-actions!
+🙏

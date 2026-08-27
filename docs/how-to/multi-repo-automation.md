@@ -1,7 +1,9 @@
 # Multi-Repo Automation
 
 !!! note "Library usage example"
-    This script is a real-world example of using `pin_actions` as a library — see [Use as a Library](./use-as-a-library.md) for the core API it builds on. The library calls are isolated in `_try_pin()`: `Settings(...)` + `await run(settings, client=client)`.
+    This script is a real-world example of using `pin_actions` as a library —
+    see [Use as a Library](./use-as-a-library.md) for the core API it builds on.
+    The library calls are isolated in `_try_pin()`: `Settings(...)` + `await run(settings, client=client)`.
 
 ## Overview
 
@@ -11,7 +13,8 @@ The `update_repos.py` script:
 - Scans `.github/workflows` and `.github/actions` directories
 - Pins all mutable action refs to their commit SHAs
 - Optionally commits, pushes, and opens PRs via the `gh` CLI
-- **Idempotent** — safe to re-run; force-pushes updates to the same branch and reuses the existing PR instead of erroring
+- **Idempotent** — safe to re-run; force-pushes updates to the same branch
+    and reuses the existing PR instead of erroring
 - Processes repos concurrently while sharing a single GitHub API client (connection pooling + in-memory cache)
 
 Perfect for organizations with many repositories sharing common actions like `actions/checkout@v4`.
@@ -69,7 +72,8 @@ Creates local branches (e.g. `pin-actions/org-repo1`) with commits but does not 
 uv run --with-editable . scripts/update_repos.py --repos org/repo1 --repos org/repo2 --push
 ```
 
-Creates feature branches, pushes them, and opens PRs via `gh pr create`. Each repo's actual default branch (auto-detected) is used as the PR base.
+Creates feature branches, pushes them, and opens PRs via `gh pr create`.
+Each repo's actual default branch (auto-detected) is used as the PR base.
 
 ### Pin via a fork (limited-write-access workflow)
 
@@ -79,10 +83,13 @@ If you lack direct write access to target repositories, use `--fork` to push to 
 uv run --with-editable . scripts/update_repos.py --repos upstream/repo1 --repos upstream/repo2 --fork --push
 ```
 
-- `--fork`: Creates a fork (if needed) and pushes branches there. Idempotent; re-running on an existing fork is a no-op.
-- `--fork-org <organization>`: Fork into an organization account instead of your personal account (requires suitable token scopes).
+- `--fork`: Creates a fork (if needed) and pushes branches there.
+    Idempotent; re-running on an existing fork is a no-op.
+- `--fork-org <organization>`: Fork into an organization account instead of your personal account
+    (requires suitable token scopes).
 
-The script detects your fork's owner automatically and opens PRs from the fork's branch into the upstream repo's default branch.
+The script detects your fork's owner automatically
+and opens PRs from the fork's branch into the upstream repo's default branch.
 
 ### Load repositories from a file
 
@@ -202,10 +209,14 @@ Exit code: 0 if all repos succeeded, 1 if any failed.
 
 ### Shared Client Benefits
 
-The script creates a **single `GitHubClient`** used across all repositories. This provides:
+The script creates a **single `GitHubClient`** used across all repositories.
+This provides:
 
 1. **Connection pooling** — reuses HTTP connections across repos
-2. **In-memory caching** — GitHub API responses are cached by (repo, ref); when processing multiple repos that share common actions (e.g. all use `actions/checkout@v4`), subsequent lookups hit the cache instantly
+2. **In-memory caching** — GitHub API responses are cached by
+    (repo, ref);
+    when processing multiple repos that share common actions
+    (e.g. all use `actions/checkout@v4`), subsequent lookups hit the cache instantly
 3. **Rate-limit bookkeeping** — semaphore manages 429/403 backoff globally across all repos
 
 ### Concurrency Tuning
@@ -213,7 +224,8 @@ The script creates a **single `GitHubClient`** used across all repositories. Thi
 - `--concurrency N` (default 4): Max repos cloning/processing in parallel (I/O bound)
 - `--api-concurrency M` (default 5): Max GitHub API requests in flight from the client
 
-**Example**: `--concurrency 8 --api-concurrency 20` for large organizations (assumes healthy network and GitHub rate-limit headroom).
+**Example**: `--concurrency 8 --api-concurrency 20` for large organizations
+(assumes healthy network and GitHub rate-limit headroom).
 
 ### Large-Scale Runs
 
@@ -275,7 +287,8 @@ uv run --with-editable . scripts/update_repos.py \
   --output-file SUMMARY.md
 ```
 
-Then paste `SUMMARY.md` into a PR or Slack message. PR URLs in the `PR_URL` column are directly clickable.
+Then paste `SUMMARY.md` into a PR or Slack message.
+PR URLs in the `PR_URL` column are directly clickable.
 
 ### Auto-detect each repo's default branch
 
@@ -285,7 +298,8 @@ uv run --with-editable . scripts/update_repos.py \
   --push
 ```
 
-Each repo's actual default branch (main, master, develop, etc.) is automatically detected and used as the PR base. Use `--base-branch CUSTOM` to override for all repos.
+Each repo's actual default branch (main, master, develop, etc.) is automatically detected and used as the PR base.
+Use `--base-branch CUSTOM` to override for all repos.
 
 ## Troubleshooting
 
@@ -327,9 +341,13 @@ Ensure:
 - Push succeeded (branches exist on origin)
 - Each repo's base branch is correct (auto-detected, or set with `--base-branch`)
 
-PR URLs appear in the `pr_url` field/column of the summary output (JSON, markdown, table, CSV) — use them to follow up with reviews directly.
+PR URLs appear in the `pr_url` field/column of the summary output
+(JSON, markdown, table, CSV) — use them to follow up with reviews directly.
 
-Re-running the script on the same repos is safe: it detects existing PRs via `gh pr view` and updates them in-place instead of failing. The feature branch is force-pushed with the latest pins, and the PR body remains unchanged. If all pins are already up-to-date, the branch will reflect that and the PR won't require changes.
+Re-running the script on the same repos is safe:
+it detects existing PRs via `gh pr view` and updates them in-place instead of failing.
+The feature branch is force-pushed with the latest pins, and the PR body remains unchanged.
+If all pins are already up-to-date, the branch will reflect that and the PR won't require changes.
 
 ### Out of memory with many repos
 
@@ -352,7 +370,8 @@ The script uses exponential backoff with jitter (default 5 retries, up to 60s); 
 ### No workflows found (0 modified for all repos)
 
 - Ensure each repo has `.github/workflows/*.yml` or `.github/actions/*` directories
-- Verify the clone succeeded (`--dry-run` shows `base_branch` but no files? → try without `--dry-run` to see actual error)
+- Verify the clone succeeded (`--dry-run` shows `base_branch` but no files?
+    → try without `--dry-run` to see actual error)
 - Some repos may legitimately have no GitHub Actions to pin
 
 ### Fork creation fails (`gh repo fork` error)

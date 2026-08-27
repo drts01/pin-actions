@@ -125,7 +125,8 @@ asyncio.run(main())
 
 ## Multi-Repo Processing with a Shared Client
 
-Reuse one `GitHubClient` across multiple repositories to share connection pooling, in-memory caching, and rate-limit bookkeeping:
+Reuse one `GitHubClient` across multiple repositories to share connection pooling, in-memory caching,
+and rate-limit bookkeeping:
 
 ```python
 import asyncio
@@ -151,11 +152,15 @@ async def main():
 asyncio.run(main())
 ```
 
-This pattern is especially efficient when many repositories share common actions (e.g. `actions/checkout@v4`), because the shared client's in-memory cache avoids redundant API calls.
+This pattern is especially efficient when many repositories share common actions
+(e.g. `actions/checkout@v4`), because the shared client's in-memory cache avoids redundant API calls.
 
 ## Real-World Example: `scripts/update_repos.py`
 
-[`scripts/update_repos.py`](https://github.com/drts01/pin-actions/blob/main/scripts/update_repos.py) is a complete, runnable example combining the patterns above with `gh`/`git` for cloning, committing, and opening PRs across many repositories. The library integration is a single async function:
+[`scripts/update_repos.py`](https://github.com/drts01/pin-actions/blob/main/scripts/update_repos.py) is a complete,
+runnable example combining the patterns above with `gh`/`git` for cloning, committing,
+and opening PRs across many repositories.
+The library integration is a single async function:
 
 ```python
 async def _try_pin(client: GitHubClient, repo_dir: Path, settings: UpdateReposSettings, result: RepoResult) -> bool:
@@ -190,7 +195,9 @@ See [Multi-Repo Automation](./multi-repo-automation.md) for full CLI options and
 
 ## Pin Pre-Commit Hook Revs
 
-The `pin_precommit_file` function pins GitHub-hosted `.pre-commit-config.yaml` `repos[].rev` entries the same way `core.pin_file` pins workflow refs — both share the `_pin_doc()` load/resolve/rewrite pipeline. Import it from the standalone script (`scripts/update_precommit.py`):
+The `pin_precommit_file` function pins GitHub-hosted `.pre-commit-config.yaml` `repos[].rev` entries the same way
+`core.pin_file` pins workflow refs — both share the `_pin_doc()` load/resolve/rewrite pipeline.
+Import it from the standalone script (`scripts/update_precommit.py`):
 
 ```python
 import asyncio
@@ -217,7 +224,8 @@ async def main():
 asyncio.run(main())
 ```
 
-See [Pin Pre-Commit Hooks](./pin-pre-commit-hooks.md) for the `pin-precommit` CLI, or run `uv run --with-editable . scripts/update_precommit.py --help` for the equivalent standalone-script invocation.
+See [Pin Pre-Commit Hooks](./pin-pre-commit-hooks.md) for the `pin-precommit` CLI,
+or run `uv run --with-editable . scripts/update_precommit.py --help` for the equivalent standalone-script invocation.
 
 ## See Also
 

@@ -1,6 +1,8 @@
 # Comparing pin-actions to Similar Tools
 
-Multiple tools solve the "unpinned GitHub Actions" problem. Pick the right one for your stack — this page compares `pin-actions` against three notable alternatives so you can make an informed choice.
+Multiple tools solve the "unpinned GitHub Actions" problem.
+Pick the right one for your stack — this page compares `pin-actions` against three notable alternatives
+so you can make an informed choice.
 
 ## TL;DR
 
@@ -11,7 +13,19 @@ Multiple tools solve the "unpinned GitHub Actions" problem. Pick the right one f
 | **[mheap/pin-github-action](https://github.com/mheap/pin-github-action)** | Pin only (fixer)                          | Node.js  | Simple, minimal pinning needs in a Node-based toolchain; the historical baseline whose re-resolution behavior `pin-actions` and others mirror         |
 | **[zizmor](https://github.com/zizmorcore/zizmor)**                        | Static analysis (detector), with auto-fix | Rust     | Primarily a linter for CI/CD vulnerability classes; its `unpinned-uses` audit also ships a stable `--fix` mode that can hash-pin actions itself       |
 
-**Key distinction — detector-first vs. fixer-first:** `pin-actions`, `pinact`, and `pin-github-action` are purpose-built fixers that rewrite workflow files to add SHA pins as their primary job. `zizmor` is primarily a detector (it reports far more vulnerability classes than just unpinned actions — template injection, credential leakage, excessive permissions, impostor commits, and more) — but it is **not fix-mode-free**: its `unpinned-uses` audit supports a stable, non-experimental `zizmor --fix` mode that hash-pins actions directly, in the same spirit as the dedicated pinning tools. zizmor's own docs even recommend `pinact` as a complementary/alternative pinning tool for users who want a dedicated pinning CLI. Run a detector for broad CI/CD vulnerability coverage; run a dedicated fixer (or zizmor's own `--fix`) to remediate pinning. Treat them as complementary layers, not strict competitors — this project deliberately dogfoods `zizmor` and `actionlint` in its own `.pre-commit-config.yaml` and CI (see [Threat Model §6](threat-model.md#6-how-pin-actions-addresses-this-threat-model)).
+**Key distinction — detector-first vs. fixer-first:** `pin-actions`, `pinact`,
+and `pin-github-action` are purpose-built fixers that rewrite workflow files to add SHA pins as their primary job.
+`zizmor` is primarily a detector (it reports far more vulnerability classes than just unpinned actions —
+template injection, credential leakage, excessive permissions, impostor commits, and more) —
+but it is **not fix-mode-free**: its `unpinned-uses` audit supports a stable,
+non-experimental `zizmor --fix` mode that hash-pins actions directly,
+in the same spirit as the dedicated pinning tools. zizmor's own docs even recommend `pinact`
+as a complementary/alternative pinning tool for users who want a dedicated pinning CLI.
+Run a detector for broad CI/CD vulnerability coverage; run a dedicated fixer
+(or zizmor's own `--fix`) to remediate pinning.
+Treat them as complementary layers, not strict competitors —
+this project deliberately dogfoods `zizmor` and `actionlint` in its own `.pre-commit-config.yaml` and CI
+(see [Threat Model §6](threat-model.md#6-how-pin-actions-addresses-this-threat-model)).
 
 ## Feature Matrix
 
@@ -79,8 +93,17 @@ Multiple tools solve the "unpinned GitHub Actions" problem. Pick the right one f
 
 ## Anything Else Worth Noting
 
-- **Fork Network / impostor commits (§3.1 of the [Threat Model](threat-model.md)):** none of the four tools verify *provenance* of a SHA — pinning to a SHA only stops tag-hijacking, not a malicious fork's SHA being pinned in the first place. `zizmor`'s `impostor-commit` audit is the closest thing to a mitigation here; combine it with manual PR review of any new SHA.
-- **Renovate/Dependabot overlap:** `pinact`'s README explicitly notes it complements (not replaces) Renovate's `helpers:pinGitHubActionDigestsToSemver` preset, because Renovate cannot pin actions *before* a PR merges. The same reasoning applies to `pin-actions` — run it as a pre-commit hook or CI gate so PRs land already pinned, and let Renovate/Dependabot handle the ongoing version-bump PRs afterward.
+- **Fork Network / impostor commits (§3.1 of the [Threat Model](threat-model.md)):** none of the four tools verify
+    *provenance* of a SHA — pinning to a SHA only stops tag-hijacking, not a malicious fork's SHA being pinned in the
+    first place.
+    `zizmor`'s `impostor-commit` audit is the closest thing to a mitigation here;
+    combine it with manual PR review of any new SHA.
+- **Renovate/Dependabot overlap:** `pinact`'s README explicitly notes it complements
+    (not replaces)
+    Renovate's `helpers:pinGitHubActionDigestsToSemver` preset,
+    because Renovate cannot pin actions *before* a PR merges.
+    The same reasoning applies to `pin-actions` — run it as a pre-commit hook or CI gate so PRs land already pinned,
+    and let Renovate/Dependabot handle the ongoing version-bump PRs afterward.
 
 ## See Also
 

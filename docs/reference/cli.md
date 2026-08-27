@@ -1,14 +1,20 @@
 # CLI reference
 
-`pin-actions` parses command-line flags via pydantic-settings, deriving them directly from the [`Settings`](config.md) fields below (kebab-case, e.g. `dry_run` → `--dry-run`). Run `pin-actions --help` for the live, authoritative flag list.
+`pin-actions` parses command-line flags via pydantic-settings,
+deriving them directly from the [`Settings`](config.md) fields below (kebab-case, e.g. `dry_run` → `--dry-run`).
+Run `pin-actions --help` for the live, authoritative flag list.
 
-**Breaking change**: `--path` is now `--paths` and accepts multiple file/directory arguments (glob patterns supported). Default scans `.github/workflows/` (all workflows) plus `**/action.yml` and `**/action.yaml` (composite actions in any path).
+**Breaking change**: `--path` is now `--paths` and accepts multiple file/directory arguments (glob patterns supported).
+Default scans `.github/workflows/` (all workflows) plus `**/action.yml` and `**/action.yaml`
+(composite actions in any path).
 
 ::: pin_actions.config.Settings
 
 ## `pin-precommit` (standalone script)
 
-Pins GitHub-hosted `.pre-commit-config.yaml` `repos[].rev` entries to immutable commit SHAs. Available as a standalone `uv run` script (`scripts/update_precommit.py`); accepts the same flags as `pin-actions` (via `PrecommitSettings(Settings)`) plus:
+Pins GitHub-hosted `.pre-commit-config.yaml` `repos[].rev` entries to immutable commit SHAs.
+Available as a standalone `uv run` script (`scripts/update_precommit.py`); accepts the same flags as `pin-actions`
+(via `PrecommitSettings(Settings)`) plus:
 
 - `--host` — matches against `repos[].repo` clone URLs (default `github.com`)
 - Default `--paths` is `[.pre-commit-config.yaml]` instead of the main default
@@ -23,11 +29,11 @@ By default, `pin-actions` also pins container image references to `sha256:` cont
 - `jobs.<job>.container.image`
 - `jobs.<job>.services.<name>.image`
 
-Resolution uses the OCI Distribution Spec Bearer-token auth flow, which works anonymously
-for any public registry (Docker Hub, GHCR, Quay.io, MCR, etc. — no credentials required).
-`--github-token` is additionally used for `ghcr.io` private image resolution. Registries
-requiring non-Bearer auth (e.g. ECR, GCR) are skipped with a warning rather than failing
-the whole file. Disable entirely with `--no-image-pin`.
+Resolution uses the OCI Distribution Spec Bearer-token auth flow, which works anonymously for any public registry
+(Docker Hub, GHCR, Quay.io, MCR, etc. — no credentials required).
+`--github-token` is additionally used for `ghcr.io` private image resolution.
+Registries requiring non-Bearer auth (e.g. ECR, GCR) are skipped with a warning rather than failing the whole file.
+Disable entirely with `--no-image-pin`.
 
 ```yaml
 # Before
@@ -61,7 +67,8 @@ With `--full-version`, the full resolved tag version is always recorded (e.g. `v
 
 - `GITHUB_TOKEN` — GitHub API token
 - `PIN_ACTIONS_TOKEN` — Alternative name for the GitHub token
-- `PIN_ACTIONS_*` — Any other field can be set via its `PIN_ACTIONS_`-prefixed env var name (e.g. `PIN_ACTIONS_CONCURRENCY`)
+- `PIN_ACTIONS_*` — Any other field can be set via its `PIN_ACTIONS_`-prefixed env var name
+    (e.g. `PIN_ACTIONS_CONCURRENCY`)
 
 ## Config file
 

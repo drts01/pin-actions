@@ -3,7 +3,8 @@
 <!-- --8<-- [start:overview] -->
 Automatically pin mutable GitHub Actions versions (e.g., `@v4`, `@main`) to their immutable 40-character commit SHAs.
 
-Works as both a **CLI tool** and an **importable library**, scanning `.github/workflows/**/*.{yml,yaml}` and composite `action.yaml`/`action.yml` files.
+Works as both a **CLI tool** and an **importable library**,
+scanning `.github/workflows/**/*.{yml,yaml}` and composite `action.yaml`/`action.yml` files.
 
 ## Features
 
@@ -62,9 +63,12 @@ jobs:
 - **[Tutorials](https://drts01.github.io/pin-actions/tutorials/getting-started/)** — Getting started, first pin
 - **[How-To Guides](https://drts01.github.io/pin-actions/how-to/update-pinned-tags/)** — Common tasks and workflows
 - **[Reference](https://drts01.github.io/pin-actions/reference/cli/)** — Full API and CLI documentation
-- **[Explanation](https://drts01.github.io/pin-actions/explanation/architecture/)** — Design, architecture, and rationale
-- **[Threat Model](https://drts01.github.io/pin-actions/explanation/threat-model/)** — The supply-chain attack model this tool defends against
-- **[Comparison with Similar Tools](https://drts01.github.io/pin-actions/explanation/comparison/)** — How `pin-actions` stacks up against zizmor, pinact, and pin-github-action
+- **[Explanation](https://drts01.github.io/pin-actions/explanation/architecture/)** — Design, architecture,
+  and rationale
+- **[Threat Model](https://drts01.github.io/pin-actions/explanation/threat-model/)** —
+  The supply-chain attack model this tool defends against
+- **[Comparison with Similar Tools](https://drts01.github.io/pin-actions/explanation/comparison/)** —
+  How `pin-actions` stacks up against zizmor, pinact, and pin-github-action
 
 ## Development
 

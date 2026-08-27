@@ -4,7 +4,8 @@ How pin-actions' in-memory cache avoids redundant GitHub API calls.
 
 ## In-Memory Cache
 
-Every `GitHubClient` maintains an in-memory cache of resolved refs for its lifetime. Multiple references to the same `actions/checkout@v4` within one run result in only one API call.
+Every `GitHubClient` maintains an in-memory cache of resolved refs for its lifetime.
+Multiple references to the same `actions/checkout@v4` within one run result in only one API call.
 
 This cache is:
 
@@ -16,18 +17,22 @@ This cache is:
 
 1. **First ref encounter**: API call is made, result cached in memory.
 2. **Subsequent encounters**: Cache hit, result returned instantly (no API call).
-3. **Across multiple files in one run**: All files share the same cache, so `actions/checkout@v4` is only fetched once even if used in 100 workflows.
+3. **Across multiple files in one run**: All files share the same cache,
+    so `actions/checkout@v4` is only fetched once even if used in 100 workflows.
 
-**Example**: A batch update of 50 repositories where every repo uses `actions/checkout@v4` and `actions/setup-python@v4`:
+**Example**: A batch update of 50 repositories where every repo uses `actions/checkout@v4`
+and `actions/setup-python@v4`:
 
 - Unauthenticated runs: ~2 API calls (1 per unique action) instead of ~100
 - Authenticated runs: same, plus batch tag operations if using `--update`
 
 ## Cache Lifetime and Sharing
 
-`run(settings)` (with no explicit `client=`) creates and closes a fresh `GitHubClient` per call — cache benefits are limited to files processed in that single call.
+`run(settings)` (with no explicit `client=`) creates and closes a fresh `GitHubClient` per call —
+cache benefits are limited to files processed in that single call.
 
-To share a cache across multiple `run()`/`pin_file()` calls (e.g. multiple repositories or `Settings` invocations), pass a shared client explicitly:
+To share a cache across multiple `run()`/`pin_file()` calls
+(e.g. multiple repositories or `Settings` invocations), pass a shared client explicitly:
 
 ```python
 from pin_actions import GitHubClient, Settings, run
@@ -57,7 +62,8 @@ Benefits of a shared client:
 
 ## Cache Size
 
-`GitHubClient(max_cache_size=...)` bounds the LRU cache (default 1000 entries per cache — SHA, tags, and commit-date caches are each independently bounded):
+`GitHubClient(max_cache_size=...)` bounds the LRU cache
+(default 1000 entries per cache — SHA, tags, and commit-date caches are each independently bounded):
 
 ```python
 from pin_actions import GitHubClient

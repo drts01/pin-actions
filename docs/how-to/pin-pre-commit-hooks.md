@@ -1,6 +1,7 @@
 # Pin Pre-Commit Hooks
 
-Pin GitHub-hosted `.pre-commit-config.yaml` `repos[].rev` entries to immutable commit SHAs using the `pin-precommit` standalone script.
+Pin GitHub-hosted `.pre-commit-config.yaml` `repos[].rev` entries to immutable commit SHAs using the `pin-precommit`
+standalone script.
 
 ## Dry-Run Preview
 
@@ -9,7 +10,9 @@ export GITHUB_TOKEN=ghp_xxxx
 uv run --with-editable . scripts/update_precommit.py --dry-run
 ```
 
-By default, `pin-precommit` reads `.pre-commit-config.yaml` in the current directory. Use `--paths` to specify different files or glob patterns (e.g., `--paths "**/pre-commit-config.yaml"` for monorepos with multiple configs).
+By default, `pin-precommit` reads `.pre-commit-config.yaml` in the current directory.
+Use `--paths` to specify different files or glob patterns
+(e.g., `--paths "**/pre-commit-config.yaml"` for monorepos with multiple configs).
 
 ## Apply the Changes
 
@@ -27,7 +30,9 @@ repos:
 
 ## Version Constraints & Diffs
 
-`pin-precommit` accepts the same flags as `pin-actions` — `--update`, `--full-version`, `--exclude-newer`, `--diff`, `--concurrency`, `--host`, etc. See the [CLI reference](../reference/cli.md#pin-precommit-standalone-script) for the full flag list.
+`pin-precommit` accepts the same flags as `pin-actions` — `--update`, `--full-version`, `--exclude-newer`, `--diff`,
+`--concurrency`, `--host`, etc.
+See the [CLI reference](../reference/cli.md#pin-precommit-standalone-script) for the full flag list.
 
 ```bash
 # Preview a unified diff without writing
@@ -39,7 +44,8 @@ uv run --with-editable . scripts/update_precommit.py --update minor --github-tok
 
 ## Non-GitHub Repos
 
-`repos[].repo` entries that don't resolve to a `--host` clone URL (e.g. `local`, `meta`, or non-GitHub hosts) are skipped — only GitHub-hosted hooks are pinned.
+`repos[].repo` entries that don't resolve to a `--host` clone URL
+(e.g. `local`, `meta`, or non-GitHub hosts) are skipped — only GitHub-hosted hooks are pinned.
 
 ## See Also
 

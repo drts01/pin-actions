@@ -4,9 +4,14 @@ Pin composite actions and cross-repo checkout refs — cases beyond a plain `use
 
 ## Composite Actions
 
-pin-actions treats composite `action.yml`/`action.yaml` files identically to workflow files — same scan, same `uses:` resolution, same re-pin behavior.
+pin-actions treats composite `action.yml`/`action.yaml` files identically to workflow files — same scan,
+same `uses:` resolution, same re-pin behavior.
 
-`pin-actions` scans for `**/*.yml` and `**/*.yaml` under `--path` (no distinction between `.github/workflows/*.yml` and a composite action's `action.yml`). Internally, it walks the parsed YAML tree looking for any `uses:` key, regardless of whether it's nested under `jobs.<id>.steps` (workflow) or `runs.steps` (composite action). Both shapes are structurally identical `steps:` lists, so the same logic pins both.
+`pin-actions` scans for `**/*.yml` and `**/*.yaml` under `--path`
+(no distinction between `.github/workflows/*.yml` and a composite action's `action.yml`).
+Internally, it walks the parsed YAML tree looking for any `uses:` key,
+regardless of whether it's nested under `jobs.<id>.steps` (workflow) or `runs.steps` (composite action).
+Both shapes are structurally identical `steps:` lists, so the same logic pins both.
 
 ### Before (`action.yml`)
 
@@ -60,7 +65,8 @@ pin-actions --path . --dry-run  # includes any action.yml/action.yaml found
 
 ## Checking Out Another Repo
 
-When you use `actions/checkout` with `with.repository` to check out a different repository, pin-actions also pins its `with.ref`.
+When you use `actions/checkout` with `with.repository` to check out a different repository,
+pin-actions also pins its `with.ref`.
 
 ### Before
 

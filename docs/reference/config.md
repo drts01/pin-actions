@@ -41,7 +41,8 @@ The `exclude_newer` setting applies only to `--update` mode and accepts three fo
 - ISO 8601 duration: `P7D`, `PT24H`, `P1W` (relative to now)
 - Friendly duration: `7 days`, `24 hours`, `1 week` (case-insensitive)
 
-Default: unset (no cool-off). When set, tags younger than the cutoff are excluded from auto-selection, mitigating same-day supply-chain compromises.
+Default: unset (no cool-off).
+When set, tags younger than the cutoff are excluded from auto-selection, mitigating same-day supply-chain compromises.
 
 **Example `pyproject.toml`:**
 

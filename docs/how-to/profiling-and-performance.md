@@ -1,10 +1,12 @@
 # Performance Profiling & Testing Guide
 
-Profile `pin-actions` to identify bottlenecks, measure scalability, and validate optimization correctness using synthetic benchmarks and statistical profilers.
+Profile `pin-actions` to identify bottlenecks, measure scalability,
+and validate optimization correctness using synthetic benchmarks and statistical profilers.
 
 ## Synthetic Benchmark Scenario
 
-`benchmarks/bench_scenario.py` generates N workflow YAML files with mixed pinned/unpinned refs + mocked GitHub API (httpx2.MockTransport—deterministic, zero network latency variance):
+`benchmarks/bench_scenario.py` generates N workflow YAML files with mixed pinned/unpinned refs + mocked GitHub API
+(httpx2.MockTransport—deterministic, zero network latency variance):
 
 ```bash
 # Generate 200 workflows, resolve with concurrency=5
@@ -21,7 +23,8 @@ python benchmarks/bench_scenario.py --help
 
 - `--files N` — workflow count (default: 100, env: `BENCH_FILES`)
 - `--concurrency N` — GitHub client concurrency level (default: 5, env: `BENCH_CONCURRENCY`)
-- `--already-pinned-ratio FLOAT` — fraction of actions pre-pinned as SHAs (default: 0.3, env: `BENCH_ALREADY_PINNED_RATIO`)
+- `--already-pinned-ratio FLOAT` — fraction of actions pre-pinned as SHAs
+    (default: 0.3, env: `BENCH_ALREADY_PINNED_RATIO`)
 - `--verbose` — verbosity 0-3 (env: `BENCH_VERBOSE`)
 
 ## Profiling Tools
@@ -54,7 +57,8 @@ stats.print_stats(30)
 
 **Hot path (actual pinning logic—subset not shown due to async scheduling complexity):**
 
-- `pin_file` + `resolve_and_rewrite` hidden inside asyncio loop (hard to extract cumtime via cProfile on async functions)
+- `pin_file` + `resolve_and_rewrite` hidden inside asyncio loop
+    (hard to extract cumtime via cProfile on async functions)
 - Estimated <50ms for 200 files (0.25ms/file) based on mock response speed
 
 ### py-spy (Wall-Clock Sampling, SVG Flamegraph)
@@ -103,7 +107,8 @@ py-spy record -o flamegraph.svg -- benchmarks/bench_scenario.py --files 500
 
 ### Python 3.15 `profiling.sampling` (PEP 768 / "Tachyon")
 
-Low-overhead async-aware sampling profiler via `tox -e tachyon-py315` (standard) or `tox -e tachyon-py315t` (free-threaded):
+Low-overhead async-aware sampling profiler via `tox -e tachyon-py315` (standard)
+or `tox -e tachyon-py315t` (free-threaded):
 
 **Linux (no elevation needed):**
 
@@ -115,8 +120,7 @@ tox -e tachyon-py315 -- --files 500
 tox -e tachyon-py315t -- --files 500
 ```
 
-**macOS (requires `sudo` due to SIP/ptrace restrictions):**
-First time only — create venv without sudo:
+**macOS (requires `sudo` due to SIP/ptrace restrictions):** First time only — create venv without sudo:
 
 ```bash
 tox -e tachyon-py315 --notest
@@ -163,7 +167,8 @@ On macOS without running `sudo tox -e tachyon`, fall back to cProfile + pytest-b
 
 ## pytest-benchmark Micro-benchmarks
 
-Statistically-sound performance assertions on hot functions. Run via tox or directly:
+Statistically-sound performance assertions on hot functions.
+Run via tox or directly:
 
 ```bash
 # Run all micro-benchmarks
@@ -229,7 +234,8 @@ print(f"Memory: current={current / 1024 / 1024:.1f}MB, peak={peak / 1024 / 1024:
 tracemalloc.stop()
 ```
 
-**Expectation:** ~5–15 MB for 1000 files (YAML ASTs + caches bounded). If > 100 MB, suspect unbounded cache growth.
+**Expectation:** ~5–15 MB for 1000 files (YAML ASTs + caches bounded).
+If > 100 MB, suspect unbounded cache growth.
 
 ### 3. **Asyncio Debug Mode (Slow-Callback Detection)**
 
@@ -402,11 +408,13 @@ jobs:
 
 **Key points:**
 
-- **Benchmark job** matrixed across 3.14/3.14t/3.15/3.15t; all run `tox -e profile` (pytest-benchmark micro-tests → `benchmark.json`)
+- **Benchmark job** matrixed across 3.14/3.14t/3.15/3.15t; all run `tox -e profile`
+    (pytest-benchmark micro-tests → `benchmark.json`)
 - **Flamegraph** (py-spy SVG) runs once on 3.14 leg only (avoid 4x redundant profiler runs)
 - **jq-parsed benchmark table** embedded in step summary (name, min, mean, max, ops/sec sorted by mean)
 - **SVG base64-embedded** with ~700KB size guard; `::warning::`/`::error::` for sizing issues
-- **Tachyon job** separate, non-matrixed (Python 3.15 only); generates interactive HTML artifact (can't be inlined due to `<script>` sanitization by GitHub)
+- **Tachyon job** separate, non-matrixed (Python 3.15 only); generates interactive HTML artifact
+    (can't be inlined due to `<script>` sanitization by GitHub)
 - All profiling logic delegated to tox; no duplicated shell commands
 
 ## Optimization Targets
@@ -420,7 +428,9 @@ jobs:
 | **Single-flight dedup** | In-flight task tracking/await               | <1%                          | Working correctly; stamped dedup prevents redundant fetches                     |
 | **Asyncio scheduling**  | Event loop overhead                         | ~5–10%                       | Acceptable for CLI tool; tuning unlikely to improve perception                  |
 
-**Recommendation:** Current design is near-optimal for the problem domain. Further optimization would have diminishing returns. Focus on:
+**Recommendation:** Current design is near-optimal for the problem domain.
+Further optimization would have diminishing returns.
+Focus on:
 
 1. Testing regression: use pytest-benchmark with CI baselines
 2. Load testing: concurrency sweeps to validate GitHub API limit handling

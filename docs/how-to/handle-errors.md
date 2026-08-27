@@ -78,9 +78,8 @@ except NetworkError as exc:
 ## Unsupported Registry
 
 Raised when a container registry doesn't support anonymous Bearer auth (e.g. ECR, GCR).
-`run()`/`pin_file()` catch this per-image internally — the entry is left untouched and a
-warning is logged, so this only surfaces if you call `ContainerRegistryClient.resolve_digest()`
-directly:
+`run()`/`pin_file()` catch this per-image internally — the entry is left untouched and a warning is logged,
+so this only surfaces if you call `ContainerRegistryClient.resolve_digest()` directly:
 
 ```python
 from pin_actions.errors import UnsupportedRegistryError

@@ -48,11 +48,14 @@ Use `--full-version` to use the full precision of the winning tag instead.
 
 ### Branch ref handling
 
-Branch refs (e.g., `main`) never parse as a version, so a version constraint (`--update`) never applies to them. They're re-resolved against the branch name every run, exactly like the default (no-constraint) path — independent of whichever `--update` mode is active.
+Branch refs (e.g., `main`) never parse as a version, so a version constraint (`--update`) never applies to them.
+They're re-resolved against the branch name every run, exactly like the default (no-constraint) path —
+independent of whichever `--update` mode is active.
 
 ### No-Match Warning
 
-If no tag satisfies the constraint, pin-actions warns and leaves the entry untouched — safer than raising (would abort) or silently no-op'ing (user wouldn't know).
+If no tag satisfies the constraint, pin-actions warns and leaves the entry untouched — safer than raising
+(would abort) or silently no-op'ing (user wouldn't know).
 
 ## Already-Pinned Refs
 
@@ -74,7 +77,10 @@ Steps without a `with.repository` sibling are skipped (current-repo context unav
 
 ## Cool-off Period (--exclude-newer)
 
-Newly published tags carry unmitigated supply-chain risk: zero-day or 1-day compromises live until security tooling detects them. The `--exclude-newer` flag (RFC 3339 / ISO 8601 / friendly duration) implements a minimum-release-age cool-off period, matching npm (`minimumReleaseAge`), pnpm, and Renovate.
+Newly published tags carry unmitigated supply-chain risk:
+zero-day or 1-day compromises live until security tooling detects them.
+The `--exclude-newer` flag (RFC 3339 / ISO 8601 / friendly duration) implements a minimum-release-age cool-off period,
+matching npm (`minimumReleaseAge`), pnpm, and Renovate.
 
 | Scope                                                | Behavior                                                                                                         |
 | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
@@ -83,21 +89,27 @@ Newly published tags carry unmitigated supply-chain risk: zero-day or 1-day comp
 | **Zero-cost when disabled**                          | `exclude_newer=None` short-circuits before any commit-date API call                                              |
 | **Failure handling**                                 | If commit-date fetch fails, candidate is skipped with warning; if all candidates are too new, pin left unchanged |
 
-When set, candidates are tested best-first (highest version wins). Only tags passing the age check are considered; if none do, a stderr warning is issued and the pin is left as-is — same graceful degradation as "no matching version constraint" case.
+When set, candidates are tested best-first (highest version wins).
+Only tags passing the age check are considered; if none do, a stderr warning is issued and the pin is left as-is —
+same graceful degradation as "no matching version constraint" case.
 
 ## Safety Invariants
 
-1. **Stable no-op**: Running twice with unmoved tags produces identical output (re-resolution happens, but file only rewritten if SHA differs)
-2. **Already-pinned refs are re-resolved, not frozen**: A `sha # tag` is re-resolved on every run; a bare SHA is left untouched
+1. **Stable no-op**: Running twice with unmoved tags produces identical output
+    (re-resolution happens, but file only rewritten if SHA differs)
+2. **Already-pinned refs are re-resolved, not frozen**: A `sha # tag` is re-resolved on every run;
+    a bare SHA is left untouched
 3. **No modification of local actions**: `./...` actions skipped entirely
 4. **Cache consistency**: Atomic dict ops under cooperative asyncio scheduling (no `await` inside critical sections)
 5. **Retry limits**: Max `max_retries` attempts per-ref
 6. **Version constraints never silently drop**: Entry left exactly as-is with stderr warning
-7. **Branch refs are always re-resolved**: A version constraint (`--update`) only affects semver-parseable comments; a branch-name comment always falls through to the default re-resolve path, regardless of `--update`
+7. **Branch refs are always re-resolved**: A version constraint (`--update`) only affects semver-parseable comments;
+    a branch-name comment always falls through to the default re-resolve path, regardless of `--update`
 
 ## Error Handling Strategy
 
-Contract: **library raises, caller handles**. No function prints-and-continues or returns a sentinel.
+Contract: **library raises, caller handles**.
+No function prints-and-continues or returns a sentinel.
 
 - `pin_file()` raises on YAML parse errors, invalid refs, rate limits, network errors
 - `run()` collects per-file exceptions into `ExceptionGroup` rather than aborting mid-batch

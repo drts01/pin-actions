@@ -1,6 +1,7 @@
 # Architecture Overview
 
-`pin-actions` combines async I/O, thread-safe caching, intelligent rate-limiting, and round-trip YAML editing to process workflows efficiently while preserving comments and formatting.
+`pin-actions` combines async I/O, thread-safe caching, intelligent rate-limiting,
+and round-trip YAML editing to process workflows efficiently while preserving comments and formatting.
 
 ## High-Level Flow
 
@@ -154,12 +155,11 @@ With `Retry-After` header, GitHub's advised delay is respected.
 
 ### In-memory LRU cache
 
-`_Cache[T]` (`pin_actions/client.py`) guards its `OrderedDict` store and
-in-flight task map with a `threading.Lock`, held only around the dict
-mutations themselves — never across an `await`. This makes the cache
-correct both under asyncio's single-threaded cooperative scheduling *and*
-under a free-threaded (PEP 779, no-GIL) interpreter where multiple OS
-threads might drive separate event loops against the same client instance.
+`_Cache[T]` (`pin_actions/client.py`) guards its `OrderedDict` store and in-flight task map with a `threading.Lock`,
+held only around the dict mutations themselves — never across an `await`.
+This makes the cache correct both under asyncio's single-threaded cooperative scheduling *and* under a free-threaded
+(PEP 779, no-GIL)
+interpreter where multiple OS threads might drive separate event loops against the same client instance.
 
 ```python
 _sha_cache: _Cache[str]                       # (repo, ref) -> sha
@@ -169,7 +169,8 @@ _date_cache: _Cache[str]                      # (repo, sha) -> commit date
 
 **Pattern:** in-memory cache → fetch (semaphore-gated) → write-through cache
 
-**LRU eviction:** `OrderedDict` + `move_to_end()` on hit; auto-evict oldest when `len(cache) > max_cache_size` (default 1000).
+**LRU eviction:** `OrderedDict` + `move_to_end()` on hit; auto-evict oldest when `len(cache) > max_cache_size`
+(default 1000).
 
 ### Performance
 
@@ -182,11 +183,10 @@ _date_cache: _Cache[str]                      # (repo, sha) -> commit date
 
 ## Container image pinning
 
-`ContainerRegistryClient` (`pin_actions/registry.py`) resolves `docker://` step
-refs, `jobs.<job>.container.image`, and `jobs.<job>.services[*].image` tags to
-immutable `sha256:` content digests, using the same OCI Distribution Spec /
-Docker Registry v2 Bearer-token flow shared by all public registries (Docker
-Hub, GHCR, Quay.io, MCR, etc.):
+`ContainerRegistryClient` (`pin_actions/registry.py`) resolves `docker://` step refs, `jobs.<job>.container.image`,
+and `jobs.<job>.services[*].image` tags to immutable `sha256:` content digests,
+using the same OCI Distribution Spec / Docker Registry v2 Bearer-token flow shared by all public registries
+(Docker Hub, GHCR, Quay.io, MCR, etc.):
 
 1. Anonymous `HEAD /v2/{name}/manifests/{tag}` request.
 2. If `401` with a `WWW-Authenticate: Bearer realm=...,service=...,scope=...`
@@ -194,11 +194,10 @@ Hub, GHCR, Quay.io, MCR, etc.):
    for `ghcr.io`, enabling private GHCR image resolution).
 3. Retry the `HEAD` with the token; read `Docker-Content-Digest`.
 
-Registries using non-Bearer auth (ECR SigV4, GCR OAuth) raise
-`UnsupportedRegistryError`, which is caught per-image — the entry is left
-untouched and a warning logged, rather than failing the whole file. Reuses
-the same `_Cache[T]` (LRU + single-flight dedup) and lazy `httpx2.AsyncClient`
-patterns as `GitHubClient`. Toggle via `Settings.image_pin` (default `True`).
+Registries using non-Bearer auth (ECR SigV4, GCR OAuth) raise `UnsupportedRegistryError`, which is caught per-image —
+the entry is left untouched and a warning logged, rather than failing the whole file.
+Reuses the same `_Cache[T]` (LRU + single-flight dedup) and lazy `httpx2.AsyncClient` patterns as `GitHubClient`.
+Toggle via `Settings.image_pin` (default `True`).
 
 ## See Also
 
