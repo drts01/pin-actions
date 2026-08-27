@@ -210,3 +210,37 @@ format.rules.inline-table-brace-space-width = 1
 format.rules.inline-table-comma-space-width = 1
 format.rules.line-width = 120
 format.rules.trailing-comment-space-width = 2
+
+[tool.rumdl]
+exclude = [ "CHANGELOG.md" ]
+output-format = "grouped"
+extend-enable = [
+  "table-format",                  # MD060
+  "nested-code-fence",             # MD070
+  "heading-anchor-collision",      # MD080
+  "mojibake",                      # MD083
+  "invisible-characters",          # MD084
+  "paragraph-continuation-indent", # MD085
+  "unused-disable-comment",        # MD087
+  "quotes-dashes",                 # MD088
+]
+disable = [
+  "no-inline-html", # MD033
+  "no-bare-urls",   # MD034"
+]
+# MD003
+heading-style.style = "atx"
+# MD013
+line-length.line-length = 120
+line-length.code_blocks = false
+line-length.code_spans = false
+line-length.tables = false
+line-length.blockquotes = false
+# line-length.reflow = true
+line-length.reflow-mode = "semantic-line-breaks"
+per-file-flavor."*.md" = "gfm"
+per-file-flavor."docs/**/*.md" = "mkdocs"
+per-file-ignores."docs/license.md" = [ "first-line-heading" ]
+per-file-ignores."docs/contributing.md" = [ "first-line-heading" ]
+# MD060
+table-format.style = "aligned"
