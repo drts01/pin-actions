@@ -11,6 +11,7 @@ uv add pin-actions
 ```
 
 Or via pip:
+
 ```bash
 pip install pin-actions
 ```

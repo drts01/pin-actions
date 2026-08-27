@@ -38,23 +38,22 @@ image: postgres@sha256:a8560b36...  # 15
 
 ## `--update` flag matrix
 
-
-| Mode | Constraint | Example |
-|------|-----------|---------|
-| `major` | None — absolute latest tag on the repo | `v4.0.5` → `v9.1.2` |
-| `minor` | Same major version | `v4.0.5` → `v4.9.0`, never `v5.x` |
-| `patch` | Same major.minor | `v4.2.3` → `v4.2.9`, never `v4.3.x` |
-| *(unset)* | Re-resolve the exact tag/branch recorded in the comment | `v4` → `v4` (SHA updated if moved) |
+| Mode      | Constraint                                              | Example                             |
+| --------- | ------------------------------------------------------- | ----------------------------------- |
+| `major`   | None — absolute latest tag on the repo                  | `v4.0.5` → `v9.1.2`                 |
+| `minor`   | Same major version                                      | `v4.0.5` → `v4.9.0`, never `v5.x`   |
+| `patch`   | Same major.minor                                        | `v4.2.3` → `v4.2.9`, never `v4.3.x` |
+| *(unset)* | Re-resolve the exact tag/branch recorded in the comment | `v4` → `v4` (SHA updated if moved)  |
 
 ## Precision preservation (`--full-version`)
 
 Without `--full-version`, the rewritten tag comment matches the original's precision:
 
-| Original | Latest Tag | Result |
-|----------|-----------|--------|
-| `v4` | `v4.9.0` | `v4` (major-only preserved) |
-| `v4.0.5` | `v9.1.2` | `v9.1.2` (full precision kept) |
-| `v4.0` | `v4.9.3` | `v4.9` (major.minor preserved) |
+| Original | Latest Tag | Result                         |
+| -------- | ---------- | ------------------------------ |
+| `v4`     | `v4.9.0`   | `v4` (major-only preserved)    |
+| `v4.0.5` | `v9.1.2`   | `v9.1.2` (full precision kept) |
+| `v4.0`   | `v4.9.3`   | `v4.9` (major.minor preserved) |
 
 With `--full-version`, the full resolved tag version is always recorded (e.g. `v4.9.0` instead of `v4`).
 

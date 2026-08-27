@@ -105,16 +105,19 @@ Comments (`#`) and blank lines are ignored.
 ### Output in different formats
 
 **Markdown** (for pasting into PR/issue bodies):
+
 ```bash
 uv run --with-editable . scripts/update_repos.py --repos-file repos.txt --dry-run --format markdown
 ```
 
 **JSON** (for machine processing):
+
 ```bash
 uv run --with-editable . scripts/update_repos.py --repos-file repos.txt --dry-run --format json
 ```
 
 **CSV/TSV** (for spreadsheet import):
+
 ```bash
 uv run --with-editable . scripts/update_repos.py --repos-file repos.txt --dry-run --format csv > results.csv
 ```
@@ -127,32 +130,32 @@ uv run --with-editable . scripts/update_repos.py --repos-file repos.txt --dry-ru
 
 ## Command-Line Options
 
-| Flag | Type | Default | Description |
-|------|------|---------|-------------|
-| `--repos` | repeated string | — | Repository (owner/repo); repeat for multiple |
-| `--repos-file` | path | — | File with one owner/repo per line |
-| `--github-token` | string | `GITHUB_TOKEN` env | GitHub token |
-| `--dry-run` | flag | off | Print changes without writing, committing, or pushing |
-| `--update` | choice | — | `major`/`minor`/`patch` (re-solve already-pinned tags) |
-| `--full-version` | flag | off | Record full tag version (e.g. `v4.1.7` instead of `v4`) |
-| `--exclude-newer` | string | — | Cool-off period (RFC 3339, ISO 8601 duration, or friendly); only with `--update` |
-| `--concurrency` | int | 4 | Max concurrent repo clones |
-| `--api-concurrency` | int | 5 | Max concurrent GitHub API requests |
-| `--branch-prefix` | string | `pin-actions` | Feature branch prefix |
-| `--base-branch` | string | repo's default | PR base branch; auto-detected per repo if unset |
-| `--push` | flag | off | Push branch and open PR via `gh` |
-| `--commit-message` | string | `chore: pin GitHub Actions to immutable commit SHAs` | Commit message and PR title |
-| `--pr-body` | string | `Pinned by [pin-actions](https://github.com/drts01/pin-actions).` | Pull request body text |
-| `--format` | choice | `table` | Output format: `table`, `markdown`, `json`, `csv`, `tsv` |
-| `--output-file` | path | stdout | Write summary to file instead of stdout |
-| `--host` | string | `github.com` | GitHub hostname; use for GHE Server (e.g. `github.example.com`) |
-| `--verbose` / `-v` | int | 0 | Verbosity level 0–3: 0=warnings, 1=info, 2=debug, 3=debug+dependencies |
+| Flag                | Type            | Default                                                           | Description                                                                      |
+| ------------------- | --------------- | ----------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `--repos`           | repeated string | —                                                                 | Repository (owner/repo); repeat for multiple                                     |
+| `--repos-file`      | path            | —                                                                 | File with one owner/repo per line                                                |
+| `--github-token`    | string          | `GITHUB_TOKEN` env                                                | GitHub token                                                                     |
+| `--dry-run`         | flag            | off                                                               | Print changes without writing, committing, or pushing                            |
+| `--update`          | choice          | —                                                                 | `major`/`minor`/`patch` (re-solve already-pinned tags)                           |
+| `--full-version`    | flag            | off                                                               | Record full tag version (e.g. `v4.1.7` instead of `v4`)                          |
+| `--exclude-newer`   | string          | —                                                                 | Cool-off period (RFC 3339, ISO 8601 duration, or friendly); only with `--update` |
+| `--concurrency`     | int             | 4                                                                 | Max concurrent repo clones                                                       |
+| `--api-concurrency` | int             | 5                                                                 | Max concurrent GitHub API requests                                               |
+| `--branch-prefix`   | string          | `pin-actions`                                                     | Feature branch prefix                                                            |
+| `--base-branch`     | string          | repo's default                                                    | PR base branch; auto-detected per repo if unset                                  |
+| `--push`            | flag            | off                                                               | Push branch and open PR via `gh`                                                 |
+| `--commit-message`  | string          | `chore: pin GitHub Actions to immutable commit SHAs`              | Commit message and PR title                                                      |
+| `--pr-body`         | string          | `Pinned by [pin-actions](https://github.com/drts01/pin-actions).` | Pull request body text                                                           |
+| `--format`          | choice          | `table`                                                           | Output format: `table`, `markdown`, `json`, `csv`, `tsv`                         |
+| `--output-file`     | path            | stdout                                                            | Write summary to file instead of stdout                                          |
+| `--host`            | string          | `github.com`                                                      | GitHub hostname; use for GHE Server (e.g. `github.example.com`)                  |
+| `--verbose` / `-v`  | int             | 0                                                                 | Verbosity level 0–3: 0=warnings, 1=info, 2=debug, 3=debug+dependencies           |
 
 ## Output
 
 Default format (table):
 
-```
+```text
 REPO                       MODIFIED BRANCH                           BASE_BRANCH STATUS
 ────────────────────────────────────────────────────────────────────────────────────────
 octocat/Hello-World        2        pin-actions/octocat-Hello-World main        OK
@@ -289,6 +292,7 @@ Each repo's actual default branch (main, master, develop, etc.) is automatically
 ### `subprocess.CalledProcessError: clone failed`
 
 Ensure:
+
 - Repository URL is correct (owner/repo format)
 - Token has `repo` scope (full repository read access)
 - Network connectivity to GitHub
@@ -317,6 +321,7 @@ gh auth login
 ### PR creation fails
 
 Ensure:
+
 - `gh` is authenticated: `gh auth status`
 - Token has `repo` and `workflow` scopes (for `--push`)
 - Push succeeded (branches exist on origin)
@@ -353,6 +358,7 @@ The script uses exponential backoff with jitter (default 5 retries, up to 60s); 
 ### Fork creation fails (`gh repo fork` error)
 
 When using `--fork`, ensure:
+
 - Token has `repo` and `workflow` scopes (fork creation requires repo access)
 - GitHub account (or target `--fork-org` organization) is not rate-limited or suspended
 - For `--fork-org`: Authenticated user has permission to create forks in that organization

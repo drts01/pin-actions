@@ -1,4 +1,5 @@
 # Pin Actions
+
 --8<-- "README.md:overview"
 
 ## Documentation
@@ -8,7 +9,6 @@
 - **[Reference](reference/cli.md)** — Full API and CLI documentation
 - **[Explanation](explanation/architecture.md)** — Design, architecture, and rationale
 - **[Comparison with Similar Tools](explanation/comparison.md)** — How `pin-actions` stacks up against zizmor, pinact, and pin-github-action
-
 
 ## License
 

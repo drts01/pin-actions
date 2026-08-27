@@ -95,7 +95,6 @@ except UnsupportedRegistryError as exc:
 
 ## Batch Processing
 
-
 When using `run()`, per-file errors are collected into an `ExceptionGroup`:
 
 ```python

@@ -143,7 +143,8 @@ flowchart TD
 ```
 
 **Exponential backoff formula:**
-```
+
+```text
 delay = 2^attempt + random(0, 1)  # capped at 60s
 ```
 
@@ -172,12 +173,12 @@ _date_cache: _Cache[str]                      # (repo, sha) -> commit date
 
 ### Performance
 
-| Scenario | Time |
-|----------|------|
-| Single workflow, 5 actions, cached | ~100ms |
-| 10 workflows, 50 unique actions, cold | ~2-5s |
-| Same 10 workflows again, warm cache | ~10-50ms |
-| Batch with 429 retry | ~60s worst-case |
+| Scenario                              | Time            |
+| ------------------------------------- | --------------- |
+| Single workflow, 5 actions, cached    | ~100ms          |
+| 10 workflows, 50 unique actions, cold | ~2-5s           |
+| Same 10 workflows again, warm cache   | ~10-50ms        |
+| Batch with 429 retry                  | ~60s worst-case |
 
 ## Container image pinning
 

@@ -78,7 +78,7 @@ pin-actions --update minor --github-token $GITHUB_TOKEN
 
 If no tag on the remote satisfies the constraint, pin-actions warns to stderr and leaves the entry unchanged:
 
-```
+```text
 pin-actions: warning: no tag matching version constraint for actions/checkout@v4.0.5; leaving pinned as-is
 ```
 

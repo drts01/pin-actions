@@ -26,6 +26,7 @@ prek run -a
 ```
 
 This runs:
+
 - `ruff format` — code formatting
 - `ruff check --fix` — style & type-checking (with D rules for docstrings)
 - `interrogate` — docstring coverage (must reach 95%)
@@ -61,7 +62,7 @@ Then open `site/index.html` in your browser.
 
 This project uses [Conventional Commits](https://www.conventionalcommits.org/):
 
-```
+```text
 <type>(<scope>): <short description>
 
 [body: optional intent/why]
@@ -71,7 +72,7 @@ This project uses [Conventional Commits](https://www.conventionalcommits.org/):
 
 Examples:
 
-```
+```text
 feat(client): add exponential backoff with jitter
 
 Implement 2^attempt + jitter backoff strategy respecting Retry-After headers.

@@ -2,7 +2,7 @@
 
 Pin-actions exception hierarchy for error handling.
 
-```
+```text
 PinActionsError                    # base for all errors
 ├── YAMLParseError                # malformed YAML
 ├── GitHubAPIError                # base for API failures

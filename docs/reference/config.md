@@ -36,6 +36,7 @@ exclude_newer = "7 days"
 ```
 
 The `exclude_newer` setting applies only to `--update` mode and accepts three formats:
+
 - RFC 3339 timestamp: `2006-12-02T02:07:43Z` (absolute cutoff)
 - ISO 8601 duration: `P7D`, `PT24H`, `P1W` (relative to now)
 - Friendly duration: `7 days`, `24 hours`, `1 week` (case-insensitive)

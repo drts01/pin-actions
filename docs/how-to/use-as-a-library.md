@@ -219,7 +219,6 @@ asyncio.run(main())
 
 See [Pin Pre-Commit Hooks](./pin-pre-commit-hooks.md) for the `pin-precommit` CLI, or run `uv run --with-editable . scripts/update_precommit.py --help` for the equivalent standalone-script invocation.
 
-
 ## See Also
 
 - [Reference: core](../reference/core.md) — `run()`, `pin_file()`

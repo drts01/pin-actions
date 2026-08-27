@@ -23,7 +23,7 @@ runs:
       shell: bash
 ```
 
-### After
+### After (`action.yml`)
 
 ```yaml
 name: My Composite Action

@@ -18,6 +18,7 @@ python benchmarks/bench_scenario.py --help
 ```
 
 **Options** (pydantic-settings + CLI parsing):
+
 - `--files N` — workflow count (default: 100, env: `BENCH_FILES`)
 - `--concurrency N` — GitHub client concurrency level (default: 5, env: `BENCH_CONCURRENCY`)
 - `--already-pinned-ratio FLOAT` — fraction of actions pre-pinned as SHAs (default: 0.3, env: `BENCH_ALREADY_PINNED_RATIO`)
@@ -44,20 +45,22 @@ stats.print_stats(30)
 
 **Real baseline (200 files, ~0.34s benchmark runtime; ~0.43s with import overhead):**
 
-| Function | Calls | Cumtime | Insight |
-|----------|-------|---------|---------|
-| `asyncio._run_once` loop | 14 | 0.429s | Event loop; mocked API adds minimal per-call cost |
-| `run_benchmark` (setup) | 2 | 0.337s | Imports + file generation (~200 files on tmpfs: ~100ms) |
-| `asyncio.Context.run` | 2814 | 0.427s | Coroutine scheduling; efficient |
-| Module imports | — | 0.656s | One-time initialization cost (largest initial overhead) |
+| Function                 | Calls | Cumtime | Insight                                                 |
+| ------------------------ | ----- | ------- | ------------------------------------------------------- |
+| `asyncio._run_once` loop | 14    | 0.429s  | Event loop; mocked API adds minimal per-call cost       |
+| `run_benchmark` (setup)  | 2     | 0.337s  | Imports + file generation (~200 files on tmpfs: ~100ms) |
+| `asyncio.Context.run`    | 2814  | 0.427s  | Coroutine scheduling; efficient                         |
+| Module imports           | —     | 0.656s  | One-time initialization cost (largest initial overhead) |
 
 **Hot path (actual pinning logic—subset not shown due to async scheduling complexity):**
+
 - `pin_file` + `resolve_and_rewrite` hidden inside asyncio loop (hard to extract cumtime via cProfile on async functions)
 - Estimated <50ms for 200 files (0.25ms/file) based on mock response speed
 
 ### py-spy (Wall-Clock Sampling, SVG Flamegraph)
 
 **Linux (no elevation needed):**
+
 ```bash
 tox -e flamegraph
 # or with custom args:
@@ -65,6 +68,7 @@ tox -e flamegraph -- --files 1000
 ```
 
 **macOS (requires `sudo` due to SIP/ptrace restrictions):**
+
 ```bash
 sudo tox -e flamegraph
 # or with custom args:
@@ -74,22 +78,26 @@ sudo tox -e flamegraph -- --files 1000
 Output: `benchmarks/flamegraph.svg` (SVG-native inferno flamegraph).
 
 **If running directly without tox** (Linux only; macOS requires `sudo`):
+
 ```bash
 py-spy record -o flamegraph.svg -- benchmarks/bench_scenario.py --files 500
 ```
 
 **Why py-spy + SVG?**
+
 - Wall-clock time (includes I/O wait, asyncio overhead)
 - SVG-native output (ideal for CI artifact embedding in `$GITHUB_STEP_SUMMARY`)
 - C-frame visibility into httpx2/yamlrocks bottlenecks
 - ~1% overhead (statistical sampling)
 
 **vs cProfile + Tachyon:**
+
 - **cProfile:** CPU-time instrumentation, precise but ~10-20% overhead
 - **Tachyon:** Python 3.15+ only, HTML output (not SVG-embeddable), async-aware
 - **py-spy:** Best for wall-clock profiling + CI flamegraph embedding
 
 **vs cProfile:**
+
 - **py-spy:** Wall-clock time, external library overhead visible, statistical sampling (~1% overhead)
 - **cProfile:** Instrumentation overhead (~10-20%), precise call counts, harder to see I/O wait
 
@@ -98,6 +106,7 @@ py-spy record -o flamegraph.svg -- benchmarks/bench_scenario.py --files 500
 Low-overhead async-aware sampling profiler via `tox -e tachyon-py315` (standard) or `tox -e tachyon-py315t` (free-threaded):
 
 **Linux (no elevation needed):**
+
 ```bash
 # Standard Python 3.15
 tox -e tachyon-py315 -- --files 500
@@ -108,11 +117,14 @@ tox -e tachyon-py315t -- --files 500
 
 **macOS (requires `sudo` due to SIP/ptrace restrictions):**
 First time only — create venv without sudo:
+
 ```bash
 tox -e tachyon-py315 --notest
 tox -e tachyon-py315t --notest
 ```
+
 Then profile with elevation:
+
 ```bash
 sudo tox -e tachyon-py315 -- --files 500
 sudo tox -e tachyon-py315t -- --files 500
@@ -121,6 +133,7 @@ sudo tox -e tachyon-py315t -- --files 500
 Output: `benchmarks/tachyon-py315.html` or `benchmarks/tachyon-py315t.html` (interactive flamegraphs).
 
 **If running directly without tox** (Linux only; macOS requires `sudo`):
+
 ```bash
 # Python 3.15
 python3.15 -m profiling.sampling run --mode wall --async-aware --flamegraph \
@@ -132,12 +145,14 @@ python3.15t -m profiling.sampling run --mode wall --async-aware --flamegraph \
 ```
 
 **Capabilities:**
+
 - `--mode {wall,cpu,gil,exception}` — Wall clock, CPU time, GIL contention, or exception tracking
 - `--async-aware` — Task-based stack reconstruction (sees across await boundaries; ideal for asyncio workloads)
 - `--flamegraph` / `--pstats` / `--jsonl` / `--heatmap` — Multiple output formats
 - `-r/--sampling-rate` — Adjust precision vs overhead (default: 1kHz)
 
 **Comparison to cProfile:**
+
 - **Overhead:** ~1-2% (sampling vs 100% instrumentation)
 - **Precision:** Statistical; captures ~99% of execution at 1kHz sampling rate
 - **Async support:** Task-based reconstruction (cProfile/py-spy see individual tasks, not control flow)
@@ -165,6 +180,7 @@ pytest benchmarks/test_benchmarks.py --benchmark-only --benchmark-compare=baseli
 ```
 
 **Current micro-benchmarks** (in `benchmarks/test_benchmarks.py`):
+
 - `test_is_full_sha_valid` / `test_is_full_sha_invalid` — SHA validation overhead
 - `test_cached_fetch_cache_hit` — Cache-hit latency in `_cached_fetch`
 - `test_resolve_and_rewrite_simple` — YAML mutation + ref resolution on minimal doc
@@ -385,6 +401,7 @@ jobs:
 ```
 
 **Key points:**
+
 - **Benchmark job** matrixed across 3.14/3.14t/3.15/3.15t; all run `tox -e profile` (pytest-benchmark micro-tests → `benchmark.json`)
 - **Flamegraph** (py-spy SVG) runs once on 3.14 leg only (avoid 4x redundant profiler runs)
 - **jq-parsed benchmark table** embedded in step summary (name, min, mean, max, ops/sec sorted by mean)
@@ -394,16 +411,17 @@ jobs:
 
 ## Optimization Targets
 
-| Component | Bottleneck | %Total | Mitigation |
-|-----------|-----------|--------|-----------|
-| **Module imports** | Python stdlib + dependencies startup | ~70% (incl. import overhead) | Negligible for CLI; only matters in long-running server mode |
-| **File I/O** | `pathlib.read_bytes` + YAML parse | ~25–30% | Unavoidable (sync ops); asyncio.to_thread for large batches if needed |
-| **YAML walking** | `_find_uses_paths` / `_find_with_ref_paths` | ~3–5% | Already efficient (single walk); further optimization unlikely to yield benefit |
-| **Cache lookups** | `_cached_fetch` (OrderedDict ops) | <1% | Optimal; no further optimization needed |
-| **Single-flight dedup** | In-flight task tracking/await | <1% | Working correctly; stamped dedup prevents redundant fetches |
-| **Asyncio scheduling** | Event loop overhead | ~5–10% | Acceptable for CLI tool; tuning unlikely to improve perception |
+| Component               | Bottleneck                                  | %Total                       | Mitigation                                                                      |
+| ----------------------- | ------------------------------------------- | ---------------------------- | ------------------------------------------------------------------------------- |
+| **Module imports**      | Python stdlib + dependencies startup        | ~70% (incl. import overhead) | Negligible for CLI; only matters in long-running server mode                    |
+| **File I/O**            | `pathlib.read_bytes` + YAML parse           | ~25–30%                      | Unavoidable (sync ops); asyncio.to_thread for large batches if needed           |
+| **YAML walking**        | `_find_uses_paths` / `_find_with_ref_paths` | ~3–5%                        | Already efficient (single walk); further optimization unlikely to yield benefit |
+| **Cache lookups**       | `_cached_fetch` (OrderedDict ops)           | <1%                          | Optimal; no further optimization needed                                         |
+| **Single-flight dedup** | In-flight task tracking/await               | <1%                          | Working correctly; stamped dedup prevents redundant fetches                     |
+| **Asyncio scheduling**  | Event loop overhead                         | ~5–10%                       | Acceptable for CLI tool; tuning unlikely to improve perception                  |
 
 **Recommendation:** Current design is near-optimal for the problem domain. Further optimization would have diminishing returns. Focus on:
+
 1. Testing regression: use pytest-benchmark with CI baselines
 2. Load testing: concurrency sweeps to validate GitHub API limit handling
 3. Memory profiling: tracemalloc on 1000+ file workloads to detect cache leaks
