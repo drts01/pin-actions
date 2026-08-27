@@ -36,7 +36,7 @@ this project deliberately dogfoods `zizmor` and `actionlint` in its own `.pre-co
 | Update pinned tags forward                                           | ✅<br/>major, minor, &amp; patch |                  ✅                  |                   ❌                   |                        ❌                        |
 | Cool-off / minimum-release-age gate                                  |                ✅                |                  ✅                  |                   ❌                   |                        ❌                        |
 | Pins `actions/checkout` `with.ref` (cross-repo checkout)             |                ✅                |                  ❌                  |                   ❌                   |                        ❌                        |
-| Pins Reusable Workflow refs (`org/repo/.github/workflows/x.yml@ref`) |                ❌                |                  ✅                  |                   ❌                   |                ❌<br/>audit only                 |
+| Pins Reusable Workflow refs (`org/repo/.github/workflows/x.yml@ref`) |                ✅                |                  ✅                  |                   ❌                   |                ❌<br/>audit only                 |
 | Pins Docker/OCI image refs to `sha256:` digests                      |                ✅                |                  ❌                  |                   ❌                   |                ❌<br/>audit only                 |
 | Pins pre-commit hook `rev:` to commit SHA                            |                ✅                |                  ❌                  |                   ❌                   |                ❌<br/>audit only                 |
 | Skip-list / allow-list for specific actions                          |                ✅                |                  ✅                  |                   ✅                   |                        ✅                        |
@@ -58,8 +58,9 @@ this project deliberately dogfoods `zizmor` and `actionlint` in its own `.pre-co
 | Pros                                                                                              | Cons                                                                                       |
 | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
 | Only tool of the four covering SHA pins **and** Docker image digests **and** pre-commit hook revs | Requires a Python runtime; not a single static binary like `pinact`                        |
-| `--exclude-newer` cool-off period guards against same-day/1-day supply-chain compromises          | Does not pin Reusable Workflow refs (`org/repo/.github/workflows/x.yml@ref`)               |
-| Async I/O + LRU cache + semaphore rate-limiting is fast on large monorepos with many workflows    | Newer/smaller community than `pinact` or `zizmor`; fewer GitHub stars, less battle-testing |
+| `--exclude-newer` cool-off period guards against same-day/1-day supply-chain compromises          | Newer/smaller community than `pinact` or `zizmor`; fewer GitHub stars, less battle-testing |
+| Also pins Reusable Workflow refs (`org/repo/.github/workflows/x.yml@ref`), same as `pinact`       |                                                                                            |
+| Async I/O + LRU cache + semaphore rate-limiting is fast on large monorepos with many workflows    |                                                                                            |
 | Precision-preserving version updates (`v4` stays `v4`, `v4.0.5` keeps full precision)             |                                                                                            |
 | Usable as a Python library (`pin_actions.run()`)                                                  |                                                                                            |
 
@@ -68,7 +69,7 @@ this project deliberately dogfoods `zizmor` and `actionlint` in its own `.pre-co
 | Pros                                                                                           | Cons                               |
 | ---------------------------------------------------------------------------------------------- | ---------------------------------- |
 | Single static Go binary                                                                        | No Docker/OCI image digest pinning |
-| Pins Reusable Workflow refs, which `pin-actions` and `pin-github-action` do not                | No pre-commit hook pinning         |
+| Pins Reusable Workflow refs, same as `pin-actions`; `pin-github-action` does not               | No pre-commit hook pinning         |
 | Built-in minimum-release-age cooldown (`-min-age`/`-verify-min-age`)                           | —                                  |
 | `--branch-to-tag` lets you opt-in to converting branch refs (`@main`) to the latest stable tag |                                    |
 

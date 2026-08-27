@@ -22,6 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Updated docs: `configure-caching.md` now covers in-memory cache only
 
 ### Added
+- Documented and added explicit test coverage for pinning Reusable Workflow refs
+  (`org/repo/.github/workflows/x.yml@ref`) — already worked via the existing generic `uses:` resolution
+  pipeline, but was untested and incorrectly listed as unsupported in `docs/explanation/comparison.md`
 - `client._Cache[T]`: dict mutations now guarded by a `threading.Lock` (held only around the mutations, never across an `await`), so the LRU/single-flight cache stays correct under a free-threaded (PEP 779, no-GIL) interpreter driving multiple OS threads, not just asyncio's single-threaded cooperative scheduling
 - `docs/explanation/threat-model.md`: integrated threat-model/supply-chain-security explanation (Git tag mutability, fork-network imposter commits, Docker action escape hatch) into the Diátaxis documentation, with a mapping table from each mitigation layer to the concrete `pin-actions` feature that implements it
 - `zizmor` GitHub Actions security scanner: added as a pre-commit hook (`.pre-commit-config.yaml`) and a dedicated CI workflow (`.github/workflows/zizmor.yml`) that uploads SARIF results; fixed the `artipacked`, `excessive-permissions`, and `template-injection` findings it surfaced in `ci.yaml`/`docs.yml`/`profile.yml`

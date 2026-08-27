@@ -122,6 +122,31 @@ pin-actions --github-token $GITHUB_TOKEN
 pin-actions --update minor --github-token $GITHUB_TOKEN
 ```
 
+## Reusable Workflows
+
+Reusable Workflow refs (`org/repo/.github/workflows/x.yml@ref`) are pinned with the same `uses:` resolution
+as regular actions — pin-actions treats the workflow path segment as part of the repository identifier,
+so no special-casing is needed.
+
+### Before (reusable)
+
+```yaml
+jobs:
+  call-reusable:
+    uses: octo-org/example-repo/.github/workflows/reusable.yml@v1
+```
+
+### After (reusable)
+
+```yaml
+jobs:
+  call-reusable:
+    uses: octo-org/example-repo/.github/workflows/reusable.yml@a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b # v1
+```
+
+Already-pinned reusable workflow refs are re-resolved and rewritten if the recorded tag has moved,
+exactly like any other `uses:` entry — and the same `--update`/`--exclude-newer` version-constraint flags apply.
+
 ## See Also
 
 - [Update Pinned Tags](update-pinned-tags.md)
