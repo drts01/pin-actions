@@ -51,13 +51,13 @@ class TestParseTagVersion:
         assert v is not None
         assert v.release == (2024, 5, 1)
 
-    def test_unparseable_branch_name(self) -> None:
+    def test_unparsable_branch_name(self) -> None:
         """Return None for branch names."""
         assert parse_tag_version("main") is None
         assert parse_tag_version("nightly") is None
         assert parse_tag_version("develop") is None
 
-    def test_unparseable_dash_calver_fallback(self) -> None:
+    def test_unparsable_dash_calver_fallback(self) -> None:
         """Return None for dash-separated tags that fail both direct and dash-fallback parsing."""
         # Covers line 25-26: dash normalization retry that also fails
         assert parse_tag_version("foo-bar-baz") is None  # non-numeric with dashes
@@ -209,7 +209,7 @@ class TestSelectLatestTags:
         # Assert
         assert result == []
 
-    def test_unparseable_current_tag(self) -> None:
+    def test_unparsable_current_tag(self) -> None:
         """Return empty list if current_tag isn't a valid version."""
         # Arrange
         tags = [("v1.0.0", "sha")]

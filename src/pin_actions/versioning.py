@@ -13,7 +13,7 @@ def parse_tag_version(tag: str) -> Version | None:
     Supports:
     - Semver: ``v1.2.3``, ``1.2.3-rc1``
     - CalVer: ``2023.10.15``, ``2023-10-15`` (dash → dot conversion), ``2023.1.5``
-    - Unparseable: branches like ``main``, ``nightly`` → None (fallback to hash re-resolve)
+    - Unparsable: branches like ``main``, ``nightly`` → None (fallback to hash re-resolve)
 
     Returns:
         Parsed version, or None if ``tag`` isn't a valid version.

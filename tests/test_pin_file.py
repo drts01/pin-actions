@@ -438,7 +438,7 @@ class TestPinFileCalVer:
 
     @pytest.mark.asyncio
     async def test_branch_name_fallback_no_update(self, tmp_path: Path) -> None:
-        """Unparseable tag (e.g., 'nightly' branch): re-resolve hash only, leave comment untouched."""
+        """Unparsable tag (e.g., 'nightly' branch): re-resolve hash only, leave comment untouched."""
         # Arrange
         client = GitHubClient(token="test", concurrency=1)
         old_sha = "c" * 40
