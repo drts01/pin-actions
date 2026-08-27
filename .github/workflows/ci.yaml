@@ -13,6 +13,7 @@ permissions:
 
 jobs:
   lint:
+    name: Lint
     runs-on: ubuntu-latest
     steps:
       - name: checkout
@@ -23,6 +24,7 @@ jobs:
         uses: j178/prek-action@4e14d07f9231acabce116ccfca13b13dd9755ece  # v3.0.0
 
   test:
+    name: Test
     runs-on: ubuntu-latest
     strategy:
       matrix:

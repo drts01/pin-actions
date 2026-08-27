@@ -129,6 +129,8 @@ jobs:
     strategy:
       matrix:
         python-version: ['3.15', 3.15t]
+    env:
+      PYVER: ${{ matrix.python-version }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -143,15 +145,14 @@ jobs:
 
       - name: Generate Tachyon HTML flamegraph
         run: |
-          env_suffix="$(echo '${{ matrix.python-version }}' | tr -d '.')"
-          uv run --group ci tox run -e "tachyon-py${env_suffix}"
+          uv run --group ci tox run -e "tachyon-py${PYVER/.}"
 
 
       - name: Add Tachyon summary note
         if: always()
         run: |
           {
-            echo "### 📈 Tachyon Profiler (Python ${{ matrix.python-version }})"
+            echo "### 📈 Tachyon Profiler (Python ${PYVER})"
             echo ""
             echo "Low-overhead async-aware sampling profiler. Interactive HTML flamegraph with embedded JS."
             echo "GitHub step summaries strip \`<script>\` tags, so **download the artifact to view**."
