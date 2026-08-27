@@ -244,3 +244,49 @@ per-file-ignores."docs/license.md" = [ "first-line-heading" ]
 per-file-ignores."docs/contributing.md" = [ "first-line-heading" ]
 # MD060
 table-format.style = "aligned"
+
+[tool.ryl]
+ignore-from-file = [ ".gitignore" ]
+files.yaml = [
+  "*.yaml",
+  "*.yml",
+  ".yamllint",
+]
+rules.colons = "enable"
+rules.commas = "enable"
+rules.empty-lines = "enable"
+rules.empty-values = "enable"
+rules.hyphens = "enable"
+rules.key-duplicates = "enable"
+rules.key-ordering = "disable"
+rules.new-line-at-end-of-file = "enable"
+rules.new-lines = "enable"
+rules.octal-values = "enable"
+rules.trailing-spaces = "enable"
+rules.anchors.forbid-duplicated-anchors = true
+rules.anchors.forbid-unused-anchors = true
+rules.braces.max-spaces-inside = 1
+rules.braces.max-spaces-inside-empty = 2
+rules.braces.min-spaces-inside-empty = 0
+rules.brackets.max-spaces-inside = 1
+rules.brackets.max-spaces-inside-empty = 2
+rules.brackets.min-spaces-inside-empty = 0
+rules.comments.ignore = [ ".github/workflows/*" ]
+rules.comments.level = "warning"
+rules.comments-indentation.level = "warning"
+rules.document-end.present = false
+rules.document-start.level = "warning"
+rules.document-start.present = false
+rules.float-values.forbid-inf = true
+rules.float-values.forbid-nan = true
+rules.float-values.forbid-scientific-notation = true
+rules.float-values.require-numeral-before-decimal = true
+rules.indentation.spaces = 2
+rules.line-length.allow-non-breakable-inline-mappings = true
+rules.line-length.max = 120
+rules.quoted-strings.allow-quoted-quotes = true
+rules.quoted-strings.check-keys = true
+rules.quoted-strings.quote-type = "single"
+rules.quoted-strings.required = "only-when-needed"
+rules.truthy.ignore = [ ".github/workflows/*" ]
+rules.truthy.level = "warning"
