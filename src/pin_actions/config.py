@@ -149,6 +149,13 @@ class Settings(BaseSettings):
             "(e.g., 7 days, 24 hours, 1 week). Only applies to --update"
         ),
     )
+    provenance: Literal["off", "warn", "strict"] = Field(
+        default="off",
+        description="Verify pinned/resolved SHAs are reachable from a real branch/tag/PR on the "
+        "named repo (defends against GitHub fork-network 'impostor commit' SHAs; see the "
+        "Threat Model docs, section 3.1). 'off': no check (default). 'warn': log a warning if "
+        "unverifiable. 'strict': raise if unverifiable",
+    )
 
     @model_validator(mode="after")
     def _diff_implies_dry_run(self) -> Settings:

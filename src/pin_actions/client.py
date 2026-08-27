@@ -6,7 +6,7 @@ import logging
 import random
 import threading
 from collections import OrderedDict
-from typing import TYPE_CHECKING, Any, Self
+from typing import TYPE_CHECKING, Any, Literal, Self
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -21,6 +21,9 @@ logger = logging.getLogger(__name__)
 _MAX_TAG_PAGES = 10  # 100 tags/page cap; guards against runaway pagination on huge repos
 _TAGS_PER_PAGE = 100
 _USER_AGENT = "pin-actions"
+
+# PEP 695 type alias for the result of a provenance check (see verify_provenance).
+type ProvenanceResult = Literal["verified", "unverified"]
 
 
 class _Cache[T]:
@@ -112,6 +115,7 @@ class GitHubClient:
         self._sha_cache = _Cache[str](max_cache_size)
         self._tags_cache = _Cache[list[tuple[str, str]]](max_cache_size)
         self._date_cache = _Cache[str](max_cache_size)
+        self._provenance_cache = _Cache[ProvenanceResult](max_cache_size)
         self._http_client: httpx2.AsyncClient | None = None
         self._http_client_lock = asyncio.Lock()
 
@@ -287,6 +291,73 @@ class GitHubClient:
             return data["commit"]["committer"]["date"]
 
         return await self._date_cache.get_or_fetch((owner_repo, sha), _fetch)
+
+    async def verify_provenance(self, repo: str, sha: str) -> ProvenanceResult:
+        """Check whether ``sha`` is reachable from a real branch/tag/PR on ``repo``.
+
+        Best-effort defense against GitHub fork-network "impostor commit"
+        attacks (see docs/explanation/threat-model.md, section 3.1): a SHA
+        that only exists in an unrelated fork can still be fetched via
+        ``owner/repo``'s API because forks share the same underlying object
+        pool. This is a heuristic, not a cryptographic guarantee -- absence
+        of a match means "not confirmed", not "proven malicious" (e.g. a
+        legitimate commit whose branch/tag was later deleted would also read
+        as unverified).
+
+        Checks, in order, stopping at the first match:
+        1. ``GET /commits/{sha}/branches-where-head`` -- any branch HEAD.
+        2. ``GET /commits/{sha}/pulls`` -- any PR based on this repo.
+        3. Cached tag list from :meth:`list_tags` -- any tag commit SHA.
+
+        Results are cached per-repo-sha for the lifetime of the client.
+
+        Args:
+            repo: Repository in 'owner/repo' format (may include sub-path).
+            sha: Full commit SHA to verify.
+
+        Returns:
+            ``"verified"`` if reachable from a real ref on ``repo``, else ``"unverified"``.
+
+        Raises:
+            RateLimitExhaustedError: If retries are exhausted while rate-limited.
+            NetworkError: On unrecoverable network errors.
+        """
+        owner_repo = self._owner_repo(repo)
+
+        async def _fetch() -> ProvenanceResult:
+            if await self._has_branch_head(owner_repo, sha):
+                return "verified"
+            if await self._has_matching_pull(owner_repo, sha):
+                return "verified"
+            if await self._has_matching_tag(repo, sha):
+                return "verified"
+            return "unverified"
+
+        return await self._provenance_cache.get_or_fetch((owner_repo, sha), _fetch)
+
+    async def _has_branch_head(self, owner_repo: str, sha: str) -> bool:
+        """Check ``GET /commits/{sha}/branches-where-head`` for a non-empty result."""
+        try:
+            data = await self._get_json(f"/repos/{owner_repo}/commits/{sha}/branches-where-head")
+        except InvalidRefError:
+            return False
+        return bool(data)
+
+    async def _has_matching_pull(self, owner_repo: str, sha: str) -> bool:
+        """Check ``GET /commits/{sha}/pulls`` for a PR based on ``owner_repo``."""
+        try:
+            data = await self._get_json(f"/repos/{owner_repo}/commits/{sha}/pulls")
+        except InvalidRefError:
+            return False
+        return any(pull.get("base", {}).get("repo", {}).get("full_name") == owner_repo for pull in data)
+
+    async def _has_matching_tag(self, repo: str, sha: str) -> bool:
+        """Check the cached tag list for a tag pointing at ``sha``."""
+        try:
+            tags = await self.list_tags(repo)
+        except GitHubAPIError:
+            return False
+        return any(tag_sha == sha for _name, tag_sha in tags)
 
     async def _backoff(
         self,

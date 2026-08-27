@@ -4,7 +4,7 @@
 import asyncio
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from pin_actions._util import git_url_to_repo
 from pin_actions.client import GitHubClient
@@ -49,6 +49,7 @@ async def pin_precommit_file(
     dry_run: bool = False,
     diff: bool = False,
     options: Any = None,  # noqa: ANN401
+    provenance_mode: Literal["off", "warn", "strict"] = "off",
 ) -> bool:
     """Pin GitHub-hosted repos[].rev entries in a pre-commit config to their commit SHAs.
 
@@ -60,6 +61,8 @@ async def pin_precommit_file(
         diff: If True, print a unified diff of changes to stdout (implies dry_run).
         options: Version update config, or None to re-resolve exact tags/branches
             recorded in comments.
+        provenance_mode: 'off' skips provenance verification of resolved SHAs
+            (default). 'warn' logs unverifiable SHAs; 'strict' raises.
 
     Returns:
         True if file was modified, False otherwise.
@@ -68,7 +71,9 @@ async def pin_precommit_file(
     def _collect(doc: Any) -> list[tuple[tuple[Any, ...], str, str, bool]]:  # noqa: ANN401
         return _collect_precommit_refs(doc, host=host)
 
-    return await _pin_doc(client, path, _collect, dry_run=dry_run, diff=diff, options=options)
+    return await _pin_doc(
+        client, path, _collect, dry_run=dry_run, diff=diff, options=options, provenance_mode=provenance_mode
+    )
 
 
 def main() -> None:
@@ -117,6 +122,7 @@ def main() -> None:
                         dry_run=settings.dry_run,
                         diff=settings.diff,
                         options=options,
+                        provenance_mode=settings.provenance,
                     )
                     if modified:
                         modified_files.append(config_file)

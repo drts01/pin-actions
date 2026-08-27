@@ -44,6 +44,15 @@ The `exclude_newer` setting applies only to `--update` mode and accepts three fo
 Default: unset (no cool-off).
 When set, tags younger than the cutoff are excluded from auto-selection, mitigating same-day supply-chain compromises.
 
+**Provenance verification example (`pin-actions.toml`):**
+
+```toml
+provenance = "strict"
+```
+
+See [CLI: Provenance verification](cli.md#provenance-verification-provenance) for the `off`/`warn`/`strict` semantics
+and the fork-network threat this mitigates.
+
 **Example `pyproject.toml`:**
 
 ```toml

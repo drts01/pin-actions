@@ -78,6 +78,31 @@ class NetworkError(GitHubAPIError):
     """Raised on unrecoverable network errors (DNS, connection, timeout)."""
 
 
+class UnverifiedProvenanceError(GitHubAPIError):
+    """Raised (in --provenance strict mode) when a SHA's provenance can't be confirmed.
+
+    GitHub's fork-network object storage lets a repository resolve/serve a SHA
+    that was only ever committed to an unrelated fork of that repository
+    (see docs/explanation/threat-model.md, section 3.1). This error means the SHA
+    could not be confirmed reachable from any real branch, tag, or PR on the
+    named repository -- it may be a legitimate but orphaned commit, or an
+    impostor commit from a malicious fork.
+    """
+
+    def __init__(self, repo: str, sha: str, reason: str) -> None:
+        """Initialize with the repo/SHA that failed verification and why.
+
+        Args:
+            repo: Repository in 'owner/repo' format.
+            sha: The commit SHA that could not be verified.
+            reason: Human-readable explanation of what was checked.
+        """
+        self.repo = repo
+        self.sha = sha
+        self.reason = reason
+        super().__init__(f"Could not verify provenance of {repo}@{sha}: {reason}")
+
+
 class UnsupportedRegistryError(PinActionsError):
     """Raised when a container registry doesn't support anonymous Bearer auth (e.g. ECR, GCR)."""
 

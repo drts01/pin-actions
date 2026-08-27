@@ -388,6 +388,129 @@ class TestConcurrentDedup:
         assert all(r == [("v1", "1111111111111111111111111111111111111111")] for r in results)
 
 
+class TestVerifyProvenance:
+    """Test verify_provenance's branch/PR/tag fallback chain and caching."""
+
+    @pytest.mark.asyncio
+    async def test_verified_via_branches_where_head(self) -> None:
+        """Non-empty branches-where-head result verifies the SHA."""
+        client = GitHubClient(token="test", concurrency=1)
+        sha = "a" * 40
+
+        async def mock_get_json(path: str, _params: dict | None = None) -> list:
+            assert "branches-where-head" in path
+            return [{"name": "main"}]
+
+        with patch.object(client, "_get_json", side_effect=mock_get_json):
+            result = await client.verify_provenance("owner/repo", sha)
+
+        assert result == "verified"
+
+    @pytest.mark.asyncio
+    async def test_verified_via_matching_pull(self) -> None:
+        """Empty branches-where-head, but a matching PR base repo verifies the SHA."""
+        client = GitHubClient(token="test", concurrency=1)
+        sha = "b" * 40
+
+        async def mock_get_json(path: str, _params: dict | None = None) -> list:
+            if "branches-where-head" in path:
+                return []
+            if "pulls" in path:
+                return [{"base": {"repo": {"full_name": "owner/repo"}}}]
+            raise AssertionError(path)
+
+        with patch.object(client, "_get_json", side_effect=mock_get_json):
+            result = await client.verify_provenance("owner/repo", sha)
+
+        assert result == "verified"
+
+    @pytest.mark.asyncio
+    async def test_verified_via_matching_tag(self) -> None:
+        """Empty branches/pulls, but a matching tag SHA verifies the SHA."""
+        client = GitHubClient(token="test", concurrency=1)
+        sha = "c" * 40
+
+        async def mock_get_json(path: str, **_kwargs: object) -> list:
+            if "branches-where-head" in path or "pulls" in path:
+                return []
+            if path == "/repos/owner/repo/tags":
+                return [{"name": "v1", "commit": {"sha": sha}}]
+            raise AssertionError(path)
+
+        with patch.object(client, "_get_json", side_effect=mock_get_json):
+            result = await client.verify_provenance("owner/repo", sha)
+
+        assert result == "verified"
+
+    @pytest.mark.asyncio
+    async def test_unverified_when_no_match(self) -> None:
+        """No branch/pull/tag match returns unverified."""
+        client = GitHubClient(token="test", concurrency=1)
+        sha = "d" * 40
+
+        async def mock_get_json(_path: str, **_kwargs: object) -> list:
+            return []
+
+        with patch.object(client, "_get_json", side_effect=mock_get_json):
+            result = await client.verify_provenance("owner/repo", sha)
+
+        assert result == "unverified"
+
+    @pytest.mark.asyncio
+    async def test_404_on_branches_where_head_falls_through(self) -> None:
+        """404 on an unsupported endpoint (e.g. old GHE) falls through to the next check."""
+        client = GitHubClient(token="test", concurrency=1)
+        sha = "e" * 40
+
+        async def mock_get_json(path: str, _params: dict | None = None) -> list:
+            if "branches-where-head" in path:
+                repo = "owner/repo"
+                raise InvalidRefError(repo, path)
+            if "pulls" in path:
+                return [{"base": {"repo": {"full_name": "owner/repo"}}}]
+            raise AssertionError(path)
+
+        with patch.object(client, "_get_json", side_effect=mock_get_json):
+            result = await client.verify_provenance("owner/repo", sha)
+
+        assert result == "verified"
+
+    @pytest.mark.asyncio
+    async def test_cache_hit_skips_second_fetch(self) -> None:
+        """Second call for the same (repo, sha) doesn't re-hit the network."""
+        client = GitHubClient(token="test", concurrency=1)
+        sha = "f" * 40
+        client._provenance_cache._store[("owner/repo", sha)] = "verified"
+
+        with patch.object(client, "_get_json", side_effect=AssertionError("should not be called")):
+            result = await client.verify_provenance("owner/repo", sha)
+
+        assert result == "verified"
+
+    @pytest.mark.asyncio
+    async def test_concurrent_requests_same_key_single_fetch(self) -> None:
+        """Concurrent verify_provenance calls for the same key share a single fetch."""
+        client = GitHubClient(token="test", concurrency=10)
+        sha = "1" * 40
+        call_count = 0
+
+        async def mock_get_json(_path: str, **_kwargs: object) -> list:
+            nonlocal call_count
+            call_count += 1
+            await asyncio.sleep(0.01)
+            return []
+
+        with patch.object(client, "_get_json", side_effect=mock_get_json):
+            results = await asyncio.gather(
+                client.verify_provenance("owner/repo", sha),
+                client.verify_provenance("owner/repo", sha),
+                client.verify_provenance("owner/repo", sha),
+            )
+
+        assert call_count == 3  # branches-where-head, pulls, tags -- once, then cached
+        assert all(r == "unverified" for r in results)
+
+
 class TestContextManager:
     """Test async context manager interface."""
 

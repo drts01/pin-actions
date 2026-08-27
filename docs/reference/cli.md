@@ -42,6 +42,36 @@ image: postgres:15
 image: postgres@sha256:a8560b36...  # 15
 ```
 
+## Provenance verification (`--provenance`)
+
+Defends against GitHub's fork-network "impostor commit" vector (see
+[Threat Model](../explanation/threat-model.md#31-github-fork-network-vulnerabilities-imposter-commits)):
+a fork can host a commit that's fetchable via the upstream repo's API
+because forks share the same underlying object pool.
+Pinning that SHA alone doesn't prove it came from the upstream repo.
+
+`--provenance` checks whether every newly-resolved/re-verified SHA is reachable from a real branch, tag,
+or PR on the *named* repository before pin-actions writes it:
+
+| Mode     | Behavior                                                         |
+| -------- | ---------------------------------------------------------------- |
+| `off`    | No check (default) — zero behavior change, zero extra API calls  |
+| `warn`   | Log a warning for unverifiable SHAs; continue and write the file |
+| `strict` | Raise `UnverifiedProvenanceError` for unverifiable SHAs          |
+
+This is a heuristic, best-effort control, not a cryptographic guarantee:
+GitHub's API has no signed "origin repo" attestation.
+It can produce false negatives (e.g. a legitimate commit whose branch/tag was later deleted) but never false positives
+(silence means "unverified", never mislabels a bad SHA as good).
+
+```bash
+# Warn on unverifiable SHAs but keep pinning
+pin-actions --provenance warn --github-token $GITHUB_TOKEN
+
+# Fail the run on any unverifiable SHA
+pin-actions --provenance strict --github-token $GITHUB_TOKEN
+```
+
 ## `--update` flag matrix
 
 | Mode      | Constraint                                              | Example                             |

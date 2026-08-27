@@ -15,7 +15,7 @@ from pin_actions._duration import parse_exclude_newer
 from pin_actions._util import is_full_sha
 from pin_actions.client import GitHubClient
 from pin_actions.config import Settings
-from pin_actions.errors import PinActionsError, UnsupportedRegistryError, YAMLParseError
+from pin_actions.errors import PinActionsError, UnsupportedRegistryError, UnverifiedProvenanceError, YAMLParseError
 from pin_actions.registry import ContainerRegistryClient, is_image_digest, parse_image_ref
 from pin_actions.versioning import parse_tag_version, select_latest_tags
 
@@ -159,6 +159,8 @@ async def resolve_and_rewrite(
     doc: Any,  # noqa: ANN401
     client: GitHubClient,
     refs_to_resolve: RefsToResolve,
+    *,
+    provenance_mode: Literal["off", "warn", "strict"] = "off",
 ) -> None:
     """Batch-resolve unique (repo, ref) pairs and rewrite matching doc entries in place.
 
@@ -170,10 +172,21 @@ async def resolve_and_rewrite(
         client: GitHub API client.
         refs_to_resolve: Map of (repo, tag_or_ref) -> list of (item_path,
             current_sha, is_uses) needing that resolution.
+        provenance_mode: 'off' skips provenance verification (default).
+            'warn' logs a warning for any newly-resolved SHA that isn't
+            reachable from a real branch/tag/PR on the repo. 'strict' raises
+            :class:`UnverifiedProvenanceError` instead of warning.
+
+    Raises:
+        UnverifiedProvenanceError: If ``provenance_mode`` is 'strict' and a
+            resolved SHA can't be confirmed reachable from a real ref.
     """
     keys = list(refs_to_resolve)
     values = await asyncio.gather(*(client.resolve_sha(repo, tag) for repo, tag in keys))
     resolved: ResolvedSHAs = dict(zip(keys, values, strict=True))
+
+    if provenance_mode != "off":
+        await _verify_resolved_provenance(client, resolved, provenance_mode)
 
     for (repo, tag), new_sha in resolved.items():
         for item_path, current_sha, is_uses in refs_to_resolve[(repo, tag)]:
@@ -181,6 +194,36 @@ async def resolve_and_rewrite(
                 continue
             _set_path(doc, item_path, f"{repo}@{new_sha}" if is_uses else new_sha)
             doc.locate(item_path).comment = tag
+
+
+async def _verify_resolved_provenance(
+    client: GitHubClient,
+    resolved: ResolvedSHAs,
+    provenance_mode: Literal["warn", "strict"],
+) -> None:
+    """Verify provenance of every unique (repo, sha) in ``resolved``; warn or raise.
+
+    Args:
+        client: GitHub API client.
+        resolved: Map of (repo, tag) -> newly resolved SHA.
+        provenance_mode: 'warn' logs unverifiable SHAs; 'strict' raises on the first one.
+
+    Raises:
+        UnverifiedProvenanceError: If ``provenance_mode`` is 'strict' and a
+            SHA can't be confirmed reachable from a real ref.
+    """
+    unique_pairs = {(repo, sha) for (repo, _tag), sha in resolved.items()}
+    if not unique_pairs:
+        return
+    pairs = list(unique_pairs)
+    results = await asyncio.gather(*(client.verify_provenance(repo, sha) for repo, sha in pairs))
+    for (repo, sha), result in zip(pairs, results, strict=True):
+        if result == "verified":
+            continue
+        reason = "not reachable from any branch, tag, or PR on the named repository"
+        if provenance_mode == "strict":
+            raise UnverifiedProvenanceError(repo, sha, reason)
+        logger.warning("Unverified provenance for %s@%s: %s", repo, sha, reason)
 
 
 async def apply_version_constrained_tag(
@@ -193,6 +236,7 @@ async def apply_version_constrained_tag(
     *,
     is_uses: bool = True,
     options: UpdateOptions,
+    provenance_mode: Literal["off", "warn", "strict"] = "off",
 ) -> None:
     """Rewrite a single already-pinned semver tag to the latest version within constraint.
 
@@ -208,6 +252,12 @@ async def apply_version_constrained_tag(
         current_sha: Current SHA already in the file.
         is_uses: If True, write as 'repo@sha' (uses:); if False, write as bare 'sha' (with.ref).
         options: Version update config (update mode, full_version, pre-parsed cutoff).
+        provenance_mode: 'off' skips provenance verification (default); 'warn' logs a
+            warning for an unverifiable chosen SHA; 'strict' raises instead.
+
+    Raises:
+        UnverifiedProvenanceError: If ``provenance_mode`` is 'strict' and the chosen
+            SHA can't be confirmed reachable from a real ref.
     """
     tags = await client.list_tags(repo)
     candidates = select_latest_tags(
@@ -247,6 +297,14 @@ async def apply_version_constrained_tag(
     if new_sha == current_sha and new_tag == tag:
         return
 
+    if provenance_mode != "off":
+        result = await client.verify_provenance(repo, new_sha)
+        if result != "verified":
+            reason = "not reachable from any branch, tag, or PR on the named repository"
+            if provenance_mode == "strict":
+                raise UnverifiedProvenanceError(repo, new_sha, reason)
+            logger.warning("Unverified provenance for %s@%s: %s", repo, new_sha, reason)
+
     _set_path(doc, item_path, f"{repo}@{new_sha}" if is_uses else new_sha)
     doc.locate(item_path).comment = new_tag
 
@@ -261,6 +319,7 @@ async def _resolve_pinned_ref(
     is_uses: bool,
     update_options: UpdateOptions | None,
     refs_to_resolve: RefsToResolve,
+    provenance_mode: Literal["off", "warn", "strict"] = "off",
 ) -> None:
     """Handle re-resolve logic for an already-pinned uses:/with.ref entry.
 
@@ -278,6 +337,13 @@ async def _resolve_pinned_ref(
         is_uses: True if this is a uses: entry, False if with.ref.
         update_options: Version update config, or None for re-resolve.
         refs_to_resolve: Mutable dict to accumulate refs needing resolution.
+        provenance_mode: 'off' skips provenance verification (default); 'warn'/'strict'
+            verify version-constrained rewrites (plain re-resolves are verified later
+            by :func:`resolve_and_rewrite`).
+
+    Raises:
+        UnverifiedProvenanceError: If ``provenance_mode`` is 'strict' and a
+            version-constrained rewrite's chosen SHA can't be confirmed.
     """
     node = doc.locate(item_path)
     assert node is not None, f"item_path {item_path} exists in doc"  # noqa: S101
@@ -296,6 +362,7 @@ async def _resolve_pinned_ref(
             ref,
             is_uses=is_uses,
             options=update_options,
+            provenance_mode=provenance_mode,
         )
         return
 
@@ -351,6 +418,7 @@ async def _pin_doc(
     options: UpdateOptions | None = None,
     registry_client: ContainerRegistryClient | None = None,
     collect_images_fn: CollectFn | None = None,
+    provenance_mode: Literal["off", "warn", "strict"] = "off",
 ) -> bool:
     """Load, resolve, and rewrite pinnable refs in a YAML doc; shared by pin_file/pin_precommit_file.
 
@@ -366,6 +434,8 @@ async def _pin_doc(
         registry_client: Container registry client for image pinning, or None to skip.
         collect_images_fn: Callable taking the parsed doc and returning
             (item_path, image, tag) tuples for every pinnable image entry.
+        provenance_mode: 'off' skips provenance verification of resolved SHAs
+            (default). 'warn' logs unverifiable SHAs; 'strict' raises.
 
     Returns:
         True if file was modified, False otherwise.
@@ -374,6 +444,8 @@ async def _pin_doc(
         YAMLParseError: If the file cannot be parsed as YAML.
         GitHubAPIError: If a ref cannot be resolved (invalid ref, rate limit
             exhausted, or network failure). Subclass of ``PinActionsError``.
+        UnverifiedProvenanceError: If ``provenance_mode`` is 'strict' and a
+            resolved SHA can't be confirmed reachable from a real ref.
         OSError: If the file cannot be read or written.
     """
     content = path.read_bytes()  # noqa: ASYNC240 -- sync IO on Path, no async equivalent needed
@@ -411,13 +483,14 @@ async def _pin_doc(
                 is_uses=is_uses,
                 update_options=options,
                 refs_to_resolve=refs_to_resolve,
+                provenance_mode=provenance_mode,
             ),
         )
 
     # Version-constrained updates each make their own API calls (list_tags, get_commit_date);
     # run them concurrently rather than serially awaiting one pin at a time.
     await asyncio.gather(*version_constrained)
-    await resolve_and_rewrite(doc, client, refs_to_resolve)
+    await resolve_and_rewrite(doc, client, refs_to_resolve, provenance_mode=provenance_mode)
 
     if registry_client is not None and collect_images_fn is not None:
         await _resolve_and_rewrite_images(doc, registry_client, collect_images_fn(doc))
@@ -452,6 +525,7 @@ async def pin_file(
     diff: bool = False,
     options: UpdateOptions | None = None,
     registry_client: ContainerRegistryClient | None = None,
+    provenance_mode: Literal["off", "warn", "strict"] = "off",
 ) -> bool:
     """Pin mutable action refs in a workflow or action file to their commit SHAs.
 
@@ -466,6 +540,8 @@ async def pin_file(
         registry_client: Container registry client for pinning container images
             (``uses: docker://``, ``container.image``, ``services[*].image``),
             or None to skip image pinning entirely.
+        provenance_mode: 'off' skips provenance verification of resolved SHAs
+            (default). 'warn' logs unverifiable SHAs; 'strict' raises.
 
     Returns:
         True if file was modified, False otherwise.
@@ -474,6 +550,8 @@ async def pin_file(
         YAMLParseError: If the file cannot be parsed as YAML.
         GitHubAPIError: If a ref cannot be resolved (invalid ref, rate limit
             exhausted, or network failure). Subclass of ``PinActionsError``.
+        UnverifiedProvenanceError: If ``provenance_mode`` is 'strict' and a
+            resolved SHA can't be confirmed reachable from a real ref.
         OSError: If the file cannot be read or written.
     """
     return await _pin_doc(
@@ -485,6 +563,7 @@ async def pin_file(
         options=options,
         registry_client=registry_client,
         collect_images_fn=_collect_image_refs if registry_client is not None else None,
+        provenance_mode=provenance_mode,
     )
 
 
@@ -617,7 +696,13 @@ async def _process_files(
     """
     tasks = [
         pin_file(
-            client, f, dry_run=settings.dry_run, diff=settings.diff, options=options, registry_client=registry_client
+            client,
+            f,
+            dry_run=settings.dry_run,
+            diff=settings.diff,
+            options=options,
+            registry_client=registry_client,
+            provenance_mode=settings.provenance,
         )
         for f in files
     ]
