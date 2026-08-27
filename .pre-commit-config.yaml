@@ -147,3 +147,4 @@ repos:
         alias: ryl-github
         args: [--format=github]
         types_or: [yaml, markdown]
+        stages: [manual]
