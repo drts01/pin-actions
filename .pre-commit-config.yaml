@@ -143,13 +143,17 @@ repos:
   - repo: https://github.com/owenlamont/ryl-pre-commit
     rev: v0.21.0
     hooks:
-      - id: ryl
+      - id: ryl-markdown
+        name: ryl
+        alias: ryl
         args: [--fix]
         types_or: [yaml, markdown]
+        files: .*\.(ya?ml|md|markdown|mdx|qmd|Rmd)$
         stages: [pre-commit]
-      - id: ryl
+      - id: ryl-markdown
         name: ryl github
         alias: ryl-github
-        args: [--format=github]
         types_or: [yaml, markdown]
+        files: .*\.(ya?ml|md|markdown|mdx|qmd|Rmd)$
+        args: [--format=github]
         stages: [manual]
