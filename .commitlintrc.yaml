@@ -1,3 +1,4 @@
+---
 # Commitlint configuration for Conventional Commits
 # See: https://commitlint.js.org/
 
@@ -5,7 +6,6 @@ extends:
   - '@commitlint/config-conventional'
 
 rules:
-  # Type enforcement - must be one of these
   type-enum:
     - 2  # Error level
     - always
@@ -21,7 +21,6 @@ rules:
       - chore     # Maintenance tasks
       - revert    # Revert previous commit
 
-  # Scope is optional and can be anything (not enforced)
   scope-enum:
     - 0  # Disabled - allow any scope
 
@@ -43,12 +42,11 @@ rules:
   header-max-length:
     - 2
     - always
-    - 72  # Max 72 characters
+    - 72
 
-  # Body and footer formatting
   body-leading-blank:
     - 2
-    - always  # Blank line before body
+    - always
   footer-leading-blank:
     - 2
-    - always  # Blank line before footer
+    - always
