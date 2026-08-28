@@ -16,6 +16,10 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    permissions:
+      security-events: write  # To upload SARIF files
+      contents: read          # To clone the repo
+      actions: read           # To read workflow run info
     steps:
       - name: checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -25,7 +29,9 @@ jobs:
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           cache-suffix: lint
-          cache-dependency-glob: .pre-commit-config.yaml
+          cache-dependency-glob: |
+            prek.toml
+            .pre-commit-config.yaml
       - name: Cache prek environments
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -36,8 +42,18 @@ jobs:
       - name: Run prek
         run: uv run --managed-python --group lint
           prek run --show-diff-on-failure --color=always --all-files --hook-stage manual
-        env:
-          SKIP: zizmor-sarif,ruff-sarif
+      - name: Upload SARIF file
+        if: always()
+        uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
+        with:
+          sarif_file: ruff.sarif
+          category: ruff
+      - name: Upload SARIF file
+        if: always()
+        uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
+        with:
+          sarif_file: zizmor.sarif
+          category: zizmor
 
   test:
     name: Test
