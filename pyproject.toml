@@ -255,6 +255,8 @@ files.yaml = [ "*.y*ml" ]
 files.markdown = [ "*.md" ]
 per-line-ignores = [
   { path = "**/.github/workflows/*.y*ml", regex = "^on:", rules = [ "truthy" ] },
+  { path = "**/*.md", regex = "^ *on:", rules = [ "truthy" ] },
+  { path = "**/*.md", regex = "image:", rules = [ "key-duplicates" ] },
 ]
 rules.anchors = "enable"
 rules.brackets = "enable"
