@@ -109,8 +109,8 @@ If an action's configuration (`action.yml`) specifies a Docker container using a
 ```yaml
 # Inside a pinned third-party action's action.yml
 runs:
-  using: 'docker'
-  image: 'node:latest' # ❌ BREAKS IMMUTABILITY
+  using: docker
+  image: node:latest # ❌ BREAKS IMMUTABILITY
 ```
 
 Even if you pin the top-level repository SHA, a rebuild of that action can pull a compromised or updated base image,
@@ -133,7 +133,7 @@ silently bypassing your workflow pins.
 name: Secure Production Pipeline
 on:
   push:
-    branches: [ main ]
+    branches: [main]
 
 permissions: # Layer 2: Explicit Least Privilege
   contents: read

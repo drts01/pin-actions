@@ -9,8 +9,8 @@ name: Update pinned actions
 
 on:
   schedule:
-    - cron: '0 0 * * 0'  # Weekly
-  workflow_dispatch:  # Manual trigger
+    - cron: '0 0 * * 0'
+  workflow_dispatch: {}
 
 jobs:
   pin:
@@ -32,7 +32,7 @@ jobs:
         uses: peter-evans/create-pull-request@v6
         with:
           commit-message: 'ci: update pinned actions'
-          title: 'Update pinned GitHub Actions'
+          title: Update pinned GitHub Actions
           branch: pin-actions-update
 ```
 

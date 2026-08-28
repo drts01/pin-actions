@@ -1,3 +1,4 @@
+---
 name: Profiling
 
 on:
@@ -30,55 +31,49 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-
       - name: Setup uv
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           python-version: ${{ matrix.python-version }}
           enable-cache: true
-
       - name: Run benchmark micro-benchmarks + scenario
         run: uv run --group ci tox run -e profile
         id: benchmark
-
       - name: Generate flamegraph (py-spy, 3.14 only)
         if: matrix.python-version == '3.14'
         run: uv run --group ci tox run -e flamegraph
-
       - name: Extract benchmark metadata
         if: matrix.python-version == '3.14' && always()
         id: metrics
         run: |
-           # Parse benchmark.json into summary table
-           jq_query='
-             [.benchmarks[] | {
-               name: .fullname,
-               min: .stats.min,
-               mean: .stats.mean,
-               max: .stats.max,
-               ops: .stats.ops
-             }]
-             | sort_by(.mean) | reverse
-             | "| Name | Min (ms) | Mean (ms) | Max (ms) | Ops/sec |\n" +
-               "|------|----------|----------|----------|----------|\n" +
-               (map(
-                 "| \(.name | split("::")[-1]) | " +
-                 "\(.min * 1000 | floor) | " +
-                 "\(.mean * 1000 | floor) | " +
-                 "\(.max * 1000 | floor) | " +
-                 "\(.ops | floor) |"
-               ) | join("\n"))
-           '
-           if [ -f benchmark.json ]; then
-             table=$(jq -r "$jq_query" benchmark.json)
-             {
-               echo "table<<EOF"
-               echo "$table"
-               echo "EOF"
-             } >> "$GITHUB_OUTPUT"
-           fi
-
-
+          # Parse benchmark.json into summary table
+          jq_query='
+            [.benchmarks[] | {
+              name: .fullname,
+              min: .stats.min,
+              mean: .stats.mean,
+              max: .stats.max,
+              ops: .stats.ops
+            }]
+            | sort_by(.mean) | reverse
+            | "| Name | Min (ms) | Mean (ms) | Max (ms) | Ops/sec |\n" +
+              "|------|----------|----------|----------|----------|\n" +
+              (map(
+                "| \(.name | split("::")[-1]) | " +
+                "\(.min * 1000 | floor) | " +
+                "\(.mean * 1000 | floor) | " +
+                "\(.max * 1000 | floor) | " +
+                "\(.ops | floor) |"
+              ) | join("\n"))
+          '
+          if [ -f benchmark.json ]; then
+            table=$(jq -r "$jq_query" benchmark.json)
+            {
+              echo "table<<EOF"
+              echo "$table"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+          fi
       - name: Embed flamegraph SVG and benchmarks in summary
         if: matrix.python-version == '3.14' && always()
         env:
@@ -108,8 +103,6 @@ jobs:
              echo "### 🔥 Flamegraph (py-spy wall-clock)" >> "$GITHUB_STEP_SUMMARY"
              echo "<img src=\"data:image/svg+xml;base64,$svg_b64\" width=\"100%\" />" >> "$GITHUB_STEP_SUMMARY"
            fi
-
-
       - name: Upload profiling artifacts
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -119,8 +112,6 @@ jobs:
             benchmarks/flamegraph.svg
             benchmarks/tachyon.html
             benchmark.json
-
-
           retention-days: 30
 
   tachyon:
@@ -136,18 +127,13 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-
       - name: Setup uv
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           python-version: ${{ matrix.python-version }}
           enable-cache: true
-
       - name: Generate Tachyon HTML flamegraph
-        run: |
-          uv run --group ci tox run -e "tachyon-py${PYVER/.}"
-
-
+        run: uv run --group ci tox run -e "tachyon-py${PYVER/.}"
       - name: Add Tachyon summary note
         if: always()
         run: |
@@ -158,8 +144,6 @@ jobs:
             echo "GitHub step summaries strip \`<script>\` tags, so **download the artifact to view**."
             echo ""
           } >> "$GITHUB_STEP_SUMMARY"
-
-
       - name: Upload Tachyon artifact
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

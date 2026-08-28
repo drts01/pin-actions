@@ -23,7 +23,7 @@ runs:
     - uses: actions/checkout@v4
     - uses: actions/setup-node@v4
       with:
-        node-version: "20"
+        node-version: '20'
     - run: npm ci
       shell: bash
 ```
@@ -38,7 +38,7 @@ runs:
     - uses: actions/checkout@a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b  # v4
     - uses: actions/setup-node@f1e2d3c4b5a6f7e8d9c0b1a2f3e4d5c6b7a8f9e  # v4
       with:
-        node-version: "20"
+        node-version: '20'
     - run: npm ci
       shell: bash
 ```
