@@ -88,7 +88,7 @@ repos:
       - id: zizmor
         name: zizmor sarif
         alias: zizmor-sarif
-        entry: bash -c 'zizmor --no-progress --persona=auditor --format=sarif . > zizmor-report.sarif'
+        entry: bash -c 'zizmor --no-progress --persona=auditor --format=sarif . > zizmor.sarif'
         stages: [manual]
         pass_filenames: false
 
