@@ -60,7 +60,7 @@ class UpdateReposSettings(BaseSettings):
     )
     concurrency: int = Field(default=4, ge=1, description="Max concurrent repo clones")
     api_concurrency: int = Field(default=5, ge=1, description="Max concurrent GitHub API requests")
-    branch_prefix: str = Field(default="pin-actions", description="Feature branch prefix")
+    branch_name: str = Field(default="pin-actions", description="Branch name")
     base_branch: str | None = Field(
         default=None,
         description="PR base branch; defaults to each repo's actual default branch",
@@ -302,16 +302,15 @@ def _upsert_pr(repo: str, head: str, base_branch: str, settings: UpdateReposSett
 
 def _publish(repo: str, repo_dir: Path, settings: UpdateReposSettings, result: RepoResult) -> None:
     """Commit modified files to a new branch, and push/open or update a PR if requested."""
-    branch = f"{settings.branch_prefix}/{repo.replace('/', '-')}"
-    result.branch = branch
+    result.branch = settings.branch_name
     env = _gh_env(settings.github_token, settings.host)
     try:
         if settings.fork:
             result.fork_owner = _ensure_fork(repo_dir, repo, settings, env)
-        _push_branch(repo, repo_dir, branch, settings, env)
+        _push_branch(repo, repo_dir, settings.branch_name, settings, env)
         if settings.push:
             assert result.base_branch is not None, "base_branch set by _try_clone before _publish runs"  # noqa: S101
-            head = f"{result.fork_owner}:{branch}" if settings.fork else branch
+            head = f"{result.fork_owner}:{settings.branch_name}" if settings.fork else settings.branch_name
             result.pr_url = _upsert_pr(repo, head, result.base_branch, settings, env)
     except subprocess.CalledProcessError as exc:
         _fail(result, repo, f"git/gh op failed: {exc.stderr.strip()}")
