@@ -210,7 +210,7 @@ def _push_branch(repo: str, repo_dir: Path, branch: str, settings: UpdateReposSe
     """Commit and force-push feature branch (always our latest pins)."""
     remote = "fork" if settings.fork else "origin"
     for args in (
-        ("checkout", "-b", "--", branch),
+        ("checkout", "-b", branch),
         ("add", "-A"),
         ("commit", "-m", settings.commit_message),
         ("push", "--force", remote, "--", branch),
