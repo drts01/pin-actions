@@ -41,6 +41,7 @@ dependencies = [
 urls.Homepage = "https://github.com/drts01/pin-actions"
 urls.Issues = "https://github.com/drts01/pin-actions/issues"
 urls.Repository = "https://github.com/drts01/pin-actions"
+scripts.fix_injection = "scripts.fix_injection:main"
 scripts.pin-actions = "pin_actions.core:main"
 
 [dependency-groups]
@@ -171,10 +172,10 @@ verbose = 2
 style = "google"
 
 [tool.pyrefly]
-preset = "strict"
-project-includes = [ "src", "scripts" ]
 python-version = "3.14"
+project-includes = [ "scripts", "src" ]
 search-path = [ "scripts" ]
+preset = "strict"
 
 [tool.pytest]
 addopts = [
