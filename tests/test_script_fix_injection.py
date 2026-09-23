@@ -668,7 +668,7 @@ class TestNewUntrustedContexts:
             "github.event.changes",
             "github.event.workflow.path",
             "github.event.workflow_run.path",
-            "github.event.workflow_run.referenced_workflows",
+            "github.event.workflow_run.referenced_workflows.path",
         ],
     )
     def test_new_leaf_context_fixed(self, tmp_path: Path, expr: str) -> None:
@@ -736,8 +736,69 @@ class TestNewUntrustedContexts:
         assert findings == []
         assert wf.read_text() == original
 
+    @pytest.mark.parametrize(
+        "expr",
+        [
+            "github.event.commits[0].message",
+            "github.event.commits[0].author.email",
+            "github.event.pages[0].title",
+            "github.event.pages[0].page_name",
+            "github.event.workflow_run.pull_requests[0].head.ref",
+            "github.event.workflow_run.referenced_workflows[0].path",
+            "github.event.changes.title.from",
+            "github.event.changes.body.from",
+            "github.event.changes.head.ref.from",
+        ],
+    )
+    def test_array_indexed_and_changes_leaf_context_fixed(self, tmp_path: Path, expr: str) -> None:
+        """Array-indexed (commits[N].*, pages[N].*, ...) and changes.*.from leaf paths are auto-fixed."""
+        # Arrange
+        wf = tmp_path / "wf.yml"
+        wf.write_text(f'jobs:\n  build:\n    steps:\n      - run: echo "${{{{ {expr} }}}}"\n')
 
-class TestUnconditionalEnvVarQuoting:
+        # Act
+        modified, findings, _ = fix_injection_file(wf, dry_run=False)
+
+        # Assert
+        assert modified
+        assert len(findings) == 1
+        assert findings[0].fixed
+
+    @pytest.mark.parametrize(
+        "expr",
+        [
+            "github",
+            "github.event",
+            "github.event.commits",
+            "github.event.pages",
+            "github.event.workflow",
+            "github.event.pull_request.head",
+            "github.event.pull_request.head.repo",
+            "github.event.head_commit.author",
+            "github.event.head_commit.committer",
+            "github.event.merge_group.committer",
+            "github.event.workflow_run.head_branch",
+            "github.event.workflow_run.head_commit",
+            "github.event.workflow_run.head_commit.author",
+            "github.event.workflow_run.head_commit.committer",
+            "github.event.workflow_run.head_repository",
+            "github.event.workflow_run.pull_requests",
+        ],
+    )
+    def test_codeql_json_kind_whole_object_fixed(self, tmp_path: Path, expr: str) -> None:
+        """Every CodeQL "json"-kind whole-object row from untrusted_event_properties.yml is auto-fixed."""
+        # Arrange
+        wf = tmp_path / "wf.yml"
+        wf.write_text(f'jobs:\n  build:\n    steps:\n      - run: echo "${{{{ {expr} }}}}"\n')
+
+        # Act
+        modified, findings, _ = fix_injection_file(wf, dry_run=False)
+
+        # Assert
+        assert modified
+        assert len(findings) == 1
+        assert findings[0].fixed
+
     """Test bare $VAR/$env:VAR quoting runs unconditionally, not just for hoisted placeholders."""
 
     def test_preexisting_bare_var_quoted_with_no_untrusted_context(self, tmp_path: Path) -> None:

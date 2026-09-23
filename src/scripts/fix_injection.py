@@ -35,8 +35,10 @@ to ``cmd``, whose ``%VAR%`` expands unconditionally regardless of quoting.
 """
 
 import difflib
+import itertools
 import re
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -47,84 +49,121 @@ from pydantic import Field
 
 # GitHub Security Lab's documented list of attacker-controllable context paths, plus
 # CodeQL's untrusted_event_properties data model (workflow_run/merge_group/head_commit
-# committer fields, edited-event diffs, workflow path fields).
+# committer fields, edited-event diffs, workflow path fields, array-indexed entries).
 # See: https://securitylab.github.com/resources/github-actions-untrusted-input/
+# See: https://github.com/github/codeql/blob/main/actions/ql/lib/ext/config/untrusted_event_properties.yml
 #
-# Maps each untrusted context path to whether it is a whole-object context (True) that
-# must be matched exactly, never as a prefix. Interpolating/toJSON-serializing a whole
-# object (e.g. `${{ github.event.issue }}`) stringifies every leaf field, including
-# untrusted ones (title/body/etc.), mirroring CodeQL's blanket "json" source rows -- but
-# the object also carries plainly-trusted leaves (`.number`, `.id`, ...) that must stay
-# untouched when referenced directly as their own leaf path, so whole-object contexts
-# are exact-match only and never prefix-match a dotted child expression the way a leaf
-# untrusted context (e.g. `github.event.issue.title`) does.
-UNTRUSTED_CONTEXTS: dict[str, bool] = {
-    "github.event.issue.title": False,
-    "github.event.issue.body": False,
-    "github.event.pull_request.title": False,
-    "github.event.pull_request.body": False,
-    "github.event.pull_request.head.ref": False,
-    "github.event.pull_request.head.label": False,
-    "github.event.pull_request.head.repo.default_branch": False,
-    "github.event.comment.body": False,
-    "github.event.review.body": False,
-    "github.event.review_comment.body": False,
-    "github.event.discussion.title": False,
-    "github.event.discussion.body": False,
-    "github.event.pages": False,
-    "github.event.commits": False,
-    "github.event.head_commit.message": False,
-    "github.event.head_commit.author.email": False,
-    "github.event.head_commit.author.name": False,
-    "github.event.workflow_run.head_branch": False,
-    "github.event.workflow_run.display_title": False,
-    "github.head_ref": False,
+# Array-indexed CodeQL entries (``commits[N].message``, ``pages[N].title``, ...) are
+# expressed here with the ``[N]`` stripped (``commits.message``) since ``_is_untrusted``
+# normalizes ``[<digits>]`` out of the checked expression before comparing -- see
+# ``_INDEX_RE``.
+_UNTRUSTED_LEAF_CONTEXTS = (
+    "github.event.issue.title",
+    "github.event.issue.body",
+    "github.event.pull_request.title",
+    "github.event.pull_request.body",
+    "github.event.pull_request.head.ref",
+    "github.event.pull_request.head.label",
+    "github.event.pull_request.head.repo.default_branch",
+    "github.event.pull_request.head.repo.homepage",
+    "github.event.pull_request.head.repo.description",
+    "github.event.comment.body",
+    "github.event.review.body",
+    "github.event.review_comment.body",
+    "github.event.discussion.title",
+    "github.event.discussion.body",
+    "github.event.pages.page_name",
+    "github.event.pages.title",
+    "github.event.commits.message",
+    "github.event.commits.author.email",
+    "github.event.commits.author.name",
+    "github.event.commits.committer.email",
+    "github.event.commits.committer.name",
+    "github.event.head_commit.message",
+    "github.event.head_commit.author.email",
+    "github.event.head_commit.author.name",
+    "github.event.head_commit.committer.email",
+    "github.event.head_commit.committer.name",
+    "github.event.workflow_run.head_branch",
+    "github.event.workflow_run.display_title",
+    "github.event.workflow_run.head_commit.message",
+    "github.event.workflow_run.head_commit.author.email",
+    "github.event.workflow_run.head_commit.author.name",
+    "github.event.workflow_run.head_commit.committer.email",
+    "github.event.workflow_run.head_commit.committer.name",
+    "github.event.workflow_run.head_repository.description",
+    "github.event.workflow_run.pull_requests.head.ref",
+    "github.event.workflow_run.path",
+    "github.event.workflow_run.referenced_workflows.path",
+    "github.event.merge_group.head_ref",
+    "github.event.merge_group.committer.email",
+    "github.event.merge_group.committer.name",
+    "github.head_ref",
     # workflow_dispatch/workflow_call inputs: not anonymous (requires dispatch/call
     # access), but still an attacker-controllable string reaching a shell -- treated
     # the same as event-payload fields per GitHub's own hardening guidance. The bare
     # "inputs." prefix also covers composite action inputs (action.yml `inputs:`).
-    "github.event.inputs": False,
-    "inputs": False,
+    "github.event.inputs",
+    "inputs",
     # repository_dispatch: arbitrary external payload from whoever holds the dispatch token.
-    "github.event.client_payload": False,
-    "github.event.label.name": False,
-    "github.event.milestone.title": False,
-    "github.event.milestone.description": False,
-    "github.event.check_run.output.title": False,
-    "github.event.check_run.output.summary": False,
-    "github.event.deployment_status.description": False,
-    "github.event.release.name": False,
-    "github.event.release.body": False,
-    "github.event.workflow_run.head_commit.message": False,
-    "github.event.workflow_run.head_commit.author.email": False,
-    "github.event.workflow_run.head_commit.author.name": False,
-    "github.event.workflow_run.head_commit.committer.email": False,
-    "github.event.workflow_run.head_commit.committer.name": False,
-    "github.event.workflow_run.head_repository.description": False,
-    "github.event.workflow_run.pull_requests": False,
-    "github.event.merge_group.head_ref": False,
-    "github.event.merge_group.committer.email": False,
-    "github.event.merge_group.committer.name": False,
-    "github.event.pull_request.head.repo.homepage": False,
-    "github.event.pull_request.head.repo.description": False,
-    "github.event.head_commit.committer.email": False,
-    "github.event.head_commit.committer.name": False,
+    "github.event.client_payload",
+    "github.event.label.name",
+    "github.event.milestone.title",
+    "github.event.milestone.description",
+    "github.event.check_run.output.title",
+    "github.event.check_run.output.summary",
+    "github.event.deployment_status.description",
+    "github.event.release.name",
+    "github.event.release.body",
     # `changes.*` carries the *previous* value of an edited field (issue/PR edited
     # events) -- still attacker-controlled text, just historical rather than current.
-    "github.event.changes": False,
-    "github.event.workflow.path": False,
-    "github.event.workflow_run.path": False,
-    "github.event.workflow_run.referenced_workflows": False,
-    # Whole-object contexts: exact-match only (see docstring above).
-    "github.event.comment": True,
-    "github.event.issue": True,
-    "github.event.pull_request": True,
-    "github.event.review": True,
-    "github.event.discussion": True,
-    "github.event.head_commit": True,
-    "github.event.merge_group": True,
-    "github.event.workflow_run": True,
-}
+    "github.event.changes.title.from",
+    "github.event.changes.body.from",
+    "github.event.changes.head.ref.from",
+    "github.event.workflow.path",
+)
+# Whole-object contexts: exact-match only, never prefix-matched. Interpolating/
+# toJSON-serializing a whole object (e.g. `${{ github.event.issue }}`) stringifies
+# every leaf field, including untrusted ones (title/body/etc.), matching CodeQL's own
+# "json"-kind data-model rows verbatim -- but the object also carries plainly-trusted
+# leaves (`.number`, `.id`, ...) that must stay untouched when referenced directly as
+# their own leaf path, so these can't prefix-match a dotted child expression the way a
+# leaf context (e.g. `github.event.issue.title`) does.
+_UNTRUSTED_WHOLE_OBJECT_CONTEXTS = (
+    "github",
+    "github.event",
+    "github.event.comment",
+    "github.event.commits",
+    "github.event.issue",
+    "github.event.pull_request",
+    "github.event.pull_request.head",
+    "github.event.pull_request.head.repo",
+    "github.event.review",
+    "github.event.discussion",
+    "github.event.pages",
+    "github.event.head_commit",
+    "github.event.head_commit.author",
+    "github.event.head_commit.committer",
+    "github.event.merge_group",
+    "github.event.merge_group.committer",
+    "github.event.workflow",
+    "github.event.workflow_run",
+    "github.event.workflow_run.head_branch",
+    "github.event.workflow_run.head_commit",
+    "github.event.workflow_run.head_commit.author",
+    "github.event.workflow_run.head_commit.committer",
+    "github.event.workflow_run.head_repository",
+    "github.event.workflow_run.pull_requests",
+    "github.event.changes",
+)
+# Maps each untrusted context path to whether it is whole-object (see above).
+UNTRUSTED_CONTEXTS: dict[str, bool] = dict.fromkeys(_UNTRUSTED_LEAF_CONTEXTS, False) | dict.fromkeys(
+    _UNTRUSTED_WHOLE_OBJECT_CONTEXTS, True
+)
+
+# Strips GitHub Actions array-index syntax (e.g. the `[0]` in `github.event.commits[0].message`)
+# so expressions can be compared against the index-free leaf paths in UNTRUSTED_CONTEXTS.
+_INDEX_RE = re.compile(r"\[[0-9]+\]")
 
 
 _EXPR_RE = re.compile(r"\$\{\{\s*(.+?)\s*\}\}")
@@ -166,12 +205,16 @@ def _is_untrusted(expr: str) -> bool:
 
     Conservative: function-call-wrapped expressions (``fromJSON(...)``, ``toJSON(...)``,
     ``format(...)``, etc.) are not pattern-matched here and are reported but not fixed,
-    since the wrapped value's shape isn't guaranteed to be a plain string.
+    since the wrapped value's shape isn't guaranteed to be a plain string. Array-index
+    syntax (``commits[0].message``) is normalized away before matching against the
+    index-free paths in :data:`UNTRUSTED_CONTEXTS` -- see CodeQL's array-indexed
+    ``untrusted_event_properties.yml`` rows (``commits[N].message``, ``pages[N].title``).
     """
     if "(" in expr:
         return False
+    normalized = _INDEX_RE.sub("", expr)
     return any(
-        expr == ctx or (not whole_object and expr.startswith(f"{ctx}."))
+        normalized == ctx or (not whole_object and normalized.startswith(f"{ctx}."))
         for ctx, whole_object in UNTRUSTED_CONTEXTS.items()
     )
 
@@ -261,25 +304,18 @@ def _quote_bare_env_refs(text: str, shell: str) -> str:
 def _var_name(expr: str, used: set[str]) -> str:
     """Derive a stable, unique shell-safe env var name from a context expression."""
     base = re.sub(r"[^A-Za-z0-9]+", "_", expr).strip("_").upper() or "INPUT"
-    name = base
-    i = 1
-    while name in used:
-        i += 1
-        name = f"{base}_{i}"
+    name = next(n for i in itertools.count() if (n := base if i == 0 else f"{base}_{i + 1}") not in used)
     used.add(name)
     return name
 
 
+@dataclass(slots=True, frozen=True)
 class InjectionFinding:
     """A single untrusted ${{ }} expression found in a run: step."""
 
-    __slots__ = ("expr", "fixed", "item_path")
-
-    def __init__(self, item_path: tuple[Any, ...], expr: str, *, fixed: bool) -> None:
-        """Initialize with the step's item path, expression body, and fix status."""
-        self.item_path = item_path
-        self.expr = expr
-        self.fixed = fixed
+    item_path: tuple[Any, ...]
+    expr: str
+    fixed: bool
 
 
 def _collect_run_steps(doc: Any) -> list[tuple[tuple[Any, ...], str]]:  # noqa: ANN401
@@ -297,10 +333,15 @@ def _step_shell(doc: Any, step_path: tuple[Any, ...]) -> str:  # noqa: ANN401
     Does not resolve ``jobs.<job>.defaults.run.shell``/top-level ``defaults`` --
     those steps are conservatively treated as unknown-shell and skipped.
     """
+    return _try_get(_get_path(doc, step_path), "shell", "bash")
+
+
+def _try_get(mapping: Any, key: str, default: Any = None) -> Any:  # noqa: ANN401
+    """Return ``mapping[key]``, or ``default`` if the key/index is absent or ``mapping`` doesn't support it."""
     try:
-        return _get_path(doc, step_path)["shell"]
+        return mapping[key]
     except KeyError, TypeError, IndexError:
-        return "bash"
+        return default
 
 
 def _set_path(doc: Any, item_path: tuple[Any, ...], value: str) -> None:  # noqa: ANN401
@@ -322,12 +363,10 @@ def _get_path(doc: Any, item_path: tuple[Any, ...]) -> Any:  # noqa: ANN401
 def _set_step_env(doc: Any, step_path: tuple[Any, ...], var: str, value: str) -> None:  # noqa: ANN401
     """Set ``step.env[var] = value``, creating the ``env:`` map on the step if absent."""
     step = _get_path(doc, step_path)
-    try:
-        env = step["env"]
-    except KeyError, TypeError, IndexError:
+    if (env := _try_get(step, "env")) is None:
         step["env"] = {var: value}
-        return
-    env[var] = value
+    else:
+        env[var] = value
 
 
 def remediate_run_step(
@@ -388,12 +427,7 @@ def remediate_run_step(
     # bare ${{ }} substitution survives in a step this function actually rewrites.
     to_hoist = [e for e in exprs if e not in unfixable]
 
-    used_vars: set[str] = set()
-    try:
-        existing_env = dict(_get_path(doc, step_path)["env"])
-    except KeyError, TypeError, IndexError:
-        existing_env = {}
-    used_vars.update(existing_env)
+    used_vars: set[str] = set(_try_get(_get_path(doc, step_path), "env", {}))
 
     new_text = text
     env_updates: dict[str, str] = {}
@@ -633,10 +667,7 @@ def main() -> None:
             if modified:
                 modified_files.append(f)
 
-    except PinActionsError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
-        sys.exit(1)
-    except ValueError as exc:
+    except (PinActionsError, ValueError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
 
