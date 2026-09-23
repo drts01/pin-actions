@@ -20,6 +20,7 @@ nav = [
     { "Update Pinned Tags" = "how-to/update-pinned-tags.md" },
     { "Pin Non-Standard Refs" = "how-to/pin-non-standard-refs.md" },
     { "Pin Pre-Commit Hooks" = "how-to/pin-pre-commit-hooks.md" },
+    { "Remediate Code Injection" = "how-to/remediate-code-injection.md" },
     { "Use as a Library" = "how-to/use-as-a-library.md" },
     { "Multi-Repo Automation" = "how-to/multi-repo-automation.md" },
     { "Run in CI" = "how-to/run-in-ci.md" },
