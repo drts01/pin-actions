@@ -25,6 +25,13 @@ Static, network-free (no GitHub API calls). Only rewrites ``run:`` shell steps;
 ``actions/github-script``'s ``with.script`` is JavaScript, not shell, and is
 reported only -- never auto-fixed.
 
+In addition to context-path expressions, ``steps.<id>.outputs.*`` is also treated as
+untrusted when ``<id>`` names a step that ran an action/command CodeQL's
+``poisonable_steps.yml`` data model considers influenceable by attacker-controlled
+repository content (e.g. ``mvn``, ``pytest``, ``ruby/setup-ruby``) -- see
+:func:`_collect_poisonable_step_ids`. Outputs of steps outside that enumerated list are
+not modeled and are left untouched, matching CodeQL's own scope.
+
 Every bare/unquoted ``$VAR``/``$env:VAR`` reference in a step's ``run:`` text -- not
 just ones this tool just hoisted -- is also (re)quoted to match how the original
 ``${{ }}`` substitution behaved: bare occurrences are wrapped in double quotes
@@ -165,6 +172,71 @@ UNTRUSTED_CONTEXTS: dict[str, bool] = dict.fromkeys(_UNTRUSTED_LEAF_CONTEXTS, Fa
 # so expressions can be compared against the index-free leaf paths in UNTRUSTED_CONTEXTS.
 _INDEX_RE = re.compile(r"\[[0-9]+\]")
 
+# CodeQL's poisonable_steps.yml data model: actions and shell commands whose output can be
+# influenced by attacker-controlled repository content (e.g. a malicious pom.xml/package.json
+# causing a build/lint/test tool to emit attacker-chosen text via a step output). A later
+# step's ``steps.<id>.outputs.*`` reference is only treated as untrusted if the producing step
+# (identified by its ``id:``) matches one of these -- see ``_collect_poisonable_step_ids``.
+# See: https://github.com/github/codeql/blob/main/actions/ql/lib/ext/config/poisonable_steps.yml
+_POISONABLE_ACTIONS = (
+    "azure/powershell",
+    "pre-commit/action",
+    "oxsecurity/megalinter",
+    "bridgecrewio/checkov-action",
+    "ruby/setup-ruby",
+    "actions/jekyll-build-pages",
+    "qcastel/github-actions-maven/actions/maven",
+    "sonarsource/sonarcloud-github-action",
+)
+_POISONABLE_COMMAND_RES = tuple(
+    re.compile(regexp)
+    for regexp in (
+        r"ant",
+        r"asv",
+        r"awk\s+-f",
+        r"bundle",
+        r"bun",
+        r"cargo",
+        r"checkov",
+        r"eslint",
+        r"gcloud\s+builds submit",
+        r"golangci-lint",
+        r"gomplate",
+        r"goreleaser",
+        r"gradle",
+        r"java\s+-jar",
+        r"make",
+        r"mdformat",
+        r"mkdocs",
+        r"msbuild",
+        r"mvn",
+        r"mypy",
+        r"(p)?npm\s+[a-z]",
+        r"pre-commit",
+        r"prettier",
+        r"phpstan",
+        r"pip\s+install(.*)\s+-r",
+        r"pip\s+install(.*)\s+--requirement",
+        r"pip(x)?\s+install(.*)\s+\.",
+        r"poetry",
+        r"pylint",
+        r"pytest",
+        r"python[\d.]*\s+-m\s+pip\s+install\s+-r",
+        r"python[\d.]*\s+-m\s+pip\s+install\s+--requirement",
+        r"rake",
+        r"rails\s+db:create",
+        r"rails\s+assets:precompile",
+        r"rubocop",
+        r"sed\s+-f",
+        r"sonar-scanner",
+        r"stylelint",
+        r"terraform",
+        r"tflint",
+        r"yarn",
+        r"webpack",
+    )
+)
+
 
 _EXPR_RE = re.compile(r"\$\{\{\s*(.+?)\s*\}\}")
 _DEFAULT_SHELL_VAR_SYNTAX = {
@@ -200,7 +272,7 @@ class InjectionSettings(Settings):
     )
 
 
-def _is_untrusted(expr: str) -> bool:
+def _is_untrusted(expr: str, poisonable_ids: frozenset[str]) -> bool:
     """Check whether a bare ${{ }} expression body references a known-untrusted context.
 
     Conservative: function-call-wrapped expressions (``fromJSON(...)``, ``toJSON(...)``,
@@ -209,6 +281,11 @@ def _is_untrusted(expr: str) -> bool:
     syntax (``commits[0].message``) is normalized away before matching against the
     index-free paths in :data:`UNTRUSTED_CONTEXTS` -- see CodeQL's array-indexed
     ``untrusted_event_properties.yml`` rows (``commits[N].message``, ``pages[N].title``).
+
+    ``steps.<id>.outputs.*`` is untrusted only if ``<id>`` is in ``poisonable_ids`` -- i.e. the
+    producing step ran an action/command CodeQL's ``poisonable_steps.yml`` data model treats as
+    influenceable by attacker-controlled repository content. See
+    :func:`_collect_poisonable_step_ids`.
     """
     if "(" in expr:
         return False
@@ -216,7 +293,7 @@ def _is_untrusted(expr: str) -> bool:
     return any(
         normalized == ctx or (not whole_object and normalized.startswith(f"{ctx}."))
         for ctx, whole_object in UNTRUSTED_CONTEXTS.items()
-    )
+    ) or any(normalized.startswith(f"steps.{sid}.outputs") for sid in poisonable_ids)
 
 
 def _line_quote_states(line: str) -> list[str]:
@@ -327,6 +404,34 @@ def _collect_run_steps(doc: Any) -> list[tuple[tuple[Any, ...], str]]:  # noqa: 
     ]
 
 
+def _first_command(script: str) -> str:
+    """Return the first non-blank, non-comment line of a ``run:`` script (mirrors CodeQL's ``getACommand()``)."""
+    return next((line.strip() for line in script.split("\n") if line.strip() and not line.strip().startswith("#")), "")
+
+
+def _collect_poisonable_step_ids(doc: Any) -> frozenset[str]:  # noqa: ANN401
+    """Collect the ``id:`` of every step whose action/command CodeQL treats as poisonable.
+
+    A step is poisonable if its ``uses:`` callee (ref/version stripped) is in
+    :data:`_POISONABLE_ACTIONS`, or its ``run:`` script's first command matches any of
+    :data:`_POISONABLE_COMMAND_RES` -- mirroring CodeQL's ``DangerousActionUsesStep``/
+    ``PoisonableCommandStep`` classes. Steps without an ``id:`` can't be referenced via
+    ``steps.<id>.outputs.*`` and are skipped.
+    """
+    ids: set[str] = set()
+    for item_path, value in doc.walk():
+        if not item_path or item_path[-1] != "id" or not isinstance(value, str):
+            continue
+        step = _get_path(doc, item_path[:-1])
+        uses = _try_get(step, "uses")
+        run = _try_get(step, "run")
+        if (isinstance(uses, str) and uses.split("@", 1)[0] in _POISONABLE_ACTIONS) or (
+            isinstance(run, str) and any(cmd_re.match(_first_command(run)) for cmd_re in _POISONABLE_COMMAND_RES)
+        ):
+            ids.add(value)
+    return frozenset(ids)
+
+
 def _step_shell(doc: Any, step_path: tuple[Any, ...]) -> str:  # noqa: ANN401
     """Resolve the shell for a step: its own ``shell:`` key, defaulting to ``bash``.
 
@@ -374,6 +479,7 @@ def remediate_run_step(
     item_path: tuple[Any, ...],
     text: str,
     placeholders: dict[str, tuple[str, str]],
+    poisonable_ids: frozenset[str],
 ) -> tuple[list[InjectionFinding], bool]:
     """Rewrite untrusted ${{ }} exprs in a single run: step's text to env: indirection.
 
@@ -390,6 +496,8 @@ def remediate_run_step(
             ``run:`` scalars, so the caller can splice a real block scalar back in after
             ``doc.to_yaml()`` -- see module docstring note on the ``yamlrocks`` limitation
             this works around.
+        poisonable_ids: Step ``id:`` values whose ``steps.<id>.outputs.*`` references are
+            untrusted -- see :func:`_collect_poisonable_step_ids`.
 
     Returns:
         ``(findings, quoted)`` -- findings for every untrusted expression encountered
@@ -399,7 +507,7 @@ def remediate_run_step(
     """
     exprs = _EXPR_RE.findall(text)
     unfixable = [e for e in exprs if "(" in e]
-    untrusted = [e for e in exprs if e not in unfixable and _is_untrusted(e)]
+    untrusted = [e for e in exprs if e not in unfixable and _is_untrusted(e, poisonable_ids)]
     findings: list[InjectionFinding] = [InjectionFinding(item_path, e, fixed=False) for e in unfixable]
 
     step_path = item_path[:-1]
@@ -582,8 +690,9 @@ def fix_injection_file(
     all_findings: list[InjectionFinding] = []
     quoted_paths: list[tuple[Any, ...]] = []
     placeholders: dict[str, tuple[str, str]] = {}
+    poisonable_ids = _collect_poisonable_step_ids(doc)
     for item_path, text in _collect_run_steps(doc):
-        findings, quoted = remediate_run_step(doc, item_path, text, placeholders)
+        findings, quoted = remediate_run_step(doc, item_path, text, placeholders, poisonable_ids)
         all_findings.extend(findings)
         if quoted:
             quoted_paths.append(item_path)

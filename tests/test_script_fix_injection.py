@@ -919,3 +919,84 @@ class TestNewUntrustedContexts:
         assert not modified
         assert quoted_paths == []
         assert wf.read_text() == original
+
+
+class TestPoisonableStepOutputs:
+    """Test steps.<id>.outputs.* detection for known-poisonable producer steps."""
+
+    def test_poisonable_action_output_hoisted(self, tmp_path: Path) -> None:
+        """Output of a step using a poisonable action (ruby/setup-ruby) is hoisted."""
+        # Arrange
+        wf = tmp_path / "wf.yml"
+        wf.write_text(
+            "jobs:\n  build:\n    steps:\n"
+            "      - id: setup\n"
+            "        uses: ruby/setup-ruby@v1\n"
+            '      - run: echo "${{ steps.setup.outputs.something }}"\n',
+        )
+
+        # Act
+        modified, findings, _ = fix_injection_file(wf, dry_run=False)
+
+        # Assert
+        assert modified
+        assert len(findings) == 1
+        assert findings[0].fixed
+        assert findings[0].expr == "steps.setup.outputs.something"
+        content = wf.read_text()
+        assert "${{" not in content.split("env:")[0].split("uses: ruby/setup-ruby@v1")[1]
+
+    def test_poisonable_command_output_hoisted(self, tmp_path: Path) -> None:
+        """Output of a step whose run: script's first command is poisonable (mvn) is hoisted."""
+        # Arrange
+        wf = tmp_path / "wf.yml"
+        wf.write_text(
+            "jobs:\n  build:\n    steps:\n"
+            "      - id: build\n"
+            "        run: mvn -B verify\n"
+            '      - run: echo "${{ steps.build.outputs.version }}"\n',
+        )
+
+        # Act
+        modified, findings, _ = fix_injection_file(wf, dry_run=False)
+
+        # Assert
+        assert modified
+        assert len(findings) == 1
+        assert findings[0].fixed
+        assert findings[0].expr == "steps.build.outputs.version"
+
+    def test_non_poisonable_step_output_left_untouched(self, tmp_path: Path) -> None:
+        """Output of a step using a non-poisonable action (actions/checkout) is not flagged."""
+        # Arrange
+        wf = tmp_path / "wf.yml"
+        original = (
+            "jobs:\n  build:\n    steps:\n"
+            "      - id: checkout\n"
+            "        uses: actions/checkout@v4\n"
+            '      - run: echo "${{ steps.checkout.outputs.ref }}"\n'
+        )
+        wf.write_text(original)
+
+        # Act
+        modified, findings, _ = fix_injection_file(wf, dry_run=False)
+
+        # Assert
+        assert not modified
+        assert findings == []
+        assert wf.read_text() == original
+
+    def test_unresolvable_step_id_left_untouched(self, tmp_path: Path) -> None:
+        """A steps.<id>.outputs.* reference with no matching id: declared is left untouched."""
+        # Arrange
+        wf = tmp_path / "wf.yml"
+        original = 'jobs:\n  build:\n    steps:\n      - run: echo "${{ steps.nonexistent.outputs.x }}"\n'
+        wf.write_text(original)
+
+        # Act
+        modified, findings, _ = fix_injection_file(wf, dry_run=False)
+
+        # Assert
+        assert not modified
+        assert findings == []
+        assert wf.read_text() == original
