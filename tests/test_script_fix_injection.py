@@ -39,7 +39,7 @@ class TestFixInjectionFile:
         )
 
         # Act
-        modified, findings = fix_injection_file(wf, dry_run=False)
+        modified, findings, _ = fix_injection_file(wf, dry_run=False)
 
         # Assert
         assert modified
@@ -58,7 +58,7 @@ class TestFixInjectionFile:
         wf.write_text(original)
 
         # Act
-        modified, findings = fix_injection_file(wf, dry_run=False)
+        modified, findings, _ = fix_injection_file(wf, dry_run=False)
 
         # Assert
         assert not modified
@@ -76,7 +76,7 @@ class TestFixInjectionFile:
         )
 
         # Act
-        modified, findings = fix_injection_file(wf, dry_run=False)
+        modified, findings, _ = fix_injection_file(wf, dry_run=False)
 
         # Assert
         assert modified
@@ -94,7 +94,7 @@ class TestFixInjectionFile:
         wf.write_text(original)
 
         # Act
-        modified, findings = fix_injection_file(wf, dry_run=False)
+        modified, findings, _ = fix_injection_file(wf, dry_run=False)
 
         # Assert
         assert not modified
@@ -110,7 +110,7 @@ class TestFixInjectionFile:
         wf.write_text(original)
 
         # Act
-        modified, findings = fix_injection_file(wf, dry_run=False)
+        modified, findings, _ = fix_injection_file(wf, dry_run=False)
 
         # Assert
         assert not modified
@@ -126,7 +126,7 @@ class TestFixInjectionFile:
         wf.write_text(original)
 
         # Act
-        modified, findings = fix_injection_file(wf, dry_run=True)
+        modified, findings, _ = fix_injection_file(wf, dry_run=True)
 
         # Assert
         assert modified
@@ -141,7 +141,7 @@ class TestFixInjectionFile:
 
         # Act
         fix_injection_file(wf, dry_run=False)
-        modified_again, findings_again = fix_injection_file(wf, dry_run=False)
+        modified_again, findings_again, _ = fix_injection_file(wf, dry_run=False)
 
         # Assert
         assert not modified_again
@@ -167,7 +167,7 @@ class TestFixInjectionFile:
         )
 
         # Act
-        modified, findings = fix_injection_file(wf, dry_run=False)
+        modified, findings, _ = fix_injection_file(wf, dry_run=False)
 
         # Assert
         assert modified
@@ -192,7 +192,7 @@ class TestTrustedExprHoistedAlongsideUntrusted:
         )
 
         # Act
-        modified, findings = fix_injection_file(wf, dry_run=False)
+        modified, findings, _ = fix_injection_file(wf, dry_run=False)
 
         # Assert
         assert modified
@@ -211,7 +211,7 @@ class TestTrustedExprHoistedAlongsideUntrusted:
         wf.write_text(original)
 
         # Act
-        modified, findings = fix_injection_file(wf, dry_run=False)
+        modified, findings, _ = fix_injection_file(wf, dry_run=False)
 
         # Assert
         assert not modified
@@ -229,7 +229,7 @@ class TestTrustedExprHoistedAlongsideUntrusted:
 
         # Act
         fix_injection_file(wf, dry_run=False)
-        modified_again, findings_again = fix_injection_file(wf, dry_run=False)
+        modified_again, findings_again, _ = fix_injection_file(wf, dry_run=False)
 
         # Assert
         assert not modified_again
@@ -248,7 +248,7 @@ class TestExpandedUntrustedContexts:
         )
 
         # Act
-        modified, findings = fix_injection_file(wf, dry_run=False)
+        modified, findings, _ = fix_injection_file(wf, dry_run=False)
 
         # Assert
         assert modified
@@ -264,7 +264,7 @@ class TestExpandedUntrustedContexts:
         )
 
         # Act
-        modified, findings = fix_injection_file(wf, dry_run=False)
+        modified, findings, _ = fix_injection_file(wf, dry_run=False)
 
         # Assert
         assert modified
@@ -280,7 +280,7 @@ class TestExpandedUntrustedContexts:
         )
 
         # Act
-        modified, findings = fix_injection_file(wf, dry_run=False)
+        modified, findings, _ = fix_injection_file(wf, dry_run=False)
 
         # Assert
         assert modified
@@ -296,7 +296,7 @@ class TestExpandedUntrustedContexts:
         )
 
         # Act
-        modified, findings = fix_injection_file(wf, dry_run=False)
+        modified, findings, _ = fix_injection_file(wf, dry_run=False)
 
         # Assert
         assert modified
@@ -314,7 +314,7 @@ class TestExpandedUntrustedContexts:
         wf.write_text(original)
 
         # Act
-        modified, findings = fix_injection_file(wf, dry_run=False)
+        modified, findings, _ = fix_injection_file(wf, dry_run=False)
 
         # Assert
         assert not modified
@@ -337,7 +337,7 @@ class TestBlockScalarPreservation:
         )
 
         # Act
-        modified, findings = fix_injection_file(wf, dry_run=False)
+        modified, findings, _ = fix_injection_file(wf, dry_run=False)
 
         # Assert
         assert modified
@@ -360,7 +360,7 @@ class TestBlockScalarPreservation:
         )
 
         # Act
-        modified, findings = fix_injection_file(wf, dry_run=False)
+        modified, findings, _ = fix_injection_file(wf, dry_run=False)
 
         # Assert
         assert modified
@@ -380,7 +380,7 @@ class TestBlockScalarPreservation:
         )
 
         # Act
-        modified, findings = fix_injection_file(wf, dry_run=False)
+        modified, findings, _ = fix_injection_file(wf, dry_run=False)
 
         # Assert
         assert modified
@@ -402,7 +402,7 @@ class TestBlockScalarPreservation:
         )
 
         # Act
-        modified, findings = fix_injection_file(wf, dry_run=False)
+        modified, findings, _ = fix_injection_file(wf, dry_run=False)
 
         # Assert
         assert modified
@@ -424,7 +424,7 @@ class TestBlockScalarPreservation:
         )
 
         # Act
-        modified, findings = fix_injection_file(wf, dry_run=False)
+        modified, findings, _ = fix_injection_file(wf, dry_run=False)
 
         # Assert
         assert modified
@@ -447,7 +447,7 @@ class TestBlockScalarPreservation:
         )
 
         # Act
-        modified, findings = fix_injection_file(wf, dry_run=False)
+        modified, findings, _ = fix_injection_file(wf, dry_run=False)
 
         # Assert
         assert modified
@@ -469,7 +469,7 @@ class TestBlockScalarPreservation:
 
         # Act
         fix_injection_file(wf, dry_run=False)
-        modified_again, findings_again = fix_injection_file(wf, dry_run=False)
+        modified_again, findings_again, _ = fix_injection_file(wf, dry_run=False)
 
         # Assert
         assert not modified_again
@@ -482,7 +482,7 @@ class TestBlockScalarPreservation:
         wf.write_text('jobs:\n  build:\n    steps:\n      - run: echo "${{ github.event.issue.title }}"\n')
 
         # Act
-        modified, findings = fix_injection_file(wf, dry_run=False)
+        modified, findings, _ = fix_injection_file(wf, dry_run=False)
 
         # Assert
         assert modified
@@ -501,7 +501,7 @@ class TestQuoting:
         wf.write_text("jobs:\n  build:\n    steps:\n      - run: echo ${{ github.event.issue.title }}\n")
 
         # Act
-        modified, findings = fix_injection_file(wf, dry_run=False)
+        modified, findings, _ = fix_injection_file(wf, dry_run=False)
 
         # Assert
         assert modified
@@ -516,7 +516,7 @@ class TestQuoting:
         wf.write_text('jobs:\n  build:\n    steps:\n      - run: echo "${{ github.event.issue.title }}"\n')
 
         # Act
-        modified, findings = fix_injection_file(wf, dry_run=False)
+        modified, findings, _ = fix_injection_file(wf, dry_run=False)
 
         # Assert
         assert modified
@@ -533,7 +533,7 @@ class TestQuoting:
         )
 
         # Act
-        modified, findings = fix_injection_file(wf, dry_run=False)
+        modified, findings, _ = fix_injection_file(wf, dry_run=False)
 
         # Assert
         assert modified
@@ -565,7 +565,7 @@ class TestQuoting:
         )
 
         # Act
-        modified, findings = fix_injection_file(wf, dry_run=False)
+        modified, findings, _ = fix_injection_file(wf, dry_run=False)
 
         # Assert
         assert modified
@@ -585,7 +585,7 @@ class TestQuoting:
         )
 
         # Act
-        modified, findings = fix_injection_file(wf, dry_run=False)
+        modified, findings, _ = fix_injection_file(wf, dry_run=False)
 
         # Assert
         assert modified
@@ -605,7 +605,7 @@ class TestQuoting:
         )
 
         # Act
-        modified, findings = fix_injection_file(wf, dry_run=False)
+        modified, findings, _ = fix_injection_file(wf, dry_run=False)
 
         # Assert
         assert modified
@@ -624,7 +624,7 @@ class TestQuoting:
         )
 
         # Act
-        modified, findings = fix_injection_file(wf, dry_run=False)
+        modified, findings, _ = fix_injection_file(wf, dry_run=False)
 
         # Assert
         assert modified
@@ -642,8 +642,219 @@ class TestQuoting:
 
         # Act
         fix_injection_file(wf, dry_run=False)
-        modified_again, findings_again = fix_injection_file(wf, dry_run=False)
+        modified_again, findings_again, _ = fix_injection_file(wf, dry_run=False)
 
         # Assert
         assert not modified_again
         assert findings_again == []
+
+
+class TestNewUntrustedContexts:
+    """Test additional untrusted leaf/whole-object contexts from CodeQL's data model."""
+
+    @pytest.mark.parametrize(
+        "expr",
+        [
+            "github.event.workflow_run.head_commit.message",
+            "github.event.workflow_run.head_commit.author.email",
+            "github.event.workflow_run.head_commit.committer.name",
+            "github.event.workflow_run.head_repository.description",
+            "github.event.workflow_run.pull_requests",
+            "github.event.merge_group.head_ref",
+            "github.event.merge_group.committer.email",
+            "github.event.pull_request.head.repo.homepage",
+            "github.event.pull_request.head.repo.description",
+            "github.event.head_commit.committer.email",
+            "github.event.changes",
+            "github.event.workflow.path",
+            "github.event.workflow_run.path",
+            "github.event.workflow_run.referenced_workflows",
+        ],
+    )
+    def test_new_leaf_context_fixed(self, tmp_path: Path, expr: str) -> None:
+        """Newly-added CodeQL-sourced leaf context paths are auto-fixed."""
+        # Arrange
+        wf = tmp_path / "wf.yml"
+        wf.write_text(f'jobs:\n  build:\n    steps:\n      - run: echo "${{{{ {expr} }}}}"\n')
+
+        # Act
+        modified, findings, _ = fix_injection_file(wf, dry_run=False)
+
+        # Assert
+        assert modified
+        assert len(findings) == 1
+        assert findings[0].fixed
+
+    @pytest.mark.parametrize(
+        "expr",
+        [
+            "github.event.comment",
+            "github.event.issue",
+            "github.event.pull_request",
+            "github.event.review",
+            "github.event.discussion",
+            "github.event.head_commit",
+            "github.event.merge_group",
+            "github.event.workflow_run",
+        ],
+    )
+    def test_whole_object_interpolation_fixed(self, tmp_path: Path, expr: str) -> None:
+        """Whole-object interpolation (e.g. ${{ github.event.issue }}) is auto-fixed."""
+        # Arrange
+        wf = tmp_path / "wf.yml"
+        wf.write_text(f'jobs:\n  build:\n    steps:\n      - run: echo "${{{{ {expr} }}}}"\n')
+
+        # Act
+        modified, findings, _ = fix_injection_file(wf, dry_run=False)
+
+        # Assert
+        assert modified
+        assert len(findings) == 1
+        assert findings[0].fixed
+
+    @pytest.mark.parametrize(
+        "expr",
+        [
+            "github.event.pull_request.number",
+            "github.event.issue.number",
+            "github.event.comment.id",
+            "github.repository",
+        ],
+    )
+    def test_trusted_leaf_of_whole_object_untouched(self, tmp_path: Path, expr: str) -> None:
+        """Trusted leaves of a whole-object context (e.g. .number) stay untouched."""
+        # Arrange
+        wf = tmp_path / "wf.yml"
+        original = f'jobs:\n  build:\n    steps:\n      - run: echo "${{{{ {expr} }}}}"\n'
+        wf.write_text(original)
+
+        # Act
+        modified, findings, _ = fix_injection_file(wf, dry_run=False)
+
+        # Assert
+        assert not modified
+        assert findings == []
+        assert wf.read_text() == original
+
+
+class TestUnconditionalEnvVarQuoting:
+    """Test bare $VAR/$env:VAR quoting runs unconditionally, not just for hoisted placeholders."""
+
+    def test_preexisting_bare_var_quoted_with_no_untrusted_context(self, tmp_path: Path) -> None:
+        """A pre-existing unquoted $VAR (from an existing env:) is quoted with zero GH-context findings."""
+        # Arrange
+        wf = tmp_path / "wf.yml"
+        wf.write_text(
+            "jobs:\n  build:\n    steps:\n      - run: echo $TITLE\n        env:\n          TITLE: some-value\n",
+        )
+
+        # Act
+        modified, findings, quoted_paths = fix_injection_file(wf, dry_run=False)
+
+        # Assert
+        assert modified
+        assert findings == []
+        assert len(quoted_paths) == 1
+        assert 'echo "$TITLE"' in wf.read_text()
+
+    def test_preexisting_bare_env_var_pwsh_quoted(self, tmp_path: Path) -> None:
+        """A pre-existing unquoted $env:VAR in a pwsh step is quoted with zero GH-context findings."""
+        # Arrange
+        wf = tmp_path / "wf.yml"
+        wf.write_text(
+            "jobs:\n  build:\n    steps:\n"
+            "      - shell: pwsh\n"
+            "        run: Write-Output $env:TITLE\n"
+            "        env:\n"
+            "          TITLE: some-value\n",
+        )
+
+        # Act
+        modified, findings, quoted_paths = fix_injection_file(wf, dry_run=False)
+
+        # Assert
+        assert modified
+        assert findings == []
+        assert len(quoted_paths) == 1
+        assert 'Write-Output "$env:TITLE"' in wf.read_text()
+
+    def test_no_bare_vars_no_quoting(self, tmp_path: Path) -> None:
+        """A step with no untrusted context and no bare env-var reference is left untouched."""
+        # Arrange
+        wf = tmp_path / "wf.yml"
+        original = "jobs:\n  build:\n    steps:\n      - run: echo hello\n"
+        wf.write_text(original)
+
+        # Act
+        modified, findings, quoted_paths = fix_injection_file(wf, dry_run=False)
+
+        # Assert
+        assert not modified
+        assert findings == []
+        assert quoted_paths == []
+        assert wf.read_text() == original
+
+    def test_unconditional_quoting_idempotent(self, tmp_path: Path) -> None:
+        """Running the fixer twice on an unconditionally-quoted step produces no further changes."""
+        # Arrange
+        wf = tmp_path / "wf.yml"
+        wf.write_text(
+            "jobs:\n  build:\n    steps:\n      - run: echo $TITLE\n        env:\n          TITLE: some-value\n",
+        )
+
+        # Act
+        fix_injection_file(wf, dry_run=False)
+        modified_again, findings_again, quoted_again = fix_injection_file(wf, dry_run=False)
+
+        # Assert
+        assert not modified_again
+        assert findings_again == []
+        assert quoted_again == []
+
+    @pytest.mark.parametrize("special", ["$@", "$*", "$#", "$?", "$$", "$!", "$1", "$0"])
+    def test_special_positional_vars_never_quoted(self, tmp_path: Path, special: str) -> None:
+        """Bash special/positional parameters are never quoted (would change word-splitting semantics)."""
+        # Arrange
+        wf = tmp_path / "wf.yml"
+        original = f"jobs:\n  build:\n    steps:\n      - run: echo {special}\n"
+        wf.write_text(original)
+
+        # Act
+        modified, findings, quoted_paths = fix_injection_file(wf, dry_run=False)
+
+        # Assert
+        assert not modified
+        assert findings == []
+        assert quoted_paths == []
+        assert wf.read_text() == original
+
+    def test_command_substitution_never_quoted(self, tmp_path: Path) -> None:
+        """$(...) command substitution is never treated as a bare var reference."""
+        # Arrange
+        wf = tmp_path / "wf.yml"
+        original = "jobs:\n  build:\n    steps:\n      - run: echo $(date)\n"
+        wf.write_text(original)
+
+        # Act
+        modified, findings, quoted_paths = fix_injection_file(wf, dry_run=False)
+
+        # Assert
+        assert not modified
+        assert findings == []
+        assert quoted_paths == []
+        assert wf.read_text() == original
+
+    def test_cmd_shell_never_quoted(self, tmp_path: Path) -> None:
+        """cmd's %VAR% expands regardless of quoting; unconditional pass leaves cmd steps untouched."""
+        # Arrange
+        wf = tmp_path / "wf.yml"
+        original = "jobs:\n  build:\n    steps:\n      - shell: cmd\n        run: echo %TITLE%\n"
+        wf.write_text(original)
+
+        # Act
+        modified, _findings, quoted_paths = fix_injection_file(wf, dry_run=False)
+
+        # Assert
+        assert not modified
+        assert quoted_paths == []
+        assert wf.read_text() == original

@@ -25,11 +25,12 @@ Static, network-free (no GitHub API calls). Only rewrites ``run:`` shell steps;
 ``actions/github-script``'s ``with.script`` is JavaScript, not shell, and is
 reported only -- never auto-fixed.
 
-The hoisted ``$VAR``/``$env:VAR`` reference is also requoted to match how the original
-``${{ }}`` substitution behaved: bare/unquoted occurrences are wrapped in double quotes
+Every bare/unquoted ``$VAR``/``$env:VAR`` reference in a step's ``run:`` text -- not
+just ones this tool just hoisted -- is also (re)quoted to match how the original
+``${{ }}`` substitution behaved: bare occurrences are wrapped in double quotes
 (preventing word-splitting/globbing on the untrusted value), and occurrences originally
 inside a single-quoted string -- which never interpolates ``$VAR`` -- are spliced out of
-the literal so the value still expands (see ``_requote_placeholder``). This does not apply
+the literal so the value still expands (see ``_quote_bare_env_refs``). This does not apply
 to ``cmd``, whose ``%VAR%`` expands unconditionally regardless of quoting.
 """
 
@@ -44,48 +45,86 @@ from pin_actions.config import Settings
 from pin_actions.errors import PinActionsError, YAMLParseError
 from pydantic import Field
 
-# GitHub Security Lab's documented list of attacker-controllable context paths.
+# GitHub Security Lab's documented list of attacker-controllable context paths, plus
+# CodeQL's untrusted_event_properties data model (workflow_run/merge_group/head_commit
+# committer fields, edited-event diffs, workflow path fields).
 # See: https://securitylab.github.com/resources/github-actions-untrusted-input/
-UNTRUSTED_CONTEXTS = frozenset(
-    {
-        "github.event.issue.title",
-        "github.event.issue.body",
-        "github.event.pull_request.title",
-        "github.event.pull_request.body",
-        "github.event.pull_request.head.ref",
-        "github.event.pull_request.head.label",
-        "github.event.pull_request.head.repo.default_branch",
-        "github.event.comment.body",
-        "github.event.review.body",
-        "github.event.review_comment.body",
-        "github.event.discussion.title",
-        "github.event.discussion.body",
-        "github.event.pages",
-        "github.event.commits",
-        "github.event.head_commit.message",
-        "github.event.head_commit.author.email",
-        "github.event.head_commit.author.name",
-        "github.event.workflow_run.head_branch",
-        "github.event.workflow_run.display_title",
-        "github.head_ref",
-        # workflow_dispatch/workflow_call inputs: not anonymous (requires dispatch/call
-        # access), but still an attacker-controllable string reaching a shell -- treated
-        # the same as event-payload fields per GitHub's own hardening guidance. The bare
-        # "inputs." prefix also covers composite action inputs (action.yml `inputs:`).
-        "github.event.inputs",
-        "inputs",
-        # repository_dispatch: arbitrary external payload from whoever holds the dispatch token.
-        "github.event.client_payload",
-        "github.event.label.name",
-        "github.event.milestone.title",
-        "github.event.milestone.description",
-        "github.event.check_run.output.title",
-        "github.event.check_run.output.summary",
-        "github.event.deployment_status.description",
-        "github.event.release.name",
-        "github.event.release.body",
-    }
-)
+#
+# Maps each untrusted context path to whether it is a whole-object context (True) that
+# must be matched exactly, never as a prefix. Interpolating/toJSON-serializing a whole
+# object (e.g. `${{ github.event.issue }}`) stringifies every leaf field, including
+# untrusted ones (title/body/etc.), mirroring CodeQL's blanket "json" source rows -- but
+# the object also carries plainly-trusted leaves (`.number`, `.id`, ...) that must stay
+# untouched when referenced directly as their own leaf path, so whole-object contexts
+# are exact-match only and never prefix-match a dotted child expression the way a leaf
+# untrusted context (e.g. `github.event.issue.title`) does.
+UNTRUSTED_CONTEXTS: dict[str, bool] = {
+    "github.event.issue.title": False,
+    "github.event.issue.body": False,
+    "github.event.pull_request.title": False,
+    "github.event.pull_request.body": False,
+    "github.event.pull_request.head.ref": False,
+    "github.event.pull_request.head.label": False,
+    "github.event.pull_request.head.repo.default_branch": False,
+    "github.event.comment.body": False,
+    "github.event.review.body": False,
+    "github.event.review_comment.body": False,
+    "github.event.discussion.title": False,
+    "github.event.discussion.body": False,
+    "github.event.pages": False,
+    "github.event.commits": False,
+    "github.event.head_commit.message": False,
+    "github.event.head_commit.author.email": False,
+    "github.event.head_commit.author.name": False,
+    "github.event.workflow_run.head_branch": False,
+    "github.event.workflow_run.display_title": False,
+    "github.head_ref": False,
+    # workflow_dispatch/workflow_call inputs: not anonymous (requires dispatch/call
+    # access), but still an attacker-controllable string reaching a shell -- treated
+    # the same as event-payload fields per GitHub's own hardening guidance. The bare
+    # "inputs." prefix also covers composite action inputs (action.yml `inputs:`).
+    "github.event.inputs": False,
+    "inputs": False,
+    # repository_dispatch: arbitrary external payload from whoever holds the dispatch token.
+    "github.event.client_payload": False,
+    "github.event.label.name": False,
+    "github.event.milestone.title": False,
+    "github.event.milestone.description": False,
+    "github.event.check_run.output.title": False,
+    "github.event.check_run.output.summary": False,
+    "github.event.deployment_status.description": False,
+    "github.event.release.name": False,
+    "github.event.release.body": False,
+    "github.event.workflow_run.head_commit.message": False,
+    "github.event.workflow_run.head_commit.author.email": False,
+    "github.event.workflow_run.head_commit.author.name": False,
+    "github.event.workflow_run.head_commit.committer.email": False,
+    "github.event.workflow_run.head_commit.committer.name": False,
+    "github.event.workflow_run.head_repository.description": False,
+    "github.event.workflow_run.pull_requests": False,
+    "github.event.merge_group.head_ref": False,
+    "github.event.merge_group.committer.email": False,
+    "github.event.merge_group.committer.name": False,
+    "github.event.pull_request.head.repo.homepage": False,
+    "github.event.pull_request.head.repo.description": False,
+    "github.event.head_commit.committer.email": False,
+    "github.event.head_commit.committer.name": False,
+    # `changes.*` carries the *previous* value of an edited field (issue/PR edited
+    # events) -- still attacker-controlled text, just historical rather than current.
+    "github.event.changes": False,
+    "github.event.workflow.path": False,
+    "github.event.workflow_run.path": False,
+    "github.event.workflow_run.referenced_workflows": False,
+    # Whole-object contexts: exact-match only (see docstring above).
+    "github.event.comment": True,
+    "github.event.issue": True,
+    "github.event.pull_request": True,
+    "github.event.review": True,
+    "github.event.discussion": True,
+    "github.event.head_commit": True,
+    "github.event.merge_group": True,
+    "github.event.workflow_run": True,
+}
 
 
 _EXPR_RE = re.compile(r"\$\{\{\s*(.+?)\s*\}\}")
@@ -131,7 +170,10 @@ def _is_untrusted(expr: str) -> bool:
     """
     if "(" in expr:
         return False
-    return any(expr == ctx or expr.startswith(f"{ctx}.") for ctx in UNTRUSTED_CONTEXTS)
+    return any(
+        expr == ctx or (not whole_object and expr.startswith(f"{ctx}."))
+        for ctx, whole_object in UNTRUSTED_CONTEXTS.items()
+    )
 
 
 def _line_quote_states(line: str) -> list[str]:
@@ -166,46 +208,52 @@ def _line_quote_states(line: str) -> list[str]:
     return states
 
 
-def _requote_placeholder(placeholder: str, state: str, shell: str) -> str:
-    """Adjust a hoisted ``$VAR`` placeholder so it expands the same way the original ``${{ }}`` did.
+def _hoist_expr_in_text(text: str, expr: str, placeholder: str) -> str:
+    """Replace every ``${{ expr }}`` occurrence of a specific expression in ``text`` with a bare placeholder.
 
-    - ``"double"``: already inside an interpolating string -- leave the bare placeholder as-is.
-    - ``"none"`` (bare/unquoted word): wrap in double quotes to prevent word-splitting/globbing
-      on the env var's value (untrusted-input-controlled).
-    - ``"single"``: single-quoted strings never interpolate, so the placeholder must be spliced
-      out of the literal via :data:`_SINGLE_QUOTE_SPLICE` (close quote, interpolate, reopen quote).
-
-    Only applied for shells in :data:`_SINGLE_QUOTE_SPLICE` (bash/sh/pwsh/powershell); ``cmd``'s
-    ``%VAR%`` expands regardless of quoting, so its placeholder is always returned unchanged.
+    Quoting to match the original ``${{ }}`` substitution's expansion behavior is handled
+    separately by :func:`_quote_bare_env_refs`, which runs unconditionally over the whole
+    step text (including pre-existing var references, not just newly-hoisted ones).
     """
-    if shell not in _SINGLE_QUOTE_SPLICE:
-        return placeholder
-    if state == "single":
-        return _SINGLE_QUOTE_SPLICE[shell].format(placeholder)
-    if state == "none":
-        return f'"{placeholder}"'
-    return placeholder
+    return _EXPR_RE.sub(lambda m: placeholder if m.group(1) == expr else m.group(0), text)
 
 
-def _hoist_expr_in_text(text: str, expr: str, placeholder: str, shell: str) -> str:
-    """Replace every ``${{ expr }}`` occurrence of a specific expression in ``text``.
+_VAR_REF_RE = {
+    "bash": re.compile(r"\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?"),
+    "sh": re.compile(r"\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?"),
+    "pwsh": re.compile(r"\$env:([A-Za-z_][A-Za-z0-9_]*)"),
+    "powershell": re.compile(r"\$env:([A-Za-z_][A-Za-z0-9_]*)"),
+}
 
-    ``placeholder`` is requoted per-occurrence based on the shell-quote context it sits in.
 
-    Quote state is tracked per line (see :func:`_line_quote_states`); ``re.sub`` evaluates
-    match positions against the original line, so per-match requoting here is unaffected by
-    earlier replacements lengthening/shortening that same line within this call.
+def _quote_bare_env_refs(text: str, shell: str) -> str:
+    """Quote every bare (unquoted) shell env-var reference in ``text`` to prevent word-splitting/globbing.
+
+    Runs unconditionally over a step's full ``run:`` text -- not just placeholders this tool
+    just hoisted -- so pre-existing unquoted ``$VAR``/``$env:VAR`` references are also hardened
+    (classic ShellCheck SC2086). Single-quoted occurrences (which never interpolate) are spliced
+    out of the literal via :data:`_SINGLE_QUOTE_SPLICE`; double-quoted occurrences are left as-is.
+    ``$(...)``/``$((...))`` substitution and bash special/positional parameters (``$@``, ``$1``,
+    ...) never match :data:`_VAR_REF_RE` (it requires an identifier start) and so are untouched.
+    Only applied for shells in :data:`_SINGLE_QUOTE_SPLICE`; ``cmd``'s ``%VAR%`` expands
+    regardless of quoting.
     """
+    var_re = _VAR_REF_RE.get(shell)
+    if var_re is None:
+        return text
 
     def _replace_line(line: str) -> str:
         states = _line_quote_states(line)
 
         def _sub(m: re.Match[str]) -> str:
-            if m.group(1) != expr:
-                return m.group(0)
-            return _requote_placeholder(placeholder, states[m.start()], shell)
+            state = states[m.start()]
+            if state == "single":
+                return _SINGLE_QUOTE_SPLICE[shell].format(m.group(0))
+            if state == "none":
+                return f'"{m.group(0)}"'
+            return m.group(0)
 
-        return _EXPR_RE.sub(_sub, line)
+        return var_re.sub(_sub, line)
 
     return "\n".join(_replace_line(line) for line in text.split("\n"))
 
@@ -287,8 +335,12 @@ def remediate_run_step(
     item_path: tuple[Any, ...],
     text: str,
     placeholders: dict[str, tuple[str, str]],
-) -> list[InjectionFinding]:
+) -> tuple[list[InjectionFinding], bool]:
     """Rewrite untrusted ${{ }} exprs in a single run: step's text to env: indirection.
+
+    Also unconditionally quotes bare env-var references in the step (see
+    :func:`_quote_bare_env_refs`) -- independent of whether any untrusted expression was
+    found, so pre-existing unquoted ``$VAR`` references are hardened too.
 
     Args:
         doc: yamlrocks round-trip document to mutate.
@@ -301,16 +353,32 @@ def remediate_run_step(
             this works around.
 
     Returns:
-        Findings for every untrusted expression encountered (fixed or report-only).
-        Trusted expressions that were incidentally hoisted alongside an untrusted one
-        in the same step (see module docstring) do not get their own finding.
+        ``(findings, quoted)`` -- findings for every untrusted expression encountered
+        (fixed or report-only; trusted expressions incidentally hoisted alongside an
+        untrusted one do not get their own finding), and whether bare env-var quoting
+        changed the step independent of any untrusted finding.
     """
     exprs = _EXPR_RE.findall(text)
     unfixable = [e for e in exprs if "(" in e]
     untrusted = [e for e in exprs if e not in unfixable and _is_untrusted(e)]
     findings: list[InjectionFinding] = [InjectionFinding(item_path, e, fixed=False) for e in unfixable]
+
+    step_path = item_path[:-1]
+    shell = _step_shell(doc, step_path)
+
     if not untrusted:
-        return findings
+        quoted_text = _quote_bare_env_refs(text, shell)
+        quoted = quoted_text != text
+        if quoted:
+            _set_path(doc, item_path, quoted_text)
+        return findings, quoted
+
+    var_syntax = _DEFAULT_SHELL_VAR_SYNTAX.get(shell)
+    if var_syntax is None:
+        # Unknown/unsupported shell: report-only, don't attempt a rewrite we can't
+        # guarantee is syntactically safe for that shell.
+        findings.extend(InjectionFinding(item_path, e, fixed=False) for e in untrusted)
+        return findings, False
 
     # CodeQL's code-injection sink is the whole Run script, not the individual ${{ }}
     # substitution: a residual plain expression (even a trusted one, e.g.
@@ -319,16 +387,6 @@ def remediate_run_step(
     # step. Hoist every remaining fixable expression alongside the untrusted ones so no
     # bare ${{ }} substitution survives in a step this function actually rewrites.
     to_hoist = [e for e in exprs if e not in unfixable]
-
-    step_path = item_path[:-1]
-    shell = _step_shell(doc, step_path)
-    var_syntax = _DEFAULT_SHELL_VAR_SYNTAX.get(shell)
-
-    if var_syntax is None:
-        # Unknown/unsupported shell: report-only, don't attempt a rewrite we can't
-        # guarantee is syntactically safe for that shell.
-        findings.extend(InjectionFinding(item_path, e, fixed=False) for e in untrusted)
-        return findings
 
     used_vars: set[str] = set()
     try:
@@ -346,9 +404,11 @@ def remediate_run_step(
         seen[expr] = var
         env_updates[var] = f"${{{{ {expr} }}}}"
         placeholder = var_syntax.format(var)
-        new_text = _hoist_expr_in_text(new_text, expr, placeholder, shell)
+        new_text = _hoist_expr_in_text(new_text, expr, placeholder)
         if expr in untrusted_set:
             findings.append(InjectionFinding(item_path, expr, fixed=True))
+
+    new_text = _quote_bare_env_refs(new_text, shell)
 
     original_style = doc.locate(item_path).style
     if original_style in ("literal", "folded"):
@@ -368,7 +428,7 @@ def remediate_run_step(
     for var, value in env_updates.items():
         _set_step_env(doc, step_path, var, value)
 
-    return findings
+    return findings, False
 
 
 _PLACEHOLDER_LINE_RE = re.compile(r"^([ \t]*(?:-[ \t]+)?)([^\s:]+):[ \t]*(__PIN_ACTIONS_RUN_\d+__)[ \t]*$")
@@ -459,7 +519,7 @@ def fix_injection_file(
     *,
     dry_run: bool = False,
     diff: bool = False,
-) -> tuple[bool, list[InjectionFinding]]:
+) -> tuple[bool, list[InjectionFinding], list[tuple[Any, ...]]]:
     """Detect and (unless dry_run) remediate script-injection in a single workflow/action file.
 
     Args:
@@ -468,8 +528,9 @@ def fix_injection_file(
         diff: If True, print a unified diff of changes to stdout (implies dry_run).
 
     Returns:
-        (modified, findings) -- whether the file was (or would be) modified, and every
-        untrusted expression found (fixed or report-only).
+        (modified, findings, quoted_paths) -- whether the file was (or would be) modified,
+        every untrusted expression found (fixed or report-only), and the ``run:`` item paths
+        where bare env-var references were quoted independent of any untrusted finding.
 
     Raises:
         YAMLParseError: If the file cannot be parsed as YAML.
@@ -485,9 +546,13 @@ def fix_injection_file(
         raise YAMLParseError(path, "expected a round-trip YAMLRocksDocument")
 
     all_findings: list[InjectionFinding] = []
+    quoted_paths: list[tuple[Any, ...]] = []
     placeholders: dict[str, tuple[str, str]] = {}
     for item_path, text in _collect_run_steps(doc):
-        all_findings.extend(remediate_run_step(doc, item_path, text, placeholders))
+        findings, quoted = remediate_run_step(doc, item_path, text, placeholders)
+        all_findings.extend(findings)
+        if quoted:
+            quoted_paths.append(item_path)
 
     new_content = _strip_yamlrocks_blank_line_artifacts(_splice_block_scalars(doc.to_yaml(), placeholders), content)
     modified = new_content != content
@@ -507,7 +572,7 @@ def fix_injection_file(
     if modified and not dry_run:
         path.write_bytes(new_content)
 
-    return modified, all_findings
+    return modified, all_findings, quoted_paths
 
 
 def _resolve_files(paths: list[Path]) -> list[Path]:
@@ -526,8 +591,12 @@ def _resolve_files(paths: list[Path]) -> list[Path]:
     return files
 
 
-def _report_findings(findings: list[InjectionFinding], f: Path) -> int:
-    """Print each finding (fixed to stdout, report-only to stderr); return report-only count."""
+def _report_findings(findings: list[InjectionFinding], quoted_paths: list[tuple[Any, ...]], f: Path) -> int:
+    """Print each finding/quoting change (fixed/quoted to stdout, report-only to stderr).
+
+    Returns:
+        Count of report-only (not auto-fixable) findings.
+    """
     report_only = 0
     for finding in findings:
         if finding.fixed:
@@ -535,6 +604,8 @@ def _report_findings(findings: list[InjectionFinding], f: Path) -> int:
         else:
             print(f"  REVIEW (not auto-fixable): {f} {finding.item_path}: {finding.expr}", file=sys.stderr)
             report_only += 1
+    for item_path in quoted_paths:
+        print(f"  quoted: {f} {item_path}: bare env-var reference(s) quoted")
     return report_only
 
 
@@ -557,10 +628,11 @@ def main() -> None:
         modified_files: list[Path] = []
         report_only_total = 0
         for f in _resolve_files(settings.paths):
-            modified, findings = fix_injection_file(f, dry_run=settings.dry_run, diff=settings.diff)
-            report_only_total += _report_findings(findings, f)
+            modified, findings, quoted_paths = fix_injection_file(f, dry_run=settings.dry_run, diff=settings.diff)
+            report_only_total += _report_findings(findings, quoted_paths, f)
             if modified:
                 modified_files.append(f)
+
     except PinActionsError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
