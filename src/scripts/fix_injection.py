@@ -50,6 +50,7 @@ from pathlib import Path
 from typing import Any
 
 import yamlrocks
+from pin_actions._yaml_artifacts import strip_blank_line_artifacts
 from pin_actions.config import Settings
 from pin_actions.errors import PinActionsError, YAMLParseError
 from pydantic import Field
@@ -299,32 +300,52 @@ def _is_untrusted(expr: str, poisonable_ids: frozenset[str]) -> bool:
 def _line_quote_states(line: str) -> list[str]:
     """Compute the shell quote state ("none"/"single"/"double") in effect at each char of ``line``.
 
-    A single left-to-right scan tracking ``'``/``"`` toggles and backslash-escaping inside
-    double quotes (bash/sh/pwsh rules: single-quoted strings have zero escaping; unquoted and
-    double-quoted contexts honor backslash-escaping of the next char). Limitation: state resets
+    A left-to-right scan tracking ``'``/``"`` toggles and backslash-escaping inside double quotes
+    (bash/sh/pwsh rules: single-quoted strings have zero escaping; unquoted and double-quoted
+    contexts honor backslash-escaping of the next char). A stack of quote states is maintained so
+    that ``$(...)`` command substitution -- which restarts quote parsing from scratch regardless
+    of the enclosing quote state, per POSIX shell grammar -- is modeled: encountering ``$(`` while
+    unquoted or double-quoted pushes a fresh ``"none"`` context, popped on the matching ``)``.
+    Command substitution inside single quotes is *not* special (single quotes suppress all
+    expansion), so a literal ``$(`` there is left as plain characters. Limitation: state resets
     per line, so a quote opened via a backslash-continued line break isn't tracked -- such steps
     are rare and still get a syntactically-valid (if possibly misquoted) rewrite reported.
     """
     states: list[str] = []
-    state = "none"
+    stack: list[tuple[str, bool]] = [("none", False)]  # (state, is_subshell_frame)
     escape_next = False
-    for ch in line:
+    i = 0
+    n = len(line)
+    while i < n:
+        ch = line[i]
+        state, _in_subshell = stack[-1]
         states.append(state)
+        consumed = 1
         if escape_next:
             escape_next = False
-            continue
-        if state == "single":
+        elif state == "single":
             if ch == "'":
-                state = "none"
+                stack.pop()
         elif state == "double":
             if ch == "\\":
                 escape_next = True
             elif ch == '"':
-                state = "none"
+                stack.pop()
+            elif ch == "$" and line[i + 1 : i + 2] == "(":
+                stack.append(("none", True))
+                states.append(state)
+                consumed = 2
         elif ch == "'":
-            state = "single"
+            stack.append(("single", False))
         elif ch == '"':
-            state = "double"
+            stack.append(("double", False))
+        elif ch == "$" and line[i + 1 : i + 2] == "(":
+            stack.append(("none", True))
+            states.append(state)
+            consumed = 2
+        elif ch == ")" and len(stack) > 1 and stack[-1][1]:
+            stack.pop()
+        i += consumed
     return states
 
 
@@ -517,7 +538,17 @@ def remediate_run_step(
         quoted_text = _quote_bare_env_refs(text, shell)
         quoted = quoted_text != text
         if quoted:
-            _set_path(doc, item_path, quoted_text)
+            original_style = doc.locate(item_path).style
+            if original_style in ("literal", "folded"):
+                # Same yamlrocks round-trip limitation as the untrusted-hoist branch below:
+                # a freshly-assigned multi-line string is always re-emitted as an escaped
+                # double-quoted scalar, so route through the placeholder/splice workaround
+                # even when the only change is bare env-var quoting.
+                token = f"__PIN_ACTIONS_RUN_{len(placeholders)}__"
+                placeholders[token] = (quoted_text, original_style)
+                _set_path(doc, item_path, token)
+            else:
+                _set_path(doc, item_path, quoted_text)
         return findings, quoted
 
     var_syntax = _DEFAULT_SHELL_VAR_SYNTAX.get(shell)
@@ -624,38 +655,6 @@ def _splice_block_scalars(rendered: bytes, placeholders: dict[str, tuple[str, st
     return "\n".join(out).encode()
 
 
-_SEQ_ITEM_LINE_RE = re.compile(r"^[ \t]*-([ \t]|$)")
-
-
-def _strip_yamlrocks_blank_line_artifacts(rendered: bytes, original: bytes) -> bytes:
-    """Work around a yamlrocks round-trip quirk that injects spurious blank lines.
-
-    Confirmed against yamlrocks 0.6.1: any mutation to a round-trip ``YAMLRocksDocument``
-    -- even one unrelated to a given block scalar -- causes ``doc.to_yaml()`` to insert an
-    extra whitespace-only line (matching the next sequence item's indent) directly before
-    a ``- `` sequence item that immediately follows a literal/folded (``|``/``>``) block
-    scalar with no blank line separating them in the original source. Only lines matching
-    that exact position (whitespace-only, immediately preceding a ``- `` line, and absent
-    at that position in the original) are dropped -- intentional blank lines inside a kept
-    (``|+``/``>+``) block scalar's own content are never touched, since those are followed
-    by further block content, not a sequence marker.
-    """
-    original_lines = original.decode().split("\n")
-    lines = rendered.decode().split("\n")
-    cleaned: list[str] = []
-    for i, line in enumerate(lines):
-        is_artifact = (
-            line.strip() == ""
-            and line != ""
-            and i + 1 < len(lines)
-            and _SEQ_ITEM_LINE_RE.match(lines[i + 1])
-            and line not in original_lines
-        )
-        if not is_artifact:
-            cleaned.append(line)
-    return "\n".join(cleaned).encode()
-
-
 def fix_injection_file(
     path: Path,
     *,
@@ -697,7 +696,7 @@ def fix_injection_file(
         if quoted:
             quoted_paths.append(item_path)
 
-    new_content = _strip_yamlrocks_blank_line_artifacts(_splice_block_scalars(doc.to_yaml(), placeholders), content)
+    new_content = strip_blank_line_artifacts(_splice_block_scalars(doc.to_yaml(), placeholders), content)
     modified = new_content != content
 
     if diff and modified:

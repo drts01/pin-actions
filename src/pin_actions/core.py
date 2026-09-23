@@ -13,6 +13,7 @@ import yamlrocks
 
 from pin_actions._duration import parse_exclude_newer
 from pin_actions._util import is_full_sha
+from pin_actions._yaml_artifacts import strip_blank_line_artifacts
 from pin_actions.client import GitHubClient
 from pin_actions.config import Settings
 from pin_actions.errors import PinActionsError, UnsupportedRegistryError, UnverifiedProvenanceError, YAMLParseError
@@ -495,7 +496,7 @@ async def _pin_doc(
     if registry_client is not None and collect_images_fn is not None:
         await _resolve_and_rewrite_images(doc, registry_client, collect_images_fn(doc))
 
-    new_content = doc.to_yaml()
+    new_content = strip_blank_line_artifacts(doc.to_yaml(), content)
     if new_content == content:
         return False
 

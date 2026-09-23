@@ -863,3 +863,42 @@ class TestPinFileReusableWorkflows:
         # Assert
         assert not modified
         assert workflow_file.read_text() == original_content
+
+
+class TestBlockScalarBlankLineArtifact:
+    """Test that pinning a uses: ref doesn't inject blank lines into unrelated block scalars."""
+
+    @pytest.mark.asyncio
+    async def test_description_block_before_sibling_key_unchanged(self, tmp_path: Path) -> None:
+        """A multi-line `description: |` block followed by sibling keys stays untouched."""
+        # Arrange
+        client = GitHubClient(token="test", concurrency=1)
+        workflow_file = tmp_path / "workflow.yml"
+        workflow_file.write_text(
+            "on:\n"
+            "  workflow_call:\n"
+            "    inputs:\n"
+            "      kubectl_cmds:\n"
+            "        description: |\n"
+            "          The kubectl commands to be run on the given tenant. Each line\n"
+            "          will be prefixed by 'kubectl '.\n"
+            "        type: string\n"
+            "        required: true\n"
+            "jobs:\n"
+            "  build:\n"
+            "    steps:\n"
+            "      - uses: actions/checkout@v4\n",
+        )
+
+        async def mock_resolve_sha(_repo: str, _ref: str) -> str:
+            return "a" * 40
+
+        # Act
+        with patch.object(client, "resolve_sha", new=AsyncMock(side_effect=mock_resolve_sha)):
+            modified = await pin_file(client, workflow_file, dry_run=False)
+
+        # Assert
+        assert modified
+        content = workflow_file.read_text()
+        assert "will be prefixed by 'kubectl '.\n        type: string\n" in content
+        assert "\n\n        type: string" not in content

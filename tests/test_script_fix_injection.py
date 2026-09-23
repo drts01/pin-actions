@@ -839,6 +839,101 @@ class TestNewUntrustedContexts:
         assert len(quoted_paths) == 1
         assert 'Write-Output "$env:TITLE"' in wf.read_text()
 
+    def test_already_double_quoted_var_inside_command_substitution_not_requoted(self, tmp_path: Path) -> None:
+        """A $VAR already double-quoted inside $(...) is not spuriously re-wrapped in extra quotes.
+
+        Regression test: the outer `"..."` around the `$(...)` must not be mistaken for closing
+        at the inner `"` that actually opens a quote *inside* the command substitution -- POSIX
+        shell grammar restarts quote parsing from scratch inside `$(...)` regardless of the
+        enclosing quote state.
+        """
+        # Arrange
+        wf = tmp_path / "wf.yml"
+        wf.write_text(
+            "jobs:\n  build:\n    steps:\n"
+            "      - run: |\n"
+            '          kubectl_cmds="$(echo -e "${kubectl_cmds}" | sed -e \'s/^[[:space:]]*//\')"\n'
+            "        env:\n"
+            "          kubectl_cmds: some-value\n",
+        )
+
+        # Act
+        modified, findings, quoted_paths = fix_injection_file(wf, dry_run=False)
+
+        # Assert
+        assert not modified
+        assert findings == []
+        assert quoted_paths == []
+        assert '""${kubectl_cmds}""' not in wf.read_text()
+
+    def test_bare_var_inside_command_substitution_still_quoted(self, tmp_path: Path) -> None:
+        """A bare (unquoted) $VAR inside $(...) is still quoted -- the fix isn't a blanket skip."""
+        # Arrange
+        wf = tmp_path / "wf.yml"
+        wf.write_text(
+            "jobs:\n  build:\n    steps:\n"
+            "      - run: |\n"
+            "          result=$(echo $TITLE)\n"
+            "        env:\n"
+            "          TITLE: some-value\n",
+        )
+
+        # Act
+        modified, findings, quoted_paths = fix_injection_file(wf, dry_run=False)
+
+        # Assert
+        assert modified
+        assert findings == []
+        assert len(quoted_paths) == 1
+        assert 'result=$(echo "$TITLE")' in wf.read_text()
+
+    def test_bare_quoting_only_preserves_literal_block_style(self, tmp_path: Path) -> None:
+        """Bare-quoting-only remediation (no untrusted expr) keeps `run: |` block-scalar style."""
+        # Arrange
+        wf = tmp_path / "wf.yml"
+        wf.write_text(
+            "jobs:\n  build:\n    steps:\n"
+            "      - run: |\n"
+            '          echo "HOME is $HOME"\n'
+            "          ./deploy.sh $UPSTREAM_AEM_INSTANCES\n"
+            "        env:\n"
+            "          UPSTREAM_AEM_INSTANCES: some-value\n",
+        )
+
+        # Act
+        modified, findings, quoted_paths = fix_injection_file(wf, dry_run=False)
+        text = wf.read_text()
+
+        # Assert
+        assert modified
+        assert findings == []
+        assert len(quoted_paths) == 1
+        assert "run: |" in text
+        assert './deploy.sh "$UPSTREAM_AEM_INSTANCES"' in text
+
+    def test_bare_quoting_only_preserves_folded_block_style(self, tmp_path: Path) -> None:
+        """Bare-quoting-only remediation (no untrusted expr) keeps `run: >` folded block-scalar style."""
+        # Arrange
+        wf = tmp_path / "wf.yml"
+        wf.write_text(
+            "jobs:\n  build:\n    steps:\n"
+            "      - run: >\n"
+            "          echo $TITLE\n"
+            "        env:\n"
+            "          TITLE: some-value\n",
+        )
+
+        # Act
+        modified, findings, quoted_paths = fix_injection_file(wf, dry_run=False)
+        text = wf.read_text()
+
+        # Assert
+        assert modified
+        assert findings == []
+        assert len(quoted_paths) == 1
+        assert "run: >" in text
+        assert 'echo "$TITLE"' in text
+
     def test_no_bare_vars_no_quoting(self, tmp_path: Path) -> None:
         """A step with no untrusted context and no bare env-var reference is left untouched."""
         # Arrange
