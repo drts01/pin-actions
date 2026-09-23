@@ -56,13 +56,24 @@ that would otherwise collapse them to an escaped `"line1\nline2\n"` scalar.
 - `github.event.client_payload.*` — arbitrary payload from `repository_dispatch`, controlled by
   whoever holds the dispatch token (often an external system).
 - Committer/author identity fields, `merge_group.*`, `workflow_run.*` head-commit/repository
-  fields, `changes.*` (the previous value of an edited issue/PR field), and workflow path fields
-  (`workflow.path`, `workflow_run.path`, `workflow_run.referenced_workflows`) — sourced from
-  CodeQL's `actions/code-injection` untrusted-context data model.
-- **Whole-object interpolation**: `${{ github.event.issue }}` or `toJSON(github.event.pull_request)`
-  stringifies every leaf field of the object, including untrusted ones (title/body/etc.), so
-  referencing the whole object is treated as untrusted even though individual trusted leaves of
-  that same object (e.g. `github.event.issue.number`) are not.
+  fields, `changes.*.from` (the previous value of an edited issue/PR field), array-indexed
+  fields (`commits[N].*`, `pages[N].*`, `workflow_run.pull_requests[N].*`,
+  `workflow_run.referenced_workflows[N].path`), and workflow path fields (`workflow.path`,
+  `workflow_run.path`) — sourced verbatim from CodeQL's `actions/code-injection`
+  `untrusted_event_properties.yml` data model.
+- **Whole-object interpolation**: `${{ github.event.issue }}`, `${{ github.event }}`, or even
+  bare `${{ github }}` — plus every other `"json"`-kind row in CodeQL's data model
+  (`workflow_run.head_commit`, `pull_request.head`, `commits`, `pages`, ...) — stringify every
+  leaf field of the object, including untrusted ones (title/body/etc.), so referencing the whole
+  object is treated as untrusted even though individual trusted leaves of that same object (e.g.
+  `github.event.issue.number`) are not.
+- **`steps.<id>.outputs.*` from known-poisonable producer steps**: if `<id>` names a step that ran an action
+  (`ruby/setup-ruby`, `azure/powershell`, ...)
+  or shell command (`mvn`, `pytest`, `terraform`, ...) in CodeQL's enumerated
+  [`poisonable_steps.yml`](https://github.com/github/codeql/blob/main/actions/ql/lib/ext/config/poisonable_steps.yml)
+  data model, its output is attacker-influenceable (e.g. via a malicious `pom.xml`) and is hoisted the same way.
+  Outputs of steps outside that list (`actions/checkout`, arbitrary custom actions, ...) are not modeled
+  and left untouched — matching CodeQL's own scope exactly.
 
 ## Unconditional Env-Var Quoting
 
@@ -85,12 +96,14 @@ Some findings are printed to stderr and **not** auto-fixed, and the script exits
 
 ## Explicit Scope Boundaries
 
-- **Direct interpolation only.**
-  `fix-injection` performs a single-pass, per-`run:`-step textual match.
+- **Direct interpolation only, plus a narrow steps.outputs allowlist.**
+  `fix-injection` performs a single-pass, per-`run:`-step textual match,
+  augmented by a first-pass step-graph resolution that maps `id:` values to
+  whether the producing step ran a known-poisonable action/command (see above).
   It does **not** trace data flow through `env:`
-  (an untrusted value assigned to `env.FOO` in one step, then referenced as `env.FOO` in a later step)
-  or through `steps.*.outputs.*`.
-  Values that reach a shell indirectly through prior job state are not detected.
+  (an untrusted value assigned to `env.FOO` in one step, then referenced as `env.FOO` in a later step),
+  and `steps.*.outputs.*` is only in scope when the producing step matches that enumerated poisonable list —
+  arbitrary indirect flow through prior job state is still not detected.
 - **JavaScript is out of scope.**
   `actions/github-script`'s `with.script` is JS, not shell — it isn't scanned or fixed by this tool at all.
 - **Not a "pwn request" detector.**
@@ -101,11 +114,13 @@ Some findings are printed to stderr and **not** auto-fixed, and the script exits
   CodeQL falls back to flagging *any* `github.*` expression when it can't resolve a workflow's trigger.
   `fix-injection` doesn't parse `on:` triggers and doesn't adopt this fallback — it would flag plainly-trusted fields
   (`github.repository`, `github.sha`, ...) far more aggressively than intended here.
-- **No third-party-action output sources.**
-  CodeQL tracks a small enumerated list of specific actions whose outputs are untrusted
-  (e.g. `dorny/paths-filter`, `tj-actions/changed-files`, `octokit/request-action`).
-  Detecting these requires resolving `uses:`/`with:` and step-output references —
-  a different detection class from this tool's single-pass `${{ }}` textual scan.
+- **No third-party-action output sources beyond CodeQL's enumerated poisonable-steps list.**
+  `steps.<id>.outputs.*` is only treated as untrusted
+  when `<id>` names a step matching CodeQL's `poisonable_steps.yml` action/command list
+  (see above) — a narrow, specific set.
+  Any other third-party action's output
+  (e.g. `dorny/paths-filter`, `tj-actions/changed-files`, `octokit/request-action`, or any action not in that list)
+  is not modeled here; CodeQL tracks those via separate, action-specific source classes this tool does not replicate.
 - For broader static analysis covering these and other classes, see
   [Comparison with Similar Tools](../explanation/comparison.md) — `zizmor`'s `template-injection`,
   `dangerous-triggers`, and related audits complement this fixer.
