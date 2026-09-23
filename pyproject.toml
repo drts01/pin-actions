@@ -193,7 +193,7 @@ markers = [
 testpaths = [ "scripts", "src", "tests" ]
 
 [tool.coverage]
-run.source_pkgs = [ "pin_actions" ]
+run.source_pkgs = [ "pin_actions", "scripts" ]
 run.omit = [ "**/__pycache__/*", "tests/*" ]
 report.exclude_lines = [
   "def __repr__",
