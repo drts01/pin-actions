@@ -199,15 +199,15 @@ Tool slide last, 20 seconds, one URL.
 
 Ordered by what blocks the abstract.
 
-| #   | Task                                                                                        | Blocks       | Status |
-| --- | ------------------------------------------------------------------------------------------- | ------------ | ------ |
-| 1   | Build the corpus scanner; sample public repos with workflow files                           | Abstract `N` | Todo   |
-| 2   | Run the scan; compute the four headline percentages                                         | Abstract     | Todo   |
-| 3   | Reproduce the fork/impostor demo end-to-end in a throwaway org                              | Demo         | Todo   |
-| 4   | Confirm each competing tool's behavior against the impostor SHA, empirically, not from docs | Part 2       | Todo   |
-| 5   | Fact-check the incident timeline and CVE against primary sources                            | Part 0       | Todo   |
-| 6   | Secure clearance to present anonymized fleet data                                           | Part 3       | Todo   |
-| 7   | Write and submit the abstract                                                               | Nov 1        | Todo   |
+| #   | Task                                                                                        | Blocks       | Status                            |
+| --- | ------------------------------------------------------------------------------------------- | ------------ | --------------------------------- |
+| 1   | Build the corpus scanner; sample public repos with workflow files                           | Abstract `N` | **Done** — `notes/scan_corpus.py` |
+| 2   | Run the scan; compute the four headline percentages                                         | Abstract     | Todo                              |
+| 3   | Reproduce the fork/impostor demo end-to-end in a throwaway org                              | Demo         | Todo                              |
+| 4   | Confirm each competing tool's behavior against the impostor SHA, empirically, not from docs | Part 2       | Todo                              |
+| 5   | Fact-check the incident timeline and CVE against primary sources                            | Part 0       | Todo                              |
+| 6   | Secure clearance to present anonymized fleet data                                           | Part 3       | Todo                              |
+| 7   | Write and submit the abstract                                                               | Nov 1        | Todo                              |
 
 Tasks 1, 2, and 3 are the proposal.
 If only one gets done, make it 1 and 2 —
@@ -225,6 +225,72 @@ State the methodology on a slide; the committee and the audience will both ask.
 - Count a repository as "fully `uses:`-pinned" only when every non-local `uses:` is a 40-character SHA.
 - Publish the scanner and the raw counts so the numbers are reproducible.
   Reproducibility is a strong signal to this committee specifically.
+
+### Running the scan
+
+`notes/scan_corpus.py` implements all of the above in four resumable stages.
+Each stage writes its artifact to disk, so the published numbers are reproducible from the published inputs.
+
+```bash
+export GITHUB_TOKEN=...   # search is 10 req/min unauthenticated, 30 req/min authenticated
+./notes/scan_corpus.py frame  --min-stars 100 --pushed-since 2026-04-01 --out notes/corpus/frame.jsonl
+./notes/scan_corpus.py fetch  --frame notes/corpus/frame.jsonl --cache notes/corpus/repos --concurrency 16
+./notes/scan_corpus.py scan   --cache notes/corpus/repos --out notes/corpus/corpus.csv
+./notes/scan_corpus.py report --csv notes/corpus/corpus.csv --exclude-dynamic
+```
+
+Configuration goes through `pydantic-settings` like the rest of the project,
+so every flag also reads from the environment and `.env`,
+the token is a `SecretStr` resolved from `PIN_ACTIONS_TOKEN` or `GITHUB_TOKEN`,
+and `--pushed-since` is validated as a real date rather than pasted into the query as a string.
+`--verbose`/`-v` is a root flag (0–3) and precedes the stage name.
+
+- `frame` bisects star bands around GitHub's 1000-result search cap
+  and records the exact query in a sibling `frame.meta.json`.
+- `fetch` uses `git clone --filter=blob:none --sparse --depth=1`,
+  which is not charged against the REST rate limit and leaves cone-mode's top-level files —
+  including `.pre-commit-config.yaml` — in place.
+  Each clone's HEAD SHA is recorded so the scan is pinned to a specific snapshot.
+- `scan` reuses the production collectors
+  (`_collect_refs`, `_collect_image_refs`, `_collect_precommit_refs`)
+  so the measurement cannot drift from what the tool actually pins.
+- `report` emits a Markdown table ready to paste into the Part 1 data slide.
+
+Publish `frame.jsonl`, `frame.meta.json`, `corpus.csv`, and the script itself.
+
+### Measurement definitions
+
+Resolve these before the slide is drawn; every one of them is a question the committee can ask.
+
+- **Denominator `N`** — repositories with at least one workflow or action file,
+  at least one in-scope `uses:`,
+  and every in-scope `uses:` already a 40-character SHA.
+- **`X`** — share of `N` carrying at least one container image reference without a `sha256:` digest.
+- **`Y`** — share of `N` carrying at least one cross-repository `actions/checkout` `with.ref` that is not a SHA.
+- **`Z`** — share of the repositories in `N` that both run pre-commit in CI and have hook revisions,
+  carrying at least one revision that is not a SHA.
+  `Z` has its own denominator; say so on the slide.
+- Expression-valued references (`${{ ... }}`) are counted separately and excluded from numerator and denominator.
+  They are neither pinned nor statically mutable,
+  and a `with.ref: ${{ github.event.pull_request.head.sha }}` is a different vulnerability class
+  (`pwn-request`, zizmor's territory), not a pinning gap.
+- Local `uses: ./...` actions are counted and reported, but are out of scope by definition.
+
+### Finding from building the scanner
+
+`pin-actions` itself only detected the `jobs.<job>.container.image` mapping form,
+not GitHub's documented `jobs.<job>.container: node:20` string shorthand.
+Fixed in `core._is_image_path` before running the scan, so `X` is not a lower bound.
+
+This is a usable 20-second aside in Part 1: the measurement found a gap in the tool that was built to close the gap.
+It supports the talk's actual thesis — that the pinning surface is larger than anyone's mental model of it,
+including the author's — and it is the kind of self-implicating detail that buys credibility with this committee.
+
+Still-known undercounts to disclose on the methodology slide:
+
+- Docker container action definitions (`runs.image` in an `action.yml`) are not classified.
+- `runs-on:` runner images are mutable and not pinnable by any tool; acknowledged as future work.
+- Default-branch snapshot only; no history.
 
 ## Q&A Preparation
 

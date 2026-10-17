@@ -11,3 +11,6 @@
 benchmark.json
 
 *.sarif
+
+# SCaLE 24x corpus scan: publish frame/CSV artifacts, never the clones
+notes/corpus/repos/

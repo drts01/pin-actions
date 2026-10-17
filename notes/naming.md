@@ -112,7 +112,7 @@ If the rename proceeds, these are the touch points.
 - [ ] `pyproject.toml`: `project.name`, `project.scripts` entry point, coverage/ruff/pyrefly path references
 - [ ] `src/pin_actions/` → `src/pin_ci/`
 - [ ] All intra-package imports and `src/pin_ci/__init__.py` exports
-- [ ] `tests/`, `benchmarks/`, `scripts/` imports, including `scripts/update_precommit.py`
+- [ ] `tests/`, `benchmarks/`, and `scripts/` imports, including `pin_actions.precommit`
 - [ ] `tox.toml` environment and path references
 - [ ] `zensical.toml`: `site_name`, `site_url`, nav paths, mkdocstrings module references
 - [ ] `docs/**`: every `pin-actions` occurrence, including `reference/*.md` mkdocstrings identifiers
