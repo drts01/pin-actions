@@ -1,7 +1,7 @@
 # Architecture Overview
 
 `pin-actions` combines async I/O, thread-safe caching, intelligent rate-limiting,
-and round-trip YAML editing to process workflows efficiently while preserving comments and formatting.
+and round-trip YAML editing to pin mutable CI references while preserving comments and formatting.
 
 ## High-Level Flow
 
@@ -61,9 +61,10 @@ sequenceDiagram
 
 ## Entry Points
 
-- **CLI**: `pin_actions.core.main()` — parses CLI args, calls `run()`
-- **Library**: `pin_actions.run()` — orchestrator; processes all files
-- **Per-file**: `pin_actions.pin_file()` — single workflow/action file
+- **Workflow CLI**: `pin_actions.core.main()` — implements `pin-actions`
+- **Pre-commit CLI**: `pin_actions.precommit.main()` — implements `pin-precommit`
+- **Workflow library**: `pin_actions.run()` and `pin_actions.pin_file()`
+- **Pre-commit library**: `pin_actions.pin_precommit_file()`
 - **Direct client**: `GitHubClient.resolve_sha()` — resolve one ref
 
 ## YAML Round-Trip Editing

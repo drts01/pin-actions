@@ -39,8 +39,6 @@ type RefsToResolve = dict[tuple[str, str], list[UsesWithRefTuple]]
 type ResolvedSHAs = dict[tuple[str, str], str]
 type ImageRefsToResolve = dict[tuple[str, str], list[tuple[Any, ...]]]
 
-_SERVICES_IMAGE_MIN_PATH_LEN = 3
-
 
 def _is_local_action(repo: str) -> bool:
     """Check if action is local (./...)."""
@@ -114,11 +112,33 @@ def _collect_refs(doc: Any) -> list[tuple[tuple[Any, ...], str, str, bool]]:  # 
     return [r for r in results if not (r[3] and _is_docker_ref(r[1]))]
 
 
+def _is_image_path(item_path: tuple[Any, ...], value: str) -> bool:
+    """Check whether ``item_path``/``value`` names a pinnable container image.
+
+    Args:
+        item_path: Walked key path within the document.
+        value: Scalar string value at ``item_path``.
+
+    Returns:
+        True for ``uses: docker://...`` steps, ``jobs.<job>.container.image``,
+        the ``jobs.<job>.container`` string shorthand, and
+        ``jobs.<job>.services.<name>.image``.
+    """
+    match item_path:
+        case (*_, "uses"):
+            return _is_docker_ref(value)
+        case (*_, "container", "image") | (*_, "services", _, "image") | (*_, "jobs", _, "container"):
+            return True
+        case _:
+            return False
+
+
 def _collect_image_refs(doc: Any) -> list[tuple[tuple[Any, ...], str, str]]:  # noqa: ANN401
     """Single-pass walk collecting container image references.
 
     Covers ``uses: docker://image:tag`` steps, ``jobs.<job>.container.image``,
-    and ``jobs.<job>.services.<name>.image``.
+    the ``jobs.<job>.container: image:tag`` string shorthand, and
+    ``jobs.<job>.services.<name>.image``.
 
     Returns:
         List of (item_path, image, tag_or_digest) for every pinnable image entry.
@@ -128,13 +148,7 @@ def _collect_image_refs(doc: Any) -> list[tuple[tuple[Any, ...], str, str]]:  # 
         if not item_path or not isinstance(value, str):
             continue
 
-        if (item_path[-1] == "uses" and _is_docker_ref(value)) or (
-            item_path[-1] == "image"
-            and (
-                item_path[-2] == "container"
-                or (len(item_path) >= _SERVICES_IMAGE_MIN_PATH_LEN and item_path[-3] == "services")
-            )
-        ):
+        if _is_image_path(item_path, value):
             parsed = parse_image_ref(value)
             if parsed:
                 _registry, name, tag = parsed

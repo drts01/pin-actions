@@ -34,6 +34,7 @@ nav = [
     { "config" = "reference/config.md" },
     { "client" = "reference/client.md" },
     { "core" = "reference/core.md" },
+    { "precommit" = "reference/precommit.md" },
     { "versioning" = "reference/versioning.md" },
     { "errors" = "reference/errors.md" },
   ] },

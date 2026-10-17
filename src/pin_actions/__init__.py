@@ -23,6 +23,7 @@ from pin_actions.errors import (
     RateLimitExhaustedError,
     YAMLParseError,
 )
+from pin_actions.precommit import pin_precommit_file
 
 __version__ = version("pin-actions")
 
@@ -42,6 +43,7 @@ __all__ = [
     "configure_logging",
     "git_url_to_repo",
     "pin_file",
+    "pin_precommit_file",
     "resolve_and_rewrite",
     "run",
 ]

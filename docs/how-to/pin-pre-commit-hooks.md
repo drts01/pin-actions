@@ -2,15 +2,15 @@
 
 Pin GitHub-hosted `.pre-commit-config.yaml` `repos[].rev` entries to immutable commit SHAs.
 
-This ships as the bundled script `scripts/update_precommit.py`, not as a `pin_actions` public API.
-Its `--help` banner displays the program name as `pin-precommit`.
+Install `pin-actions` and run the `pin-precommit` command.
+Library callers can use `pin_actions.pin_precommit_file()` with an existing `GitHubClient`.
 
 ## Preview, Then Apply
 
 ```bash
 export GITHUB_TOKEN=ghp_xxxx
-uv run --with-editable . scripts/update_precommit.py --diff
-uv run --with-editable . scripts/update_precommit.py
+uv run pin-precommit --diff
+uv run pin-precommit
 ```
 
 Each pinned `rev` becomes a commit SHA with the original tag or branch preserved as a trailing comment:
@@ -27,12 +27,12 @@ repos:
 Override it for monorepos with multiple configs:
 
 ```bash
-uv run --with-editable . scripts/update_precommit.py --paths "**/.pre-commit-config.yaml"
+uv run pin-precommit --paths "**/.pre-commit-config.yaml"
 ```
 
 Every other `pin-actions` flag applies unchanged — `--update`, `--full-version`, `--exclude-newer`, `--concurrency`,
 `--host`, `--provenance`.
-See the [CLI reference](../reference/cli.md#pin-precommit-standalone-script).
+See the [CLI reference](../reference/cli.md#pin-precommit).
 
 ## Non-GitHub Repos
 

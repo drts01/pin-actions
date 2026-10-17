@@ -115,6 +115,5 @@ Exception attributes, import paths, and the `ExceptionGroup` contract of `run()`
 - [`scripts/update_repos.py`](https://github.com/drts01/pin-actions/blob/trunk/scripts/update_repos.py) —
   runnable multi-repo driver using these patterns with `gh`/`git`;
   see [Multi-Repo Automation](./multi-repo-automation.md) for its CLI options
-- [`scripts/update_precommit.py`](https://github.com/drts01/pin-actions/blob/trunk/scripts/update_precommit.py) —
-  `pin_precommit_file()` pins `.pre-commit-config.yaml` `repos[].rev` through the same pipeline as `pin_file()`;
-  see [Pin Pre-Commit Hooks](./pin-pre-commit-hooks.md)
+- [`pin_actions.pin_precommit_file`](../reference/precommit.md) pins `.pre-commit-config.yaml` `repos[].rev`
+  through the same pipeline as `pin_file()`; see [Pin Pre-Commit Hooks](./pin-pre-commit-hooks.md)

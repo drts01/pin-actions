@@ -6,7 +6,7 @@ container images, and pre-commit hooks —
 then verify that each resolved commit actually belongs to the repository it claims to.
 
 Works as both a **CLI tool** and an **importable library**,
-scanning `.github/workflows/**/*.{yml,yaml}` and composite `action.yaml`/`action.yml` files.
+with dedicated commands for GitHub workflow/action files and pre-commit configuration.
 
 ## What Separates pin-actions
 

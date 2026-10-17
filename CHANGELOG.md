@@ -37,13 +37,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `scripts/update_repos.py`: **fork workflow support** (`--fork`, `--fork-org`) — enables users without direct write access to push to a fork and create cross-fork PRs. Fork creation is idempotent (gh repo fork --remote) and the script auto-detects fork owner for PR head ref. Fixes pre-existing bug: PR lookup now uses `gh pr list --head <branch>` instead of the non-existent `gh pr view --head` flag, enabling correct detection of both same-repo and fork-sourced PRs.
 - `--diff`: print a unified diff of pending changes instead of writing files (implies `--dry-run`)
 - `--version`: print the installed `pin-actions` version and exit
-- New `pin-precommit` entry point (`pin_actions/precommit.py`): pins GitHub-hosted `.pre-commit-config.yaml` `repos[].rev` entries using the same resolution/versioning pipeline as `pin-actions`; `scripts/update_precommit.py` is now a thin shim calling it
+- New `pin-precommit` entry point and `pin_actions.pin_precommit_file()` public API (`pin_actions/precommit.py`): pins GitHub-hosted `.pre-commit-config.yaml` `repos[].rev` entries using the same resolution/versioning pipeline as `pin-actions`
 - `AuthError` exception for 403 responses with exhausted rate limit (distinct from `RateLimitExhaustedError`)
 - Concurrent commit-date prefetch for `--exclude-newer` candidate tags (was serial)
 - `--host` file-or-directory `--path` handling: `pin-actions --path some/file.yml` now works alongside directory paths
 - Redocumented per Diátaxis: split flag matrices/exception hierarchies out of how-to guides into `reference/cli.md`/`reference/errors.md`; merged `checkout-another-repo.md` + `pin-composite-actions.md` into `how-to/pin-non-standard-refs.md`; new `how-to/run-in-ci.md` and `how-to/pin-pre-commit-hooks.md`
 
 ### Fixed
+- `jobs.<job>.container` **string shorthand** (`container: node:20`) is now pinned. Only the `jobs.<job>.container.image` mapping form was detected, so workflows using GitHub's documented shorthand silently kept a mutable image tag
 - `scripts/update_repos.py`: `_upsert_pr` PR lookup bug — replaced broken `gh pr view --repo <repo> --head <branch>` (flag does not exist; silent failure → duplicate PR creation attempts) with `gh pr list --repo <repo> --head <branch>` (correct CLI, works for same-repo and fork-sourced PRs)
 
 

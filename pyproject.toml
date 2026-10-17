@@ -5,7 +5,7 @@ requires = [ "uv-build~=0.12.5" ]
 [project]
 name = "pin-actions"
 version = "0.1.0"
-description = "A tool to pin GitHub Actions and Workflows"
+description = "Pin mutable CI references to immutable commit SHAs and content digests"
 readme = "README.md"
 keywords = [
   "ci-cd",
@@ -27,6 +27,7 @@ classifiers = [
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Topic :: Security",
   "Topic :: Software Development :: Build Tools",
   "Topic :: Software Development :: Quality Assurance",
@@ -43,6 +44,7 @@ urls.Issues = "https://github.com/drts01/pin-actions/issues"
 urls.Repository = "https://github.com/drts01/pin-actions"
 scripts.fix_injection = "scripts.fix_injection:main"
 scripts.pin-actions = "pin_actions.core:main"
+scripts.pin-precommit = "pin_actions.precommit:main"
 
 [dependency-groups]
 test = [

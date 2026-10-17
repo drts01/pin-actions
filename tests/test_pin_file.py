@@ -712,6 +712,44 @@ class TestPinFileImagePinning:
         assert "# 20" in content
 
     @pytest.mark.asyncio
+    async def test_pins_container_string_shorthand(self, tmp_path: Path) -> None:
+        """Rewrite the jobs.<job>.container string shorthand to its content digest."""
+        client = GitHubClient(token="test", concurrency=1)
+        registry_client = ContainerRegistryClient()
+        digest = "sha256:" + "b" * 64
+        workflow_file = tmp_path / "workflow.yml"
+        workflow_file.write_text(
+            "name: Test\njobs:\n  build:\n    container: node:20\n    steps:\n      - run: echo hi\n",
+        )
+
+        with patch.object(registry_client, "resolve_digest", new=AsyncMock(return_value=digest)):
+            modified = await pin_file(client, workflow_file, dry_run=False, registry_client=registry_client)
+
+        assert modified
+        content = workflow_file.read_text()
+        assert f"container: library/node@{digest}" in content
+        assert "# 20" in content
+
+    @pytest.mark.asyncio
+    async def test_non_job_container_key_ignored(self, tmp_path: Path) -> None:
+        """A 'container' key outside jobs.<job> is not treated as an image reference."""
+        client = GitHubClient(token="test", concurrency=1)
+        registry_client = ContainerRegistryClient()
+        workflow_file = tmp_path / "workflow.yml"
+        original_content = (
+            "name: Test\njobs:\n  build:\n    steps:\n      - uses: some/action@"
+            + "a" * 40
+            + "\n        with:\n          container: my-widget\n"
+        )
+        workflow_file.write_text(original_content)
+
+        mock_resolve = AsyncMock(return_value="sha256:" + "f" * 64)
+        with patch.object(registry_client, "resolve_digest", new=mock_resolve):
+            await pin_file(client, workflow_file, dry_run=True, registry_client=registry_client)
+
+        mock_resolve.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_pins_service_image(self, tmp_path: Path) -> None:
         """Rewrite jobs.<job>.services.<name>.image to its content digest."""
         client = GitHubClient(token="test", concurrency=1)

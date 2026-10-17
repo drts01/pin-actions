@@ -99,8 +99,8 @@ that difference decides whether the first pull request is reviewable.
 - Provenance verification costs an extra GitHub API call per unique `(repo, sha)` pair.
   It is cached and off by default.
 - Provenance verification is best-effort reachability against the GitHub API, not cryptographic attestation.
-- Pre-commit hook pinning ships as the bundled `scripts/update_precommit.py` entry point,
-  not as a `pin_actions` public API; see [Pin Pre-Commit Hooks](../how-to/pin-pre-commit-hooks.md).
+- Pre-commit hook pinning uses a separate `pin-precommit` command rather than automatic discovery by `pin-actions`;
+  see [Pin Pre-Commit Hooks](../how-to/pin-pre-commit-hooks.md).
 
 ## Feature Matrix
 
