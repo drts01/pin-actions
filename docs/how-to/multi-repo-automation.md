@@ -1,415 +1,190 @@
 # Multi-Repo Automation
 
+Pin GitHub Actions across many repositories in one run with `scripts/update_repos.py`,
+a bundled script that clones each repository, pins its refs, and opens pull requests.
+
 !!! note "Library usage example"
-    This script is a real-world example of using `pin_actions` as a library —
-    see [Use as a Library](./use-as-a-library.md) for the core API it builds on.
-    The library calls are isolated in `_try_pin()`: `Settings(...)` + `await run(settings, client=client)`.
+    The script is a working example of `pin_actions` used as a library.
+    Library calls are isolated in `_try_pin()`: `Settings(...)` and `await run(settings, client=client, cwd=repo_dir)`.
 
 ## Overview
 
-The `update_repos.py` script:
+For each repository, the script:
 
-- Clones repositories (shallow, for speed)
-- Scans `.github/workflows` and `.github/actions` directories
-- Pins all mutable action refs to their commit SHAs
-- Optionally commits, pushes, and opens PRs via the `gh` CLI
-- **Idempotent** — safe to re-run; force-pushes updates to the same branch
-    and reuses the existing PR instead of erroring
-- Processes repos concurrently while sharing a single GitHub API client (connection pooling + in-memory cache)
+1. Shallow-clones it with `gh repo clone`.
+2. Pins mutable action refs to commit SHAs and container image tags to `sha256:` digests.
+3. Remediates script-injection findings — [on by default](#script-injection-remediation).
+4. Optionally runs `zizmor --fix` for additional hardening.
+5. Commits to a branch and, with `--push`, opens or updates a pull request.
 
-Perfect for organizations with many repositories sharing common actions like `actions/checkout@v4`.
+Repositories are processed concurrently through a single shared `GitHubClient`.
+Re-running is safe: the branch is force-pushed and an existing open PR is reused rather than duplicated.
 
 ## Prerequisites
 
-- `gh` CLI, authenticated (`gh auth login`) — used for cloning and (with `--push`) PR creation
-- `git` CLI — used for committing and pushing
-- `uv` — invokes the script with its dependencies; no manual venv/install needed
-- `GITHUB_TOKEN` env var or `--github-token` flag (optional — only needed if not using `gh auth login`)
+- `gh` CLI, authenticated with `gh auth login` — used for cloning, forking, and PR creation.
+- `git` CLI — used for committing and pushing.
+- `uv` — runs the script with its dependencies.
+- `GITHUB_TOKEN` or `UPDATE_REPOS_TOKEN` env var, or `--github-token` (optional when `gh auth login` is set up).
 
 ## Installation
 
-No installation needed — the script is self-contained via `uv` (uses inline dependencies).
+The script is not standalone: it imports `scripts.fix_injection`, and its shebang invokes `uv run --with-editable .`.
+Clone the repository and run it from the checkout root.
 
 ```bash
-curl -O https://raw.githubusercontent.com/drts01/pin-actions/main/scripts/update_repos.py
-chmod +x update_repos.py
-./update_repos.py --repos org/repo1 --repos org/repo2 --dry-run
-```
-
-Or from a cloned `pin-actions` repo:
-
-```bash
-uv run --with-editable . scripts/update_repos.py --repos org/repo1 --repos org/repo2 --dry-run
+git clone https://github.com/drts01/pin-actions
+cd pin-actions
+uv run --with-editable . scripts/update_repos.py --repos org/service-a --dry-run
 ```
 
 ## Basic Usage
 
-### Dry-run on one repository
+### Preview changes
+
+`--dry-run` resolves refs and prints the summary without writing, committing, or pushing.
 
 ```bash
-uv run --with-editable . scripts/update_repos.py --repos octocat/Hello-World --dry-run
+uv run --with-editable . scripts/update_repos.py --repos org/service-a --repos org/service-b --dry-run
 ```
 
-Output shows which files would be modified without making any changes.
-
-### Dry-run on multiple repositories
-
-```bash
-uv run --with-editable . scripts/update_repos.py --repos org/repo1 --repos org/repo2 --repos org/repo3 --dry-run
-```
-
-### Pin and commit (without pushing)
-
-```bash
-uv run --with-editable . scripts/update_repos.py --repos org/repo1 --repos org/repo2
-```
-
-Creates local branches (e.g. `pin-actions/org-repo1`) with commits but does not push.
-
-### Pin, commit, push, and create PRs
-
-```bash
-uv run --with-editable . scripts/update_repos.py --repos org/repo1 --repos org/repo2 --push
-```
-
-Creates feature branches, pushes them, and opens PRs via `gh pr create`.
-Each repo's actual default branch (auto-detected) is used as the PR base.
-
-### Pin via a fork (limited-write-access workflow)
-
-If you lack direct write access to target repositories, use `--fork` to push to a fork and create cross-fork PRs:
-
-```bash
-uv run --with-editable . scripts/update_repos.py --repos upstream/repo1 --repos upstream/repo2 --fork --push
-```
-
-- `--fork`: Creates a fork (if needed) and pushes branches there.
-    Idempotent; re-running on an existing fork is a no-op.
-- `--fork-org <organization>`: Fork into an organization account instead of your personal account
-    (requires suitable token scopes).
-
-The script detects your fork's owner automatically
-and opens PRs from the fork's branch into the upstream repo's default branch.
-
-### Load repositories from a file
-
-```bash
-cat > repos.txt << EOF
-# My organization's repositories
-org/service-a
-org/service-b
-org/infra  # This repo uses many GH Actions
-
-# Infrastructure
-org/terraform-modules
-EOF
-
-uv run --with-editable . scripts/update_repos.py --repos-file repos.txt --dry-run
-```
-
-Comments (`#`) and blank lines are ignored.
-
-### Output in different formats
-
-**Markdown** (for pasting into PR/issue bodies):
-
-```bash
-uv run --with-editable . scripts/update_repos.py --repos-file repos.txt --dry-run --format markdown
-```
-
-**JSON** (for machine processing):
-
-```bash
-uv run --with-editable . scripts/update_repos.py --repos-file repos.txt --dry-run --format json
-```
-
-**CSV/TSV** (for spreadsheet import):
-
-```bash
-uv run --with-editable . scripts/update_repos.py --repos-file repos.txt --dry-run --format csv > results.csv
-```
-
-### Save results to a file
-
-```bash
-uv run --with-editable . scripts/update_repos.py --repos-file repos.txt --dry-run --format json --output-file results.json
-```
-
-## Command-Line Options
-
-| Flag                | Type            | Default                                                           | Description                                                                      |
-| ------------------- | --------------- | ----------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| `--repos`           | repeated string | —                                                                 | Repository (owner/repo); repeat for multiple                                     |
-| `--repos-file`      | path            | —                                                                 | File with one owner/repo per line                                                |
-| `--github-token`    | string          | `GITHUB_TOKEN` env                                                | GitHub token                                                                     |
-| `--dry-run`         | flag            | off                                                               | Print changes without writing, committing, or pushing                            |
-| `--update`          | choice          | —                                                                 | `major`/`minor`/`patch` (re-solve already-pinned tags)                           |
-| `--full-version`    | flag            | off                                                               | Record full tag version (e.g. `v4.1.7` instead of `v4`)                          |
-| `--exclude-newer`   | string          | —                                                                 | Cool-off period (RFC 3339, ISO 8601 duration, or friendly); only with `--update` |
-| `--concurrency`     | int             | 4                                                                 | Max concurrent repo clones                                                       |
-| `--api-concurrency` | int             | 5                                                                 | Max concurrent GitHub API requests                                               |
-| `--branch-prefix`   | string          | `pin-actions`                                                     | Feature branch prefix                                                            |
-| `--base-branch`     | string          | repo's default                                                    | PR base branch; auto-detected per repo if unset                                  |
-| `--push`            | flag            | off                                                               | Push branch and open PR via `gh`                                                 |
-| `--commit-message`  | string          | `chore: pin GitHub Actions to immutable commit SHAs`              | Commit message and PR title                                                      |
-| `--pr-body`         | string          | `Pinned by [pin-actions](https://github.com/drts01/pin-actions).` | Pull request body text                                                           |
-| `--format`          | choice          | `table`                                                           | Output format: `table`, `markdown`, `json`, `csv`, `tsv`                         |
-| `--output-file`     | path            | stdout                                                            | Write summary to file instead of stdout                                          |
-| `--host`            | string          | `github.com`                                                      | GitHub hostname; use for GHE Server (e.g. `github.example.com`)                  |
-| `--verbose` / `-v`  | int             | 0                                                                 | Verbosity level 0–3: 0=warnings, 1=info, 2=debug, 3=debug+dependencies           |
-
-## Output
-
-Default format (table):
-
-```text
-REPO                       MODIFIED BRANCH                           BASE_BRANCH STATUS
-────────────────────────────────────────────────────────────────────────────────────────
-octocat/Hello-World        2        pin-actions/octocat-Hello-World main        OK
-my-org/broken-yaml         0        —                                develop     ERROR: 1 file(s) failed
-my-org/no-workflows        0        —                                main        OK
-```
-
-**Markdown format** (for PR/issue comments):
-
-```markdown
-| REPO | MODIFIED | BRANCH | BASE_BRANCH | PR_URL | STATUS |
-| --- | --- | --- | --- | --- | --- |
-| octocat/Hello-World | 2 | pin-actions/octocat-Hello-World | main | https://github.com/octocat/Hello-World/pull/123 | OK |
-| my-org/broken-yaml | 0 | — | develop | — | ERROR: 1 file(s) failed |
-| my-org/no-workflows | 0 | — | main | — | OK |
-```
-
-**JSON format** (full details, machine-readable):
-
-```json
-[
-  {
-    "repo": "octocat/Hello-World",
-    "modified": [".github/workflows/ci.yml"],
-    "error": null,
-    "branch": "pin-actions/octocat-Hello-World",
-    "base_branch": "main",
-    "pr_url": "https://github.com/octocat/Hello-World/pull/123"
-  },
-  {
-    "repo": "my-org/broken-yaml",
-    "modified": [],
-    "error": "1 file(s) failed",
-    "branch": null,
-    "base_branch": "develop",
-    "pr_url": null
-  }
-]
-```
-
-Exit code: 0 if all repos succeeded, 1 if any failed.
-
-## Performance & Efficiency
-
-### Shared Client Benefits
-
-The script creates a **single `GitHubClient`** used across all repositories.
-This provides:
-
-1. **Connection pooling** — reuses HTTP connections across repos
-2. **In-memory caching** — GitHub API responses are cached by
-    (repo, ref);
-    when processing multiple repos that share common actions
-    (e.g. all use `actions/checkout@v4`), subsequent lookups hit the cache instantly
-3. **Rate-limit bookkeeping** — semaphore manages 429/403 backoff globally across all repos
-
-### Concurrency Tuning
-
-- `--concurrency N` (default 4): Max repos cloning/processing in parallel (I/O bound)
-- `--api-concurrency M` (default 5): Max GitHub API requests in flight from the client
-
-**Example**: `--concurrency 8 --api-concurrency 20` for large organizations
-(assumes healthy network and GitHub rate-limit headroom).
-
-### Large-Scale Runs
-
-For 100+ repositories:
-
-```bash
-python update_repos.py --repos-file all-repos.txt --concurrency 10 --api-concurrency 15 --push
-```
-
-Typical runtime: ~2–5 seconds per repo (dominated by clone + pin time, not API calls thanks to caching).
-
-## Examples
-
-### Update pinned semver tags to latest minor version
-
-All repos using `actions/checkout@v4` will be re-pinned to the latest `v4.x.y` available:
-
-```bash
-uv run --with-editable . scripts/update_repos.py \
-  --repos org/svc1 --repos org/svc2 \
-  --update minor \
-  --dry-run
-```
-
-### Batch automation in CI/CD (with JSON output)
-
-```bash
-#!/bin/bash
-set -e
-
-uv run --with-editable . scripts/update_repos.py \
-  --repos-file teams/infra/repos.txt \
-  --update patch \
-  --push \
-  --branch-prefix "automated/pin-actions-$(date +%Y%m%d)" \
-  --format json \
-  --output-file results.json
-```
-
-Results saved to `results.json` (includes PR URLs in `pr_url` field) for downstream processing.
-
-### Custom commit/PR text
-
-```bash
-uv run --with-editable . scripts/update_repos.py \
-  --repos org/repo1 --repos org/repo2 \
-  --push \
-  --commit-message "fix(ci): pin actions to commit SHAs per security policy" \
-  --pr-body "See https://github.com/org/security-policy for details."
-```
-
-### Generate markdown summary for Slack/PR comment
-
-```bash
-uv run --with-editable . scripts/update_repos.py \
-  --repos-file my-orgs-repos.txt \
-  --push \
-  --format markdown \
-  --output-file SUMMARY.md
-```
-
-Then paste `SUMMARY.md` into a PR or Slack message.
-PR URLs in the `PR_URL` column are directly clickable.
-
-### Auto-detect each repo's default branch
+### Pin, push, and open pull requests
 
 ```bash
 uv run --with-editable . scripts/update_repos.py \
   --repos-file repos.txt \
-  --push
+  --push \
+  --branch-name automated/pin-actions \
+  --commit-message "fix(ci): pin actions to commit SHAs per security policy" \
+  --format json --output-file results.json
 ```
 
-Each repo's actual default branch (main, master, develop, etc.) is automatically detected and used as the PR base.
-Use `--base-branch CUSTOM` to override for all repos.
+Without `--push`, the script still commits to the branch locally but never pushes.
+The PR base is each repository's own default branch, read from the clone;
+override it for all repositories with `--base-branch`.
+
+`--repos-file` takes one `owner/repo` per line.
+Blank lines and lines beginning with `#` are skipped; trailing comments on a repository line are *not* stripped.
+
+```text
+# Services
+org/service-a
+org/service-b
+
+org/terraform-modules
+```
+
+### Pin through a fork
+
+Use `--fork` when you lack write access to the target repositories.
+The script creates the fork if needed, pushes the branch there,
+and opens a cross-fork PR into the upstream default branch.
+Add `--fork-org ORG` to fork into an organization instead of your personal account.
+
+```bash
+uv run --with-editable . scripts/update_repos.py \
+  --repos upstream/repo1 --repos upstream/repo2 --fork --push
+```
+
+To re-resolve already-pinned tags, add `--update major|minor|patch`;
+see [Update Pinned Tags](./update-pinned-tags.md) for the semantics.
+
+## Key Flags
+
+Run `uv run --with-editable . scripts/update_repos.py --help` for the complete list.
+Understand these before any non-dry run.
+
+| Flag                | Default       | Behavior                                                                   |
+| ------------------- | ------------- | -------------------------------------------------------------------------- |
+| `--repos`           | —             | Repository as `owner/repo`; repeat for multiple                            |
+| `--repos-file`      | —             | File with one `owner/repo` per line                                        |
+| `--dry-run`         | off           | Resolve and report only; no writes, commits, or pushes                     |
+| `--fix-injection`   | **on**        | Also rewrite `run:` steps to remediate script injection                    |
+| `--push`            | off           | Push the branch and open or update a PR via `gh`                           |
+| `--fork`            | off           | Push to a fork (created if needed) and open a cross-fork PR                |
+| `--fork-org`        | —             | Fork into this organization instead of the authenticated user              |
+| `--branch-name`     | `pin-actions` | Exact branch name created in every repository; force-pushed on re-runs     |
+| `--base-branch`     | repo default  | PR base branch; detected per repository when unset                         |
+| `--run-zizmor`      | off           | Also run `zizmor --fix` (requires `zizmor` on `PATH`; skipped on dry runs) |
+| `--zizmor-fix`      | `safe`        | `zizmor --fix` mode: `safe` or `all`                                       |
+| `--concurrency`     | `4`           | Max repositories cloned and processed in parallel                          |
+| `--api-concurrency` | `5`           | Max in-flight GitHub API requests on the shared client                     |
+
+### Script-injection remediation
+
+`--fix-injection` is **on by default**.
+Every non-dry run therefore rewrites `run:` steps
+that interpolate untrusted `${{ ... }}` expressions in addition to pinning refs,
+and those edits land in the same commit and pull request.
+Pass `--no-fix-injection` to pin refs only.
+
+Findings that cannot be fixed automatically are logged as `REVIEW` warnings
+and counted in the `review` column of the summary.
+See [Remediate Code Injection](./remediate-code-injection.md) for exactly what is rewritten.
+
+## Output
+
+`--format` defaults to `table` and also accepts `markdown`, `json`, `csv`, and `tsv`.
+`--output-file` writes the summary to a file instead of stdout.
+
+```text
+REPO          MODIFIED BRANCH      BASE_BRANCH FORK_OWNER PR_URL                                   REVIEW STATUS
+---------------------------------------------------------------------------------------------------------------------------------
+org/service-a 2        pin-actions main        —          https://github.com/org/service-a/pull/42 1      OK
+org/service-b 0        —           develop     —          —                                        —      ERROR: 1 file(s) failed
+```
+
+`json` emits the full result records, including every modified file path.
+The exit code is `0` when all repositories succeeded and `1` when any failed.
+
+## Concurrency
+
+All repositories share one `GitHubClient`,
+so HTTP connections are pooled and API responses are cached by repository and ref:
+the second repository using `actions/checkout@v7` resolves from cache instead of the network.
+Raise `--concurrency` for clone and pin throughput; lower `--api-concurrency` when GitHub rate-limits you.
 
 ## Troubleshooting
 
-### `subprocess.CalledProcessError: clone failed`
+### `clone failed`
 
-Ensure:
-
-- Repository URL is correct (owner/repo format)
-- Token has `repo` scope (full repository read access)
-- Network connectivity to GitHub
-- `gh` CLI is installed and authenticated: `gh auth status`
+Verify the `owner/repo` spelling, network reachability, `gh auth status`, and that the token has `repo` scope.
 
 ### `gh: command not found`
 
-Install `gh` CLI:
+Install the GitHub CLI from <https://cli.github.com/>, then run `gh auth login`.
 
-```bash
-# macOS
-brew install gh
+### PR or fork creation fails
 
-# Linux
-curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo gpg --dearmor -o /usr/share/keyrings/githubcli-archive-keyring.gpg
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-sudo apt update && sudo apt install gh
-```
+`--push` needs a token with `repo` and `workflow` scopes.
+Re-runs are safe: the script finds the existing open PR for the branch and updates it in place.
+A merged or closed PR is not reused; a new one is opened.
 
-Authenticate:
+`--fork` needs `repo` scope, and `--fork-org` additionally needs permission to create forks in that organization.
+Organizations with forking disabled return HTTP 403.
 
-```bash
-gh auth login
-```
+### Rate limit exceeded
 
-### PR creation fails
+Lower `--api-concurrency`.
+The client retries up to five times with exponential backoff and jitter, honoring `Retry-After` and `X-RateLimit-Reset`.
 
-Ensure:
+### `0 modified` for every repository
 
-- `gh` is authenticated: `gh auth status`
-- Token has `repo` and `workflow` scopes (for `--push`)
-- Push succeeded (branches exist on origin)
-- Each repo's base branch is correct (auto-detected, or set with `--base-branch`)
-
-PR URLs appear in the `pr_url` field/column of the summary output
-(JSON, markdown, table, CSV) — use them to follow up with reviews directly.
-
-Re-running the script on the same repos is safe:
-it detects existing PRs via `gh pr view` and updates them in-place instead of failing.
-The feature branch is force-pushed with the latest pins, and the PR body remains unchanged.
-If all pins are already up-to-date, the branch will reflect that and the PR won't require changes.
-
-### Out of memory with many repos
-
-Reduce `--api-concurrency`:
-
-```bash
-uv run --with-editable . scripts/update_repos.py --repos-file repos.txt --api-concurrency 2 --push
-```
-
-### Rate limit exceeded (429 errors)
-
-Reduce `--api-concurrency` or wait:
-
-```bash
-uv run --with-editable . scripts/update_repos.py --repos-file repos.txt --api-concurrency 3 --push
-```
-
-The script uses exponential backoff with jitter (default 5 retries, up to 60s); it will auto-retry.
-
-### No workflows found (0 modified for all repos)
-
-- Ensure each repo has `.github/workflows/*.yml` or `.github/actions/*` directories
-- Verify the clone succeeded (`--dry-run` shows `base_branch` but no files?
-    → try without `--dry-run` to see actual error)
-- Some repos may legitimately have no GitHub Actions to pin
-
-### Fork creation fails (`gh repo fork` error)
-
-When using `--fork`, ensure:
-
-- Token has `repo` and `workflow` scopes (fork creation requires repo access)
-- GitHub account (or target `--fork-org` organization) is not rate-limited or suspended
-- For `--fork-org`: Authenticated user has permission to create forks in that organization
-
-If target organization's forking is disabled, the fork will fail with an HTTP 403 error.
+Confirm each repository has `.github/workflows/*.yml` or an `action.yml`, and that its refs are not already pinned.
+Add `--verbose 2` for per-file detail.
 
 ## Library Integration
 
-For programmatic usage without cloning (e.g., processing already-local repos), import `pin_actions` directly in Python:
+To process already-local repositories without cloning, import `pin_actions` directly and pass `cwd=` per repository: see
+[Use as a Library — Multi-Repo Processing with a Shared Client](./use-as-a-library.md#multi-repo-processing-with-a-shared-client).
 
-```python
-import asyncio
-from pathlib import Path
-from pin_actions import GitHubClient, Settings, run
-
-
-async def process_local_repos():
-    repos = [Path("./my-service"), Path("./my-infra")]
-    async with GitHubClient(token="ghp_xxxx", concurrency=10) as client:
-        for repo_path in repos:
-            settings = Settings(path=repo_path / ".github", dry_run=False)
-            modified = await run(settings, client=client)
-            print(f"{repo_path}: {len(modified)} pinned")
-
-
-asyncio.run(process_local_repos())
-```
-
-See [Use as a Library](./use-as-a-library.md) for more examples.
+The sibling script `scripts/update_repos-with-zizmor.py` is a variant
+that delegates pinning to `zizmor --fix=all` instead of the `pin_actions` library.
 
 ## See Also
 
 - [Use as a Library](./use-as-a-library.md) — Programmatic integration
+- [Remediate Code Injection](./remediate-code-injection.md) — What `--fix-injection` rewrites
+- [Update Pinned Tags](./update-pinned-tags.md) — `--update` semantics
 - [Reference: CLI](../reference/cli.md) — Single-repo CLI
 - [Reference: config](../reference/config.md) — `Settings` configuration

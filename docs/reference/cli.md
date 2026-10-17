@@ -44,8 +44,8 @@ image: postgres@sha256:a8560b36...  # 15
 
 ## Provenance verification (`--provenance`)
 
-Defends against GitHub's fork-network "impostor commit" vector (see
-[Threat Model](../explanation/threat-model.md#31-github-fork-network-vulnerabilities-imposter-commits)):
+Defends against GitHub's fork-network "impostor commit" vector
+(see [Threat Model](../explanation/threat-model.md#31-github-fork-network-vulnerabilities-imposter-commits)):
 a fork can host a commit that's fetchable via the upstream repo's API
 because forks share the same underlying object pool.
 Pinning that SHA alone doesn't prove it came from the upstream repo.

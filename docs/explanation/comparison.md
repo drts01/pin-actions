@@ -79,6 +79,8 @@ because its YAML library does not retain pre-parse indentation,
 and it does not resolve values inside anchors or aliases.
 `pin-actions` round-trips through `yamlrocks` and rewrites only the mutated nodes,
 so a pin-only diff stays a pin-only diff.
+It also preserves the precision of the tag recorded in the trailing comment,
+so a `v4` pin stays `v4` rather than widening to `v4.1.7` and enlarging the diff.
 On an existing repository with established formatting,
 that difference decides whether the first pull request is reviewable.
 
@@ -104,92 +106,46 @@ that difference decides whether the first pull request is reviewable.
 
 Reference coverage is in the table above; this matrix covers everything else.
 
-| Feature                                            |           pin-actions            |                         ratchet                          |                pinact                |                  Updatecli                   |           pin-github-action            |                      zizmor                      |
-| -------------------------------------------------- | :------------------------------: | :------------------------------------------------------: | :----------------------------------: | :------------------------------------------: | :------------------------------------: | :----------------------------------------------: |
-| CI systems supported                               |       GitHub Actions only        | GH Actions, GitLab, CircleCI, Cloud Build, Drone, Tekton |         GitHub Actions only          |              Many, via plugins               |          GitHub Actions only           |               GitHub Actions only                |
-| Re-resolves already-pinned SHA if tag moved        |                ✅                |                            ✅                            |                  ✅                  |                      ✅                      |                   ✅                   |                        ❌                        |
-| Update pinned tags forward                         | ✅<br/>major, minor, &amp; patch |              ✅<br/>`upgrade`; Actions only              |                  ✅                  |         ✅<br/>configurable filters          |                   ❌                   |                        ❌                        |
-| Cool-off / minimum-release-age gate                |   ✅<br/>`--update` tags only    |          ✅<br/>`-bake-delay`; also containers           |                  ✅                  | ✅<br/>not applied to workflow Docker images |                   ❌                   |                        ❌                        |
-| Unpin command (reverse the operation)              |                ❌                |                            ✅                            |                  ❌                  |                      ❌                      |                   ❌                   |                        ❌                        |
-| Non-zero-exit CI gate                              |                ❌                |                      ✅<br/>`lint`                       |           ✅<br/>`-verify`           |                      ❌                      |                   ❌                   |                        ✅                        |
-| Skip-list / allow-list for specific actions        |                ✅                |             ✅<br/>`# ratchet:exclude` only              |                  ✅                  |              ✅<br/>ignore/only              |                   ✅                   |                        ✅                        |
-| Config file support                                |      ✅<br/>TOML/PyProject       |             ❌<br/>comment annotations only              |        ✅<br/>`.pinact.yaml`         |            ✅<br/>YAML manifests             |         ❌<br/>CLI flags only          |               ✅<br/>`zizmor.yml`                |
-| Non-Bearer registries (ECR, GCR)                   |   ❌<br/>`UnsupportedRegistry`   |                   ✅<br/>keychain auth                   |                 N/A                  |                ⚠️<br/>varies                 |                  N/A                   |                       N/A                        |
-| Usable as an importable library (not just CLI)     |                ✅                |           ⚠️<br/>Go packages, undocumented API           |                  ❌                  |                      ❌                      |                   ❌                   |                        ❌                        |
-| Async/concurrent API calls with rate-limit backoff |                ✅                |           ⚠️<br/>bounded; backoff undocumented           | ⚠️<br/>undocumented backoff strategy |         ⚠️<br/>undocumented strategy         |                   ❌                   |                 N/A<br/>unknown                  |
-| Preserve YAML comments/formatting                  |                ✅                |        ⚠️<br/>comments kept; indent forced to 2sp        |                  ✅                  | ⚠️<br/>comments preserved; YAML reserialized |                   ✅                   |                        ✅                        |
-| Distribution                                       |       Python Wheel / PyPI        |       Static binary / container / brew / nix / go        | Static binary<br/>(aqua/goreleaser)  |     Static binary / packages / container     |                  npm                   | PyPI / Rust binary / pre-commit hook / GH Action |
-| pre-commit hook                                    |        ❌<br/>Coming Soon        |                            ❌                            |                  ❌                  |                      ❌                      |                   ✅                   |                        ✅                        |
-| GitHub Action                                      |        ❌<br/>Coming Soon        |                ✅<br/>`sethvargo/ratchet`                |                  ❌                  |                      ✅                      | ✅<br/>via `ensure-sha-pinned-actions` |                        ✅                        |
-| GitHub annotations                                 |                ❌                |                            ❌                            |                  ❌                  |                      ❌                      |                   ❌                   |                        ✅                        |
-| Generate SARIF                                     |                ❌                |                            ❌                            |                  ✅                  |                      ❌                      |                   ❌                   |                        ✅                        |
-| License                                            |            Apache 2.0            |                        Apache 2.0                        |                 MIT                  |                  Apache 2.0                  |                  MIT                   |                       MIT                        |
+| Feature                                            |           pin-actions            |                         ratchet                          |                pinact                |                  Updatecli                   |           pin-github-action            |       zizmor        |
+| -------------------------------------------------- | :------------------------------: | :------------------------------------------------------: | :----------------------------------: | :------------------------------------------: | :------------------------------------: | :-----------------: |
+| CI systems supported                               |       GitHub Actions only        | GH Actions, GitLab, CircleCI, Cloud Build, Drone, Tekton |         GitHub Actions only          |              Many, via plugins               |          GitHub Actions only           | GitHub Actions only |
+| Re-resolves already-pinned SHA if tag moved        |                ✅                |                            ✅                            |                  ✅                  |                      ✅                      |                   ✅                   |         ❌          |
+| Update pinned tags forward                         | ✅<br/>major, minor, &amp; patch |              ✅<br/>`upgrade`; Actions only              |                  ✅                  |         ✅<br/>configurable filters          |                   ❌                   |         ❌          |
+| Cool-off / minimum-release-age gate                |   ✅<br/>`--update` tags only    |          ✅<br/>`-bake-delay`; also containers           |                  ✅                  | ✅<br/>not applied to workflow Docker images |                   ❌                   |         ❌          |
+| Unpin command (reverse the operation)              |                ❌                |                            ✅                            |                  ❌                  |                      ❌                      |                   ❌                   |         ❌          |
+| Non-zero-exit CI gate                              |                ❌                |                      ✅<br/>`lint`                       |           ✅<br/>`-verify`           |                      ❌                      |                   ❌                   |         ✅          |
+| Skip-list / allow-list for specific actions        |                ✅                |             ✅<br/>`# ratchet:exclude` only              |                  ✅                  |              ✅<br/>ignore/only              |                   ✅                   |         ✅          |
+| Config file support                                |      ✅<br/>TOML/PyProject       |             ❌<br/>comment annotations only              |        ✅<br/>`.pinact.yaml`         |            ✅<br/>YAML manifests             |         ❌<br/>CLI flags only          | ✅<br/>`zizmor.yml` |
+| Non-Bearer registries (ECR, GCR)                   |   ❌<br/>`UnsupportedRegistry`   |                   ✅<br/>keychain auth                   |                 N/A                  |                ⚠️<br/>varies                 |                  N/A                   |         N/A         |
+| Usable as an importable library (not just CLI)     |                ✅                |           ⚠️<br/>Go packages, undocumented API           |                  ❌                  |                      ❌                      |                   ❌                   |         ❌          |
+| Async/concurrent API calls with rate-limit backoff |                ✅                |           ⚠️<br/>bounded; backoff undocumented           | ⚠️<br/>undocumented backoff strategy |         ⚠️<br/>undocumented strategy         |                   ❌                   |   N/A<br/>unknown   |
+| Preserve YAML comments/formatting                  |                ✅                |        ⚠️<br/>comments kept; indent forced to 2sp        |                  ✅                  | ⚠️<br/>comments preserved; YAML reserialized |                   ✅                   |         ✅          |
+| Convert a branch ref to the latest stable tag      |                ❌                |                            ❌                            |       ✅<br/>`--branch-to-tag`       |                      ❌                      |                   ❌                   |         ❌          |
+| Opens pull requests itself                         | ⚠️<br/>bundled `update_repos.py` |                            ❌                            |                  ❌                  |                      ✅                      |                   ❌                   |         ❌          |
+| pre-commit hook                                    |        ❌<br/>Coming Soon        |                            ❌                            |                  ❌                  |                      ❌                      |                   ✅                   |         ✅          |
+| GitHub Action                                      |        ❌<br/>Coming Soon        |                ✅<br/>`sethvargo/ratchet`                |                  ❌                  |                      ✅                      | ✅<br/>via `ensure-sha-pinned-actions` |         ✅          |
+| GitHub annotations                                 |                ❌                |                            ❌                            |                  ❌                  |                      ❌                      |                   ❌                   |         ✅          |
+| Generate SARIF                                     |                ❌                |                            ❌                            |                  ✅                  |                      ❌                      |                   ❌                   |         ✅          |
 
-## Pros and Cons
+## Project Health
 
-### pin-actions
+Star counts, last push, and license read from the GitHub API on 2026-10-17.
+License and distribution moved here from the feature matrix; they are project metadata, not features.
 
-| Pros                                                                                             | Cons                                                                                         |
-| ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
-| Only compared tool that **verifies SHA provenance before writing** (`--provenance warn\|strict`) | Requires a Python runtime; not a single static binary like `ratchet` or `pinact`             |
-| Only compared tool covering `with.ref` cross-repo checkouts                                      | GitHub Actions only; `ratchet` covers six CI systems                                         |
-| Only compared tool covering Action refs, container digests, **and** pre-commit revs in one pass  | Newer/smaller community than `ratchet`, `pinact`, or `zizmor`; less battle-testing           |
-| True round-trip YAML editing — only mutated nodes are rewritten, indentation untouched           | No `unpin`, no `lint`-style CI gate, no SARIF, no GitHub annotations                         |
-| `--exclude-newer` cool-off period guards against same-day/1-day supply-chain compromises         | Cool-off applies only to `--update` tag selection, not to re-resolution or container digests |
-| Precision-preserving version updates (`v4` stays `v4`, `v4.0.5` keeps full precision)            | Bearer-token registries only; ECR and GCR raise `UnsupportedRegistryError`                   |
-| Usable as a Python library (`pin_actions.run()`) with a shared client across repositories        | Pre-commit pinning is a bundled script, not a `pin_actions` public API                       |
-| Async I/O, LRU cache, and semaphore rate-limiting are fast on monorepos with many workflows      |                                                                                              |
+| Tool              | Language    | Stars |  Last push | License    | Distribution                                                     |
+| ----------------- | ----------- | ----: | ---------: | ---------- | ---------------------------------------------------------------- |
+| pin-actions       | Python 3.14 |     — |          — | Apache-2.0 | Python wheel — **not yet published to PyPI**                     |
+| ratchet           | Go          |   969 | 2026-07-18 | Apache-2.0 | Static binary, container, Homebrew, Nix, `go install`, GH Action |
+| pinact            | Go          | 1,230 | 2026-10-15 | MIT        | Static binary (aqua / goreleaser)                                |
+| Updatecli         | Go          |   998 | 2026-10-17 | Apache-2.0 | Static binary, OS packages, container, GH Action                 |
+| pin-github-action | JavaScript  |   185 | 2026-08-13 | MIT        | npm                                                              |
+| zizmor            | Rust        | 6,719 | 2026-10-17 | MIT        | PyPI, Rust binary, pre-commit hook, GH Action                    |
 
-### ratchet
-
-The closest alternative on reference coverage, and the broadest by CI system.
-
-| Pros                                                                                            | Cons                                                                                            |
-| ----------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| Covers six CI systems: GitHub Actions, GitLab CI, CircleCI, Cloud Build, Drone, Tekton          | **Normalizes all indentation to two spaces**, by its own documented limitation                  |
-| Matches `pin-actions` on Actions, reusable workflows, and all three container-image surfaces    | Does not resolve values in YAML anchors or aliases                                              |
-| `-bake-delay` cooldown applies to `pin`, `update`, and `upgrade`, and to container images       | No provenance verification; writes whatever SHA the API returns                                 |
-| Unique `unpin` command reverses pinning; `lint` gives a non-zero-exit CI gate                   | Does not pin `with.ref` cross-repo checkouts or pre-commit hook revisions                       |
-| Keychain container auth resolves ECR and GCR, which `pin-actions` rejects                       | Exclusions are per-line `# ratchet:exclude` comments only; no config file                       |
-| Single static binary, plus container, Homebrew, Nix, and an official GitHub Action              | `upgrade` is Actions-only; container upgrades are an open TODO upstream                         |
-| Honest upstream docs about what bake delay does and does not guarantee                          | No SARIF output or GitHub annotations                                                           |
-
-### pinact
-
-| Pros                                                                                           | Cons                               |
-| ---------------------------------------------------------------------------------------------- | ---------------------------------- |
-| Single static Go binary                                                                        | No Docker/OCI image digest pinning |
-| Pins Reusable Workflow refs, same as `pin-actions`; `pin-github-action` does not               | No pre-commit hook pinning         |
-| Built-in minimum-release-age cooldown (`-min-age`/`-verify-min-age`)                           | No provenance verification         |
-| `--branch-to-tag` lets you opt-in to converting branch refs (`@main`) to the latest stable tag | —                                  |
-
-### Updatecli
-
-| Pros                                                                                                  | Cons                                                                                              |
-| ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Built-in `github/action` autodiscovery pins Actions and workflow container images by default          | General-purpose update engine; more concepts and configuration than a dedicated pinning CLI       |
-| Configurable version filters and minimum-release-age policy                                           | Does not pin reusable workflow refs, `actions/checkout` `with.ref`, or pre-commit hook revisions  |
-| Updates many dependency types and can commit changes and open pull requests through one policy engine | Minimum-release-age filtering does not apply to Docker images discovered in workflow files        |
-| Single static Go binary with packages, container images, and an official GitHub Action                | YAML updates preserve comments but may reserialize surrounding formatting                         |
-
-### mheap/pin-github-action
-
-| Pros                                                         | Cons                                                                                               |
-| ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
-| Simple, minimal, easy to read/audit (small Node.js codebase) | No version-update mode (`--update`) — only pins/re-resolves existing refs, never bumps versions    |
-|                                                              | No Docker image pinning, no Reusable Workflow pinning, no cooldown gating                          |
-|                                                              | Smallest community of the four fixers (183 stars vs. ~1k `ratchet`, 1.2k `pinact`); slower cadence |
-|                                                              | Requires Node.js runtime                                                                           |
-
-### zizmor
-
-| Pros                                                                                                                                                               | Cons                                                                                                                                                         |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Detects far more than unpinned actions: template injection, credential leakage/persistence, excessive permissions, impostor commits, confusable git refs, and more | Pinning is not its primary focus — `--fix` only covers `unpinned-uses` (and a couple other audits), not Docker image digests or pre-commit hook revs         |
-| Rust binary — fast, no runtime dependency                                                                                                                          | Broader scope means noisier output if you only care about pinning                                                                                            |
-| Actively maintained, well-sponsored (Trail of Bits, Grafana Labs, Kusari)                                                                                          | Does not distinguish "already pinned but tag drifted" the way fixer tools' re-resolution does — `--fix` pins unpinned refs but doesn't re-resolve moved tags |
-| Covers Dependabot config and pre-commit config, not just Actions workflows                                                                                         | No cooldown/minimum-release-age gating                                                                                                                       |
-|                                                                                                                                                                    | Cannot pin Docker image digests (flags them via `unpinned-images`, no auto-fix)                                                                              |
+Treat this table as the counterweight to the coverage table above.
+`pin-actions` has the widest reference coverage and the least production exposure of any tool listed.
+`zizmor` is an order of magnitude more widely adopted than every fixer here combined, and is sponsored by Trail of Bits,
+Grafana Labs, and Kusari.
+`ratchet`'s last push predates the others by roughly three months.
 
 ## Anything Else Worth Noting
 

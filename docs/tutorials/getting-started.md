@@ -22,7 +22,7 @@ Before making any changes, always preview what pin-actions will do with `--dry-r
 
 ```bash
 export GITHUB_TOKEN=ghp_xxxx
-pin-actions --dry-run --path .github/workflows
+pin-actions --dry-run --paths .github/workflows
 ```
 
 This parses your workflows, resolves mutable refs to SHAs, and prints what **would** be changed — without writing files.
@@ -32,7 +32,7 @@ This parses your workflows, resolves mutable refs to SHAs, and prints what **wou
 Once you're confident in the changes:
 
 ```bash
-pin-actions --path .github/workflows --github-token $GITHUB_TOKEN
+pin-actions --paths .github/workflows --github-token $GITHUB_TOKEN
 ```
 
 Check `git diff` to verify the changes, then commit:
@@ -44,6 +44,8 @@ git commit -m "fix(ci): pin GitHub Actions to commit SHAs"
 
 ## Next Steps
 
+- Work through [Pin an Existing Repository End to End](pin-an-existing-repo.md) —
+    actions, images, and provenance in one pass
 - Learn how to [update already-pinned tags](../how-to/update-pinned-tags.md)
 - Explore [library usage](../how-to/use-as-a-library.md) for programmatic access
 - Check the [CLI reference](../reference/cli.md) for all available options

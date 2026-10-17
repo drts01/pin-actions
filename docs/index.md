@@ -9,8 +9,8 @@
 - **[Reference](reference/cli.md)** — Full API and CLI documentation
 - **[Explanation](explanation/architecture.md)** — Design, architecture, and rationale
 - **[Threat Model](explanation/threat-model.md)** — The supply-chain attack model this tool defends against
-- **[Comparison with Similar Tools](explanation/comparison.md)** — How `pin-actions` stacks up against pinact,
-    Updatecli, pin-github-action, and zizmor
+- **[Comparison with Similar Tools](explanation/comparison.md)** — How `pin-actions` stacks up against ratchet,
+    pinact, Updatecli, pin-github-action, and zizmor
 
 ## License
 

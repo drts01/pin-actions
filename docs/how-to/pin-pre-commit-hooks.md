@@ -1,26 +1,19 @@
 # Pin Pre-Commit Hooks
 
-Pin GitHub-hosted `.pre-commit-config.yaml` `repos[].rev` entries to immutable commit SHAs using the `pin-precommit`
-standalone script.
+Pin GitHub-hosted `.pre-commit-config.yaml` `repos[].rev` entries to immutable commit SHAs.
 
-## Dry-Run Preview
+This ships as the bundled script `scripts/update_precommit.py`, not as a `pin_actions` public API.
+Its `--help` banner displays the program name as `pin-precommit`.
+
+## Preview, Then Apply
 
 ```bash
 export GITHUB_TOKEN=ghp_xxxx
-uv run --with-editable . scripts/update_precommit.py --dry-run
+uv run --with-editable . scripts/update_precommit.py --diff
+uv run --with-editable . scripts/update_precommit.py
 ```
 
-By default, `pin-precommit` reads `.pre-commit-config.yaml` in the current directory.
-Use `--paths` to specify different files or glob patterns
-(e.g., `--paths "**/pre-commit-config.yaml"` for monorepos with multiple configs).
-
-## Apply the Changes
-
-```bash
-uv run --with-editable . scripts/update_precommit.py --github-token $GITHUB_TOKEN
-```
-
-Each pinned `rev` becomes a commit SHA with the original tag/branch preserved as a trailing comment:
+Each pinned `rev` becomes a commit SHA with the original tag or branch preserved as a trailing comment:
 
 ```yaml
 repos:
@@ -28,27 +21,25 @@ repos:
     rev: abcdef0123456789abcdef0123456789abcdef01  # v0.8.0
 ```
 
-## Version Constraints & Diffs
+## Paths and Flags
 
-`pin-precommit` accepts the same flags as `pin-actions` — `--update`, `--full-version`, `--exclude-newer`, `--diff`,
-`--concurrency`, `--host`, etc.
-See the [CLI reference](../reference/cli.md#pin-precommit-standalone-script) for the full flag list.
+`--paths` defaults to `.pre-commit-config.yaml` in the current directory.
+Override it for monorepos with multiple configs:
 
 ```bash
-# Preview a unified diff without writing
-uv run --with-editable . scripts/update_precommit.py --diff
-
-# Move pins forward within the same major version
-uv run --with-editable . scripts/update_precommit.py --update minor --github-token $GITHUB_TOKEN
+uv run --with-editable . scripts/update_precommit.py --paths "**/.pre-commit-config.yaml"
 ```
+
+Every other `pin-actions` flag applies unchanged — `--update`, `--full-version`, `--exclude-newer`, `--concurrency`,
+`--host`, `--provenance`.
+See the [CLI reference](../reference/cli.md#pin-precommit-standalone-script).
 
 ## Non-GitHub Repos
 
-`repos[].repo` entries that don't resolve to a `--host` clone URL
-(e.g. `local`, `meta`, or non-GitHub hosts) are skipped — only GitHub-hosted hooks are pinned.
+`repos[].repo` entries that do not resolve to a `--host` clone URL — `local`, `meta`, or a non-GitHub host —
+are skipped.
 
 ## See Also
 
-- [Reference: CLI](../reference/cli.md#pin-precommit-standalone-script) — full `pin-precommit` flag list
-- [How-to: Update pinned tags](./update-pinned-tags.md) — version constraint recipes shared with `pin-actions`
-- [Use as a Library](./use-as-a-library.md) — programmatic access via the `pin_precommit_file` function
+- [Update Pinned Tags](./update-pinned-tags.md) — version constraint recipes shared with `pin-actions`
+- [Verify SHA Provenance](./verify-provenance.md) — reject SHAs that do not belong to the named repository

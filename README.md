@@ -40,6 +40,7 @@ so `actions/checkout@<attacker-sha>` resolves cleanly and reads as legitimate in
 or pull request on the named repository; `--provenance warn` logs it instead.
 Static analyzers report impostor commits after they land.
 `pin-actions` is the only fixer that blocks them at the moment of writing.
+See [Verify SHA Provenance](https://drts01.github.io/pin-actions/how-to/verify-provenance/).
 
 ### 2. The widest pinning surface, without reformatting your YAML
 
@@ -53,6 +54,8 @@ so a pin-only change produces a pin-only diff.
 [`ratchet`](https://github.com/sethvargo/ratchet), the closest alternative,
 documents that it normalizes all indentation to two spaces —
 on an established repository that turns a small security change into a whole-file diff.
+See [Pin Non-Standard Refs](https://drts01.github.io/pin-actions/how-to/pin-non-standard-refs/)
+and [Pin Container Images](https://drts01.github.io/pin-actions/how-to/pin-container-images/).
 
 ### 3. A cool-off gate on every forward update
 
@@ -87,7 +90,7 @@ See [Multi-Repo Automation](https://drts01.github.io/pin-actions/how-to/multi-re
 uv add pin-actions
 
 # Run with GitHub token
-pin-actions --path .github/workflows --github-token $GITHUB_TOKEN
+pin-actions --paths .github/workflows --github-token $GITHUB_TOKEN
 
 # Dry-run to see what would change
 pin-actions --dry-run
@@ -153,7 +156,7 @@ jobs:
 - **[Threat Model](https://drts01.github.io/pin-actions/explanation/threat-model/)** —
   The supply-chain attack model this tool defends against
 - **[Comparison with Similar Tools](https://drts01.github.io/pin-actions/explanation/comparison/)** —
-  How `pin-actions` stacks up against pinact, Updatecli, pin-github-action, and zizmor
+  How `pin-actions` stacks up against ratchet, pinact, Updatecli, pin-github-action, and zizmor
 
 ## Development
 
