@@ -8,11 +8,12 @@ Image pinning is **on by default**.
 
 ## Covered References
 
-| Reference                       | Example                           |
-| ------------------------------- | --------------------------------- |
-| Step container                  | `uses: docker://alpine:3`         |
-| Job container                   | `jobs.<id>.container.image`       |
-| Service container               | `jobs.<id>.services.<name>.image` |
+| Reference                        | Example                           |
+| -------------------------------- | --------------------------------- |
+| Step container                   | `uses: docker://alpine:3`         |
+| Job container                    | `jobs.<id>.container.image`       |
+| Job container (string shorthand) | `jobs.<id>.container: node:20`    |
+| Service container                | `jobs.<id>.services.<name>.image` |
 
 ## Example
 

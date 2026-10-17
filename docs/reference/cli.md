@@ -27,6 +27,7 @@ By default, `pin-actions` also pins container image references to `sha256:` cont
 
 - `uses: docker://image:tag` (step-level docker actions)
 - `jobs.<job>.container.image`
+- `jobs.<job>.container` (string shorthand, e.g. `container: node:20`)
 - `jobs.<job>.services.<name>.image`
 
 Resolution uses the OCI Distribution Spec Bearer-token auth flow, which works anonymously for any public registry

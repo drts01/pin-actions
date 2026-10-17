@@ -162,9 +162,9 @@ This makes the cache correct both under asyncio's single-threaded cooperative sc
 interpreter where multiple OS threads might drive separate event loops against the same client instance.
 
 ```python
-_sha_cache: _Cache[str]                       # (repo, ref) -> sha
-_tags_cache: _Cache[list[tuple[str, str]]]    # repo -> tags
-_date_cache: _Cache[str]                      # (repo, sha) -> commit date
+_sha_cache: _Cache[str]  # (repo, ref) -> sha
+_tags_cache: _Cache[list[tuple[str, str]]]  # repo -> tags
+_date_cache: _Cache[str]  # (repo, sha) -> commit date
 ```
 
 **Pattern:** in-memory cache → fetch (semaphore-gated) → write-through cache
@@ -183,7 +183,8 @@ _date_cache: _Cache[str]                      # (repo, sha) -> commit date
 
 ## Container image pinning
 
-`ContainerRegistryClient` (`pin_actions/registry.py`) resolves `docker://` step refs, `jobs.<job>.container.image`,
+`ContainerRegistryClient` (`pin_actions/registry.py`) resolves `docker://` step refs, `jobs.<job>.container.image`
+(including the `jobs.<job>.container: image:tag` string shorthand),
 and `jobs.<job>.services[*].image` tags to immutable `sha256:` content digests,
 using the same OCI Distribution Spec / Docker Registry v2 Bearer-token flow shared by all public registries
 (Docker Hub, GHCR, Quay.io, MCR, etc.):
