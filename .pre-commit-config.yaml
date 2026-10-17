@@ -24,7 +24,7 @@ repos:
       - id: trailing-whitespace
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: 321478e58f4938179c6b86e4ddfa923d1547a49b  # frozen: v0.16.6
+    rev: 44b5042edab9382aba712eed4f9c7bab7a3d6a3e  # frozen: v0.17.0
     hooks:
       - id: ruff-check
         args: [--fix, --exit-non-zero-on-fix]
@@ -67,7 +67,7 @@ repos:
   #         )$
 
   - repo: https://github.com/Mateusz-Grzelinski/actionlint-py
-    rev: 2f3dbd354aa118b539dee99d8eed05a83097a199  # frozen: v1.7.12.24
+    rev: 805f85e558841bf4d852335e036b33d2b26be1cc  # frozen: v1.7.12.25
     hooks:
       - id: actionlint
         additional_dependencies:
@@ -75,7 +75,7 @@ repos:
           - shellcheck-py>=0.11.0.1
 
   - repo: https://github.com/zizmorcore/zizmor-pre-commit
-    rev: cef8b8350da46d8114c7e6b7272aebdccdf193ce  # frozen: v1.30.0
+    rev: fa412071e4f5d44d44f9e365f4676f9df92456a2  # frozen: v1.30.1
     hooks:
       - id: zizmor
         args: [--no-progress, --persona=auditor, --fix]
@@ -93,17 +93,17 @@ repos:
         pass_filenames: false
 
   - repo: https://github.com/tox-dev/pyproject-fmt
-    rev: 3b42b9776870badc9eaffdef9a4a0834b764d87c  # frozen: v2.29.3
+    rev: 50e0f3aee9dc5747a5f173f79a7417403c18dda6  # frozen: v2.30.3
     hooks:
       - id: pyproject-fmt
 
   - repo: https://github.com/tox-dev/tox-toml-fmt
-    rev: 2863761a0c1b4a6e9fea638b27657b81f400543b  # frozen: v1.10.3
+    rev: 5125f601c3e134347288c3d42f3b34298b7cf1be  # frozen: v1.11.1
     hooks:
       - id: tox-toml-fmt
 
   - repo: https://github.com/alessandrojcm/commitlint-pre-commit-hook
-    rev: 25d0a52aa8bc0fc242613346792dc8d726c13347  # frozen: v9.26.0
+    rev: 1f1ac45c93d1c2ce36b71330252c489a5f4f2724  # frozen: v9.27.0
     hooks:
       - id: commitlint
         stages: [commit-msg]
@@ -118,12 +118,12 @@ repos:
         additional_dependencies: [tomli]
 
   - repo: https://github.com/tombi-toml/tombi-pre-commit
-    rev: 2ded3bc1d8379b49bfe7415ecea01f52a254c67d  # frozen: v1.5.2
+    rev: 0d5fcb91ac3b9ebc04fddc5331601511fd744701  # frozen: v1.8.2
     hooks:
       - id: tombi-format
 
   - repo: https://github.com/rvben/rumdl-pre-commit
-    rev: 9ebb29f982d88ed2cb80409361f06ad8260041f1  # frozen: v0.2.67
+    rev: 3429bee0c8870bff7874f898c6e8659d1ffe9645  # frozen: v0.2.79
     hooks:
       - id: rumdl
         args: [--fix]
@@ -135,13 +135,13 @@ repos:
         stages: [manual]
 
   - repo: https://github.com/crate-ci/typos
-    rev: d43b6c087ac471e2ea7b8af622ff15f05c0c365b  # frozen: v1.50.1
+    rev: 7f9d0819ca1c008ade73f4b41fa9d258d48f605b  # frozen: v1.51.1
     hooks:
       - id: typos
         args: [--write-changes]
 
   - repo: https://github.com/owenlamont/ryl-pre-commit
-    rev: fc067094423fc9c08be5c87f4424cde335ef4422  # frozen: v0.22.0
+    rev: 149d45ca24aef319951c0c99435124f3551390d2  # frozen: v0.24.0
     hooks:
       - id: ryl-markdown
         name: ryl
