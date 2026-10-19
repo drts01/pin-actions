@@ -54,6 +54,8 @@ PILOT_CONCURRENCY="${PILOT_CONCURRENCY:-12}"
 FULL_CONCURRENCY="${FULL_CONCURRENCY:-10}"
 TIMEOUT="${TIMEOUT:-45}"
 
+VERBOSE="${VERBOSE:-2}"
+
 # Mean on-disk size of one blobless depth-1 sparse clone, in KiB. Recompute after the pilot:
 #   du -sk notes/corpus/repos | awk '{print $1 / 2000}'
 PER_REPO_KB="${PER_REPO_KB:-1100}"
@@ -112,7 +114,7 @@ stage_frame() {
   mkdir -p "$OUT_DIR"
   log "frame: stars $MIN_STARS..$MAX_STARS pushed after $PUSHED_SINCE (estimated 90-120 min)"
 
-  uv run python -m notes.corpus_scanner -vv frame \
+  uv run python -m notes.corpus_scanner -v "$VERBOSE" frame \
     --min-stars "$MIN_STARS" \
     --max-stars "$MAX_STARS" \
     --pushed-since "$PUSHED_SINCE" \
@@ -136,7 +138,7 @@ fetch_and_scan() {
   require_space "$size"
   log "$label: cloning $size repositories at concurrency $concurrency"
 
-  uv run python -m notes.corpus_scanner -vv fetch \
+  uv run python -m notes.corpus_scanner -v "$VERBOSE" fetch \
     --frame "$FRAME" \
     --cache "$CACHE" \
     --sample "$size" \
@@ -147,7 +149,7 @@ fetch_and_scan() {
   cp "$MANIFEST" "$OUT_DIR/manifest-$label.jsonl"
 
   log "$label: scanning clones"
-  uv run python -m notes.corpus_scanner -vv scan --cache "$CACHE" --out "$corpus"
+  uv run python -m notes.corpus_scanner -v "$VERBOSE" scan --cache "$CACHE" --out "$corpus"
 
   log "$label: report"
   uv run python -m notes.corpus_scanner report --csv "$corpus" --exclude-dynamic \
