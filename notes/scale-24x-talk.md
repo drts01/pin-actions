@@ -199,15 +199,15 @@ Tool slide last, 20 seconds, one URL.
 
 Ordered by what blocks the abstract.
 
-| #   | Task                                                                                        | Blocks       | Status                            |
-| --- | ------------------------------------------------------------------------------------------- | ------------ | --------------------------------- |
-| 1   | Build the corpus scanner; sample public repos with workflow files                           | Abstract `N` | **Done** — `notes/scan_corpus.py` |
-| 2   | Run the scan; compute the four headline percentages                                         | Abstract     | Todo                              |
-| 3   | Reproduce the fork/impostor demo end-to-end in a throwaway org                              | Demo         | Todo                              |
-| 4   | Confirm each competing tool's behavior against the impostor SHA, empirically, not from docs | Part 2       | Todo                              |
-| 5   | Fact-check the incident timeline and CVE against primary sources                            | Part 0       | Todo                              |
-| 6   | Secure clearance to present anonymized fleet data                                           | Part 3       | Todo                              |
-| 7   | Write and submit the abstract                                                               | Nov 1        | Todo                              |
+| #   | Task                                                                                        | Blocks       | Status                             |
+| --- | ------------------------------------------------------------------------------------------- | ------------ | ---------------------------------- |
+| 1   | Build the corpus scanner; sample public repos with workflow files                           | Abstract `N` | **Done** — `notes/corpus_scanner/` |
+| 2   | Run the scan; compute the four headline percentages                                         | Abstract     | Todo                               |
+| 3   | Reproduce the fork/impostor demo end-to-end in a throwaway org                              | Demo         | Todo                               |
+| 4   | Confirm each competing tool's behavior against the impostor SHA, empirically, not from docs | Part 2       | Todo                               |
+| 5   | Fact-check the incident timeline and CVE against primary sources                            | Part 0       | Todo                               |
+| 6   | Secure clearance to present anonymized fleet data                                           | Part 3       | Todo                               |
+| 7   | Write and submit the abstract                                                               | Nov 1        | Todo                               |
 
 Tasks 1, 2, and 3 are the proposal.
 If only one gets done, make it 1 and 2 —
@@ -228,15 +228,15 @@ State the methodology on a slide; the committee and the audience will both ask.
 
 ### Running the scan
 
-`notes/scan_corpus.py` implements all of the above in four resumable stages.
+The `notes.corpus_scanner` module implements all of the above in four resumable stages.
 Each stage writes its artifact to disk, so the published numbers are reproducible from the published inputs.
 
 ```bash
 export GITHUB_TOKEN=...   # search is 10 req/min unauthenticated, 30 req/min authenticated
-./notes/scan_corpus.py frame  --min-stars 100 --pushed-since 2026-04-01 --out notes/corpus/frame.jsonl
-./notes/scan_corpus.py fetch  --frame notes/corpus/frame.jsonl --cache notes/corpus/repos --concurrency 16
-./notes/scan_corpus.py scan   --cache notes/corpus/repos --out notes/corpus/corpus.csv
-./notes/scan_corpus.py report --csv notes/corpus/corpus.csv --exclude-dynamic
+uv run python -m notes.corpus_scanner frame  --min-stars 100 --pushed-since 2026-04-01 --out notes/corpus/frame.jsonl
+uv run python -m notes.corpus_scanner fetch  --frame notes/corpus/frame.jsonl --cache notes/corpus/repos --concurrency 16
+uv run python -m notes.corpus_scanner scan   --cache notes/corpus/repos --out notes/corpus/corpus.csv
+uv run python -m notes.corpus_scanner report --csv notes/corpus/corpus.csv --exclude-dynamic
 ```
 
 Configuration goes through `pydantic-settings` like the rest of the project,
