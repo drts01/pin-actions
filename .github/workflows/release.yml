@@ -1,0 +1,208 @@
+---
+name: Release
+
+on:
+  push:
+    tags:
+      - v*
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish built artifacts to the selected package index.
+        required: false
+        type: boolean
+        default: true
+      target_index:
+        description: Package index target for manual runs.
+        required: false
+        type: choice
+        options: [testpypi, pypi]
+        default: testpypi
+      auth_method:
+        description: 'Authentication mode: oidc (trusted publishing) or token (repository secret).'
+        required: false
+        type: choice
+        options: [oidc, token]
+        default: oidc
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build and validate distribution artifacts
+    runs-on: ubuntu-latest
+    permissions:
+      artifact-metadata: write # Required to create GitHub artifact storage records.
+      attestations: write      # Required to generate and store GitHub artifact attestations.
+      contents: read           # Required to clone the repository.
+      id-token: write          # Required for Sigstore signing during attestation generation.
+    outputs:
+      should_publish: ${{ steps.release_meta.outputs.should_publish }}
+      target_index: ${{ steps.release_meta.outputs.target_index }}
+      target_url: ${{ steps.release_meta.outputs.target_url }}
+      auth_method: ${{ steps.release_meta.outputs.auth_method }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Setup uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - name: Resolve release mode
+        id: release_meta
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_PUBLISH: ${{ inputs.publish }}
+          INPUT_TARGET_INDEX: ${{ inputs.target_index }}
+          INPUT_AUTH_METHOD: ${{ inputs.auth_method }}
+        run: |
+          if [ "$EVENT_NAME" = "push" ]; then
+            {
+              echo 'should_publish=true'
+              echo 'target_index=pypi'
+              echo 'target_url=https://pypi.org/p/pin-actions'
+              echo 'auth_method=oidc'
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          target_url='https://pypi.org/p/pin-actions'
+          if [ "$INPUT_TARGET_INDEX" = 'testpypi' ]; then
+            target_url='https://test.pypi.org/p/pin-actions'
+          fi
+
+          {
+            echo "should_publish=$INPUT_PUBLISH"
+            echo "target_index=$INPUT_TARGET_INDEX"
+            echo "target_url=$target_url"
+            echo "auth_method=$INPUT_AUTH_METHOD"
+          } >> "$GITHUB_OUTPUT"
+      - name: Build and validate distribution artifacts
+        env:
+          DIST_DIR: ${{ github.workspace }}/dist
+        run: |
+          rm -rf dist
+          uv run --group ci tox run -e build
+      - name: Generate CycloneDX SBOM from the lockfile
+        run: |
+          uv export \
+            --locked \
+            --no-default-groups \
+            --format cyclonedx1.5 \
+            --output-file dist/sbom.cdx.json
+      - name: Generate artifact checksums
+        run: shasum -a 256 dist/* > dist/SHA256SUMS.txt
+      - name: Create build provenance attestation
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-path: |
+            dist/*.whl
+            dist/*.tar.gz
+      - name: Create SBOM attestation
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-path: |
+            dist/*.whl
+            dist/*.tar.gz
+          sbom-path: dist/sbom.cdx.json
+      - name: Upload Python distributions
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: python-distributions
+          path: |
+            dist/*.whl
+            dist/*.tar.gz
+          retention-days: 30
+      - name: Upload release metadata
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-metadata
+          path: |
+            dist/sbom.cdx.json
+            dist/SHA256SUMS.txt
+          retention-days: 30
+
+  publish_oidc:
+    name: Publish with trusted publishing (OIDC)
+    needs: build
+    if: needs.build.outputs.should_publish == 'true' && needs.build.outputs.auth_method == 'oidc'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read  # Required to download release artifacts.
+      id-token: write # Required for PyPI/TestPyPI trusted publishing.
+    environment:
+      name: ${{ needs.build.outputs.target_index == 'testpypi' && 'testpypi' || 'pypi' }}
+      url: ${{ needs.build.outputs.target_url }}
+    steps:
+      - name: Download Python distributions
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: python-distributions
+          path: dist
+      - name: Publish to PyPI with trusted publishing
+        if: needs.build.outputs.target_index == 'pypi'
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+      - name: Publish to TestPyPI with trusted publishing
+        if: needs.build.outputs.target_index == 'testpypi'
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          repository-url: https://test.pypi.org/legacy/
+
+  publish_token:
+    name: Publish with repository token secret
+    needs: build
+    if: needs.build.outputs.should_publish == 'true' && needs.build.outputs.auth_method == 'token'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # Required to download release artifacts.
+    environment:
+      name: ${{ needs.build.outputs.target_index == 'testpypi' && 'testpypi' || 'pypi' }}
+      url: ${{ needs.build.outputs.target_url }}
+    steps:
+      - name: Download Python distributions
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: python-distributions
+          path: dist
+      - name: Validate PYPI_API_TOKEN is present
+        if: needs.build.outputs.target_index == 'pypi'
+        env:
+          PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+        run: |
+          if [ -z "$PYPI_API_TOKEN" ]; then
+            echo '::error::Missing repository secret PYPI_API_TOKEN for token-based PyPI publishing.'
+            exit 1
+          fi
+      - name: Validate TEST_PYPI_API_TOKEN is present
+        if: needs.build.outputs.target_index == 'testpypi'
+        env:
+          TEST_PYPI_API_TOKEN: ${{ secrets.TEST_PYPI_API_TOKEN }}
+        run: |
+          if [ -z "$TEST_PYPI_API_TOKEN" ]; then
+            echo '::error::Missing repository secret TEST_PYPI_API_TOKEN for token-based TestPyPI publishing.'
+            exit 1
+          fi
+      - name: Setup uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - name: Publish to PyPI with API token
+        if: needs.build.outputs.target_index == 'pypi'
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        run: | # zizmor: ignore[use-trusted-publishing] token fallback is intentionally supported
+          uv run --group build twine upload --non-interactive dist/*.whl dist/*.tar.gz
+      - name: Publish to TestPyPI with API token
+        if: needs.build.outputs.target_index == 'testpypi'
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
+        run: | # zizmor: ignore[use-trusted-publishing] token fallback is intentionally supported
+          uv run --group build twine upload \
+            --non-interactive \
+            --repository-url https://test.pypi.org/legacy/ \
+            dist/*.whl dist/*.tar.gz

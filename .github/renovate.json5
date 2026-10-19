@@ -1,0 +1,44 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended"
+  ],
+  "labels": [
+    "dependencies"
+  ],
+  "enabledManagers": [
+    "github-actions",
+    "pep621",
+    "pre-commit"
+  ],
+  "minimumReleaseAge": "3 days",
+  "timezone": "UTC",
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": [
+      "before 6am on monday"
+    ]
+  },
+  "packageRules": [
+    {
+      "description": "Always pin GitHub Action digests and keep them current.",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "pinDigests": true
+    },
+    {
+      "description": "Keep Python dependencies and the uv lockfile current.",
+      "matchManagers": [
+        "pep621"
+      ],
+      "rangeStrategy": "update-lockfile"
+    },
+    {
+      "description": "Keep pre-commit hook revisions current.",
+      "matchManagers": [
+        "pre-commit"
+      ]
+    }
+  ]
+}

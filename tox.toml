@@ -12,10 +12,11 @@ description = "Validate sdist/wheel build, metadata, and installability"
 package = "skip"
 skip_install = true
 dependency_groups = [ "build" ]
+pass_env = [ "DIST_DIR" ]
 commands = [
-  [ "python", "-m", "build", "--outdir", "{env_tmp_dir}/dist" ],
-  [ "twine", "check", "{env_tmp_dir}/dist/*" ],
-  [ "check-wheel-contents", "{env_tmp_dir}/dist" ],
+  [ "python", "-m", "build", "--outdir", "{env:DIST_DIR:{env_tmp_dir}/dist}" ],
+  [ "twine", "check", "{env:DIST_DIR:{env_tmp_dir}/dist}/*" ],
+  [ "check-wheel-contents", "{env:DIST_DIR:{env_tmp_dir}/dist}" ],
 ]
 
 [env.docs]
@@ -63,11 +64,7 @@ commands = [
     "benchmarks/test_benchmarks.py",
     { replace = "posargs", default = [ "--benchmark-only", "--benchmark-json=benchmark.json" ], extend = true },
   ],
-  [
-    "python3",
-    "benchmarks/bench_scenario.py",
-    { replace = "posargs", default = [ "--files", "200" ], extend = true }
-  ]
+  [ "python3", "benchmarks/bench_scenario.py", { replace = "posargs", default = [ "--files", "200" ], extend = true } ]
 ]
 override_posargs = false
 

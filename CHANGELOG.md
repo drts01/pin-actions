@@ -42,8 +42,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Concurrent commit-date prefetch for `--exclude-newer` candidate tags (was serial)
 - `--host` file-or-directory `--path` handling: `pin-actions --path some/file.yml` now works alongside directory paths
 - Redocumented per Diátaxis: split flag matrices/exception hierarchies out of how-to guides into `reference/cli.md`/`reference/errors.md`; merged `checkout-another-repo.md` + `pin-composite-actions.md` into `how-to/pin-non-standard-refs.md`; new `how-to/run-in-ci.md` and `how-to/pin-pre-commit-hooks.md`
+- CI supply-chain enforcement: added CI-only `uv lock --check` and `uv audit --locked` in `.github/workflows/ci.yaml`, with robust SARIF upload for `uv audit` results to GitHub code scanning
+- Security automation workflows: added `.github/workflows/codeql.yml` (CodeQL Python) and `.github/workflows/scorecard.yml` (OpenSSF Scorecard with SARIF upload)
+- Renovate automation: added `.github/renovate.json5` and `.github/workflows/renovate.yml` for scheduled/manual Python/uv, GitHub Actions, and pre-commit dependency updates using `RENOVATE_TOKEN`, with a three-day minimum release age
+- Release automation: added `.github/workflows/release.yml` for tag/manual release orchestration that builds and validates `sdist` + wheel, exports a CycloneDX SBOM from `uv.lock`, creates GitHub provenance and SBOM attestations for both distributions, and publishes via trusted OIDC or token secret placeholders (`PYPI_API_TOKEN` / `TEST_PYPI_API_TOKEN`)
+- Documented CI scope decision to keep Trivy, Checkov, and Semgrep out of the default pipeline because Ruff security rules + Zizmor + Actionlint + CodeQL already cover this repository's risk profile and there is no product IaC/container pipeline
 
 ### Fixed
+- Updated locked `urllib3`, `uv`, and `virtualenv` versions to remediate vulnerabilities detected by `uv audit`
 - `jobs.<job>.container` **string shorthand** (`container: node:20`) is now pinned. Only the `jobs.<job>.container.image` mapping form was detected, so workflows using GitHub's documented shorthand silently kept a mutable image tag
 - `scripts/update_repos.py`: `_upsert_pr` PR lookup bug — replaced broken `gh pr view --repo <repo> --head <branch>` (flag does not exist; silent failure → duplicate PR creation attempts) with `gh pr list --repo <repo> --head <branch>` (correct CLI, works for same-repo and fork-sourced PRs)
 

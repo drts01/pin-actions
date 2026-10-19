@@ -17,11 +17,11 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     permissions:
-      security-events: write  # To upload SARIF files
-      contents: read          # To clone the repo
-      actions: read           # To read workflow run info
+      actions: read          # Required by GitHub code-scanning SARIF upload APIs.
+      contents: read         # Required to clone the repository.
+      security-events: write # Required to upload SARIF to code scanning.
     steps:
-      - name: checkout
+      - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -40,20 +40,56 @@ jobs:
           restore-keys: |
             lint-
       - name: Run prek
-        run: uv run --managed-python --group lint
-          prek run --show-diff-on-failure --color=always --all-files --hook-stage manual
-      - name: Upload SARIF file
-        if: always()
-        uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
+        run: |
+          uv run --managed-python --group lint prek run \
+            --show-diff-on-failure \
+            --color=always \
+            --all-files \
+            --hook-stage manual
+      - name: Upload Ruff SARIF
+        if: always() && hashFiles('ruff.sarif') != ''
+        uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
         with:
           sarif_file: ruff.sarif
           category: ruff
-      - name: Upload SARIF file
-        if: always()
-        uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
+      - name: Upload Zizmor SARIF
+        if: always() && hashFiles('zizmor.sarif') != ''
+        uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
         with:
           sarif_file: zizmor.sarif
           category: zizmor
+
+  supply-chain:
+    name: Supply chain checks
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read          # Required by GitHub code-scanning SARIF upload APIs.
+      contents: read         # Required to clone the repository.
+      security-events: write # Required to upload SARIF to code scanning.
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Setup uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - name: Check lockfile is current (CI-only)
+        run: uv lock --check
+      - name: Run uv audit with lockfile (CI-only)
+        id: uv_audit
+        continue-on-error: true
+        run: uv audit --locked --output-format sarif > uv-audit.sarif
+      - name: Upload uv audit SARIF
+        if: always() && hashFiles('uv-audit.sarif') != ''
+        uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        with:
+          sarif_file: uv-audit.sarif
+          category: uv-audit
+      - name: Fail if uv audit found vulnerabilities
+        if: steps.uv_audit.outcome == 'failure'
+        run: |
+          echo "::error::uv audit reported one or more vulnerabilities."
+          exit 1
 
   test:
     name: Test
@@ -66,7 +102,7 @@ jobs:
           - '3.15'
           - 3.15t
     steps:
-      - name: checkout
+      - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -75,7 +111,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache-suffix: ${{ matrix.python-version }}
-      - name: Cache Tox Environments
+      - name: Cache tox environments
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .tox

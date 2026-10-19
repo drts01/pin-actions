@@ -1,0 +1,56 @@
+---
+name: OpenSSF Scorecard
+
+on:
+  push:
+    branches: [trunk]
+  schedule:
+    - cron: '12 4 * * 6'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  analysis:
+    name: Scorecard analysis
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read         # Required to clone the repository.
+      id-token: write        # Required when publish_results is true.
+      security-events: write # Required to upload Scorecard SARIF to code scanning.
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Run Scorecard
+        id: scorecard
+        continue-on-error: true
+        uses: ossf/scorecard-action@fa7117db83c52d787ae5a89f350999701505d78e # v2.5.0
+        with:
+          results_file: scorecard-results.sarif
+          results_format: sarif
+          publish_results: true
+      - name: Upload Scorecard SARIF artifact
+        if: always() && hashFiles('scorecard-results.sarif') != ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: scorecard-sarif
+          path: scorecard-results.sarif
+          retention-days: 5
+      - name: Upload Scorecard SARIF to code scanning
+        if: always() && hashFiles('scorecard-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        with:
+          sarif_file: scorecard-results.sarif
+          category: scorecard
+      - name: Fail if Scorecard reported an execution error
+        if: steps.scorecard.outcome == 'failure'
+        run: |
+          echo "::error::Scorecard execution failed."
+          exit 1

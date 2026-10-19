@@ -1,0 +1,51 @@
+---
+name: Renovate
+
+on:
+  schedule:
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Run Renovate in dry-run mode (no PR creation).
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  renovate:
+    name: Renovate dependency updates
+    runs-on: ubuntu-latest
+    environment:
+      name: renovate
+    permissions:
+      contents: read # Required to clone the repository for Renovate analysis.
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Run Renovate
+        if: github.event_name == 'schedule' || !inputs.dry_run
+        uses: renovatebot/github-action@f0f41e5f2e706165f6814b1d0f0d0e319de7d1d9 # v46.3.8
+        with:
+          configurationFile: .github/renovate.json5
+          token: ${{ secrets.RENOVATE_TOKEN }}
+        env:
+          RENOVATE_REPOSITORIES: ${{ github.repository }}
+      - name: Run Renovate (dry-run)
+        if: github.event_name == 'workflow_dispatch' && inputs.dry_run
+        uses: renovatebot/github-action@f0f41e5f2e706165f6814b1d0f0d0e319de7d1d9 # v46.3.8
+        with:
+          configurationFile: .github/renovate.json5
+          token: ${{ secrets.RENOVATE_TOKEN }}
+        env:
+          RENOVATE_DRY_RUN: full
+          RENOVATE_REPOSITORIES: ${{ github.repository }}
