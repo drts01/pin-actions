@@ -98,3 +98,32 @@ async def test_fetch_corpus_bounds_concurrency_and_writes_manifest(
     rows = [json.loads(line) for line in manifest.read_text(encoding="utf-8").splitlines()]
     assert maximum_active == 2
     assert {row["repo"] for row in rows} == {"owner/1", "owner/2", "owner/3"}
+
+
+def test_select_sample_nests_larger_samples_within_smaller_ones() -> None:
+    """Keep a pilot sample as a prefix of the full sample so pilot clones are reused."""
+    repos = [f"owner/{index}" for index in range(500)]
+
+    pilot = fetch.select_sample(repos, size=20, seed=7)
+    full = fetch.select_sample(repos, size=100, seed=7)
+
+    assert len(pilot) == 20
+    assert full[:20] == pilot
+
+
+def test_select_sample_is_deterministic_and_independent_of_input_order() -> None:
+    """Produce the same sample for a fixed seed regardless of how the frame was emitted."""
+    repos = [f"owner/{index}" for index in range(100)]
+
+    assert fetch.select_sample(repos, size=10, seed=3) == fetch.select_sample(reversed(repos), size=10, seed=3)
+    assert fetch.select_sample(repos, size=10, seed=3) != fetch.select_sample(repos, size=10, seed=4)
+
+
+def test_select_sample_shuffles_the_whole_frame_when_size_is_unset() -> None:
+    """Randomize clone order so an interrupted full fetch still leaves a random subsample."""
+    repos = [f"owner/{index:03d}" for index in range(100)]
+
+    selected = fetch.select_sample(repos, size=None, seed=1)
+
+    assert sorted(selected) == repos
+    assert selected != repos

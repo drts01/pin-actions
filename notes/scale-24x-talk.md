@@ -232,9 +232,20 @@ The `notes.corpus_scanner` module implements all of the above in four resumable 
 Each stage writes its artifact to disk, so the published numbers are reproducible from the published inputs.
 
 ```bash
+notes/corpus_scanner/collect.sh frame   # sampling frame; ~90-120 min, <20 MB
+notes/corpus_scanner/collect.sh pilot   # 2,000 repos; ~10 min, ~2.2 GB; measures the rates that size the full run
+notes/corpus_scanner/collect.sh full    # 50,000 repos; ~4 h, ~55 GB; the published corpus
+```
+
+`collect.sh` resolves the token with `gh auth token`,
+verifies free disk space against the estimate plus 10% headroom before cloning, and prints the artifacts to publish.
+Its header documents every tunable and the resource estimates behind them.
+To drive the stages directly:
+
+```bash
 export GITHUB_TOKEN=...   # search is 10 req/min unauthenticated, 30 req/min authenticated
 uv run python -m notes.corpus_scanner frame  --min-stars 100 --pushed-since 2026-04-01 --out notes/corpus/frame.jsonl
-uv run python -m notes.corpus_scanner fetch  --frame notes/corpus/frame.jsonl --cache notes/corpus/repos --concurrency 16
+uv run python -m notes.corpus_scanner fetch  --frame notes/corpus/frame.jsonl --cache notes/corpus/repos --sample 50000 --seed 20260401 --concurrency 10
 uv run python -m notes.corpus_scanner scan   --cache notes/corpus/repos --out notes/corpus/corpus.csv
 uv run python -m notes.corpus_scanner report --csv notes/corpus/corpus.csv --exclude-dynamic
 ```
@@ -251,12 +262,19 @@ and `--pushed-since` is validated as a real date rather than pasted into the que
   which is not charged against the REST rate limit and leaves cone-mode's top-level files —
   including `.pre-commit-config.yaml` — in place.
   Each clone's HEAD SHA is recorded so the scan is pinned to a specific snapshot.
+  `--sample` shuffles the frame once under `--seed` and takes a prefix,
+  so samples nest and the pilot's clones are reused by the full run.
 - `scan` reuses the production collectors
   (`_collect_refs`, `_collect_image_refs`, `_collect_precommit_refs`)
   so the measurement cannot drift from what the tool actually pins.
 - `report` emits a Markdown table ready to paste into the Part 1 data slide.
 
-Publish `frame.jsonl`, `frame.meta.json`, `corpus.csv`, and the script itself.
+Publish `frame.jsonl`, `frame.meta.json`, `sample.jsonl`, the sampling seed, `manifest.jsonl`, `corpus.csv`,
+and the script itself.
+
+The full frame is roughly 150k repositories; cloning all of them is ~12 h and ~200 GB and buys nothing.
+A 50,000-repository sample puts `N` near 5,000 and the headline percentages inside ±1.5 points.
+Run the pilot first and size the full fetch from the measured pin rate rather than the assumed one.
 
 ### Measurement definitions
 

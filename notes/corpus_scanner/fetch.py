@@ -4,10 +4,11 @@ import asyncio
 import json
 import logging
 import os
+import random
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Iterable, Sequence
     from pathlib import Path
 
 logger = logging.getLogger("scan_corpus")
@@ -15,6 +16,27 @@ logger = logging.getLogger("scan_corpus")
 _SPARSE_PATHS = (".github/workflows", ".github/actions")
 _GIT_ENV = {"GIT_TERMINAL_PROMPT": "0", "GIT_ASKPASS": "/bin/echo", "GIT_CONFIG_NOSYSTEM": "1"}
 _ERROR_EXCERPT_CHARS = 200
+
+
+def select_sample(repos: Iterable[str], *, size: int | None, seed: int) -> list[str]:
+    """Deterministically shuffle repository names and take a prefix.
+
+    Shuffling once and slicing keeps samples nested: for a fixed seed, a larger ``size`` is a superset of every
+    smaller one, so a pilot run's clones are reused by the full run rather than discarded. The shuffle is applied
+    even when ``size`` is ``None`` so that an interrupted fetch leaves a random subsample rather than the
+    star-descending prefix that the frame stage emits.
+
+    Args:
+        repos: Repository full names, in any order.
+        size: Number of repositories to keep, or ``None`` to keep all of them.
+        seed: Seed for the permutation; record it in the published methodology.
+
+    Returns:
+        The selected repository names in shuffled order.
+    """
+    ordered = sorted(set(repos))
+    random.Random(seed).shuffle(ordered)  # noqa: S311 -- sampling, not security
+    return ordered if size is None else ordered[:size]
 
 
 async def _git(*args: str, timeout: float) -> tuple[int, str, str]:  # noqa: ASYNC109 -- see below

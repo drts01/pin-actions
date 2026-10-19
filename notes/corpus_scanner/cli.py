@@ -1,6 +1,7 @@
 """Command-line interface for the corpus scanner stages."""
 
 import asyncio
+import json
 import logging
 import sys
 from datetime import date  # noqa: TC003 -- pydantic resolves the annotation at runtime
@@ -13,7 +14,7 @@ from pin_actions.errors import PinActionsError
 from pydantic import AliasChoices, Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, CliApp, CliSubCommand, SettingsConfigDict
 
-from .fetch import fetch_corpus
+from .fetch import fetch_corpus, select_sample
 from .frame import build_frame
 from .io import read_jsonl
 from .report import report
@@ -81,11 +82,25 @@ class FetchStage(BaseSettings):
     cache: Path = Field(default=Path("notes/corpus/repos"), description="Root directory for clones")
     concurrency: int = Field(default=16, ge=1, description="Max simultaneous clones")
     timeout: float = Field(default=120.0, gt=0, description="Per-git-invocation timeout in seconds")
-    limit: int | None = Field(default=None, ge=1, description="Clone only the first N repositories")
+    sample: int | None = Field(
+        default=None,
+        ge=1,
+        description="Clone a random sample of this size; a larger sample with the same seed is a superset",
+    )
+    seed: int = Field(default=0, description="Sampling seed; record it in the methodology")
+    limit: int | None = Field(default=None, ge=1, description="Clone only the first N repositories after sampling")
 
     def cli_cmd(self) -> None:
         """Run the fetch stage."""
-        repos = [row["repo"] for row in read_jsonl(self.frame)][: self.limit]
+        repos = select_sample((row["repo"] for row in read_jsonl(self.frame)), size=self.sample, seed=self.seed)
+        if self.sample is not None:
+            sample_path = self.frame.with_name("sample.jsonl")
+            sample_path.write_text(
+                "".join(json.dumps({"repo": repo}) + "\n" for repo in repos),
+                encoding="utf-8",
+            )
+            logger.info("sampled %d repositories (seed %d) -> %s", len(repos), self.seed, sample_path)
+        repos = repos[: self.limit]
         manifest = asyncio.run(fetch_corpus(repos, self.cache, concurrency=self.concurrency, timeout=self.timeout))
         print(f"fetch: {len(repos)} repositories -> {manifest}")
 
