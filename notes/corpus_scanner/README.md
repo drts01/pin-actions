@@ -50,7 +50,7 @@ uv run python -m notes.corpus_scanner report --csv notes/corpus/corpus.csv --exc
 ## Sampling
 
 Cloning the whole frame is neither practical nor necessary; `N` is the fully `uses:`-pinned subset,
-so a 50,000-repository sample already drives the headline percentages below a two-point confidence interval.
+so a 50,000-repository sample drives the headline percentage to roughly a one-point confidence interval.
 
 `fetch` shuffles the frame once with `--seed` and takes a `--sample`-sized prefix.
 Samples therefore nest: for a fixed seed, a larger `--sample` is a superset of every smaller one,
@@ -58,7 +58,31 @@ so the pilot's clones are reused by the full run.
 The shuffle is applied even without `--sample`,
 so an interrupted fetch leaves a random subsample rather than the star-descending prefix the frame stage emits.
 
+The pre-commit statistic `Z` does not scale the same way.
+Its denominator is the pre-commit-eligible subset of `N`, which the pilot measured at 0.4% of scanned repositories.
+`report` prints the sample size that denominator implies; when it exceeds the frame,
+`Z` is unreachable at the current `--min-stars` floor and must be widened or dropped.
+
 Publish `sample.jsonl` and the seed; both are required to reproduce the corpus.
+
+## Denominators
+
+`report` distinguishes three populations, because conflating them inflates or deflates the pin rate:
+
+| Population            | Definition                                                                    |
+| --------------------- | ----------------------------------------------------------------------------- |
+| Scanned               | Every successfully cloned repository                                          |
+| With workflow files   | At least one workflow or action definition                                    |
+| With in-scope `uses:` | At least one non-local, non-expression `uses:`, so pinning is possible at all |
+| `N`                   | Every in-scope `uses:` is already a 40-character SHA                          |
+
+The pin rate uses the in-scope population as its denominator.
+Repositories whose only action references are `./local` or `${{ expression }}` cannot enter the numerator,
+so they are excluded from the denominator as well.
+
+Every proportion is reported with a 95% Wilson score interval.
+The Wilson interval is used rather than the normal approximation because `Z` has a small denominator,
+where the normal interval can extend past zero or one.
 
 ## Tests
 

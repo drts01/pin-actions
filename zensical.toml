@@ -42,6 +42,7 @@ nav = [
     { "Architecture Overview" = "explanation/architecture.md" },
     { "Design Decisions" = "explanation/design-decisions.md" },
     { "Caching" = "explanation/caching.md" },
+    { "What Pinning Misses" = "explanation/pinning-surface.md" },
     { "Threat Model" = "explanation/threat-model.md" },
     { "Script Injection" = "explanation/code-injection.md" },
     { "Comparison with Similar Tools" = "explanation/comparison.md" },

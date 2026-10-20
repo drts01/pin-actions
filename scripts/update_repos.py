@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -19,6 +20,9 @@ from typing import Literal
 from pin_actions import LEVELS_BY_VERBOSITY, GitHubClient, PinActionsError, Settings, configure_logging, run
 from pydantic import AliasChoices, BaseModel, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+sys.path.insert(0, str(Path(__file__).parent))
+from scripts.fix_injection import _resolve_files, fix_injection_file
 
 type EnvDict = dict[str, str]
 
@@ -73,6 +77,18 @@ class UpdateReposSettings(BaseSettings):
     )
     commit_message: str = Field(default=DEFAULT_COMMIT_MESSAGE, description="Commit message and PR title")
     pr_body: str = Field(default=DEFAULT_PR_BODY, description="Pull request body text")
+    fix_injection: bool = Field(
+        default=True,
+        description="Also remediate GitHub Actions script-injection findings (see scripts/fix_injection.py)",
+    )
+    run_zizmor: bool = Field(
+        default=False,
+        description="Also run 'zizmor --fix' for additional hardening (requires zizmor installed; off by default)",
+    )
+    zizmor_fix: Literal["safe", "all"] = Field(
+        default="safe",
+        description="zizmor --fix mode: 'safe' (default, stable fixes only) or 'all' (includes unstable fixes)",
+    )
     format: Literal["table", "markdown", "json", "csv", "tsv"] = Field(  # pyrefly: ignore[bad-assignment]
         default="table",
         description="Summary output format",
@@ -114,6 +130,7 @@ class RepoResult(BaseModel):
     base_branch: str | None = None
     pr_url: str | None = None
     fork_owner: str | None = None
+    injection_review: int = Field(default=0, description="Count of injection findings needing manual review")
 
 
 def _run(*cmd: str, cwd: Path, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
@@ -206,6 +223,58 @@ async def _try_pin(client: GitHubClient, repo_dir: Path, settings: UpdateReposSe
     return True
 
 
+def _try_fix_injection(repo_dir: Path, settings: UpdateReposSettings, result: RepoResult) -> None:
+    """Remediate GitHub Actions script-injection findings in repo_dir; merges into result.modified.
+
+    Non-fatal: report-only findings are tallied on result.injection_review and logged,
+    but never abort the batch run for the repo.
+    """
+    workflow_paths = [Path(".github/workflows"), Path("**/action.yml"), Path("**/action.yaml")]
+    cwd = Path.cwd()
+    try:
+        os.chdir(repo_dir)
+        files = _resolve_files(workflow_paths)
+    finally:
+        os.chdir(cwd)
+    for f in files:
+        target = repo_dir / f
+        try:
+            modified, findings, _quoted_paths = fix_injection_file(target, dry_run=settings.dry_run)
+        except PinActionsError as exc:
+            logger.warning("%s: fix-injection failed on %s: %s", result.repo, target, exc)
+            continue
+        if modified:
+            result.modified.append(target)
+        review = [finding for finding in findings if not finding.fixed]
+        result.injection_review += len(review)
+        for finding in review:
+            logger.warning(
+                "%s: REVIEW (not auto-fixable): %s %s: %s", result.repo, target, finding.item_path, finding.expr
+            )
+
+
+def _try_zizmor(repo_dir: Path, settings: UpdateReposSettings, result: RepoResult) -> None:
+    """Run 'zizmor --fix' in repo_dir for additional hardening beyond fix_injection.
+
+    Soft-fails (logs a warning, doesn't abort the repo) on a missing binary or non-zero
+    exit — zizmor isn't guaranteed to be installed everywhere this script runs, and its
+    audit-tool exit codes don't cleanly map to "the fix step itself failed".
+    """
+    zizmor = shutil.which("zizmor")
+    if zizmor is None:
+        logger.warning("%s: zizmor not found on PATH, skipping --run-zizmor step", result.repo)
+        return
+    proc = subprocess.run(  # noqa: S603
+        (zizmor, f"--fix={settings.zizmor_fix}", "."),
+        cwd=repo_dir,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode not in (0, 1):
+        logger.warning("%s: zizmor exited %d: %s", result.repo, proc.returncode, proc.stderr.strip())
+
+
 def _push_branch(repo: str, repo_dir: Path, branch: str, settings: UpdateReposSettings, env: EnvDict) -> None:
     """Commit and force-push feature branch (always our latest pins)."""
     remote = "fork" if settings.fork else "origin"
@@ -256,8 +325,13 @@ def _ensure_fork(repo_dir: Path, repo: str, settings: UpdateReposSettings, env: 
 
 
 def _upsert_pr(repo: str, head: str, base_branch: str, settings: UpdateReposSettings, env: EnvDict) -> str:
-    """Return PR URL: reuse existing or create new. Logs action taken."""
-    # Use gh pr list with --head to find existing PR by branch name (works for same-repo and fork PRs).
+    """Return PR URL: reuse existing open PR or create new. Logs action taken.
+
+    Only reuses OPEN PRs — a merged/closed PR for this head branch is dead (can't
+    be pushed to again), so a fresh push after merge must open a new PR.
+    """
+    # Use gh pr list with --head to find an existing OPEN PR by branch name (works for
+    # same-repo and fork PRs).
     list_cmd = (
         "gh",
         "pr",
@@ -267,7 +341,7 @@ def _upsert_pr(repo: str, head: str, base_branch: str, settings: UpdateReposSett
         "--head",
         head.split(":", maxsplit=1)[0] if ":" in head else head,  # Extract plain branch name for lookup
         "--state",
-        "all",
+        "open",
         "--json",
         "url",
         "--jq",
@@ -325,6 +399,10 @@ async def _process_repo(client: GitHubClient, repo: str, settings: UpdateReposSe
             return result
         if not await _try_pin(client, repo_dir, settings, result):
             return result
+        if settings.fix_injection:
+            _try_fix_injection(repo_dir, settings, result)
+        if settings.run_zizmor and not settings.dry_run:
+            _try_zizmor(repo_dir, settings, result)
         if result.modified and not settings.dry_run:
             _publish(repo, repo_dir, settings, result)
     return result
@@ -350,7 +428,7 @@ async def _run_all(settings: UpdateReposSettings) -> list[RepoResult]:
         return await asyncio.gather(*(bound(r, client) for r in repos))
 
 
-_HEADERS = ("repo", "modified", "branch", "base_branch", "fork_owner", "pr_url", "status")
+_HEADERS = ("repo", "modified", "branch", "base_branch", "fork_owner", "pr_url", "review", "status")
 
 
 def _rows(results: list[RepoResult]) -> list[dict[str, str]]:
@@ -369,6 +447,7 @@ def _rows(results: list[RepoResult]) -> list[dict[str, str]]:
             "base_branch": r.base_branch or "—",
             "fork_owner": r.fork_owner or "—",
             "pr_url": r.pr_url or "—",
+            "review": str(r.injection_review) if r.injection_review else "—",
             "status": "OK" if r.error is None else f"ERROR: {r.error}",
         }
         for r in results

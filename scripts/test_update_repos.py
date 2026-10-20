@@ -8,10 +8,12 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent))
 from update_repos import (
-    _extract_fork_owner,
-    _upsert_pr,
     RepoResult,
     UpdateReposSettings,
+    _extract_fork_owner,
+    _try_fix_injection,
+    _try_zizmor,
+    _upsert_pr,
 )
 
 
@@ -88,6 +90,25 @@ class TestUpsertPr:
         result = _upsert_pr(repo, head, base_branch, settings, {})
         assert result == new_pr_url
 
+    @patch("update_repos._run")
+    def test_opens_new_pr_when_previous_pr_was_merged(self, mock_run: MagicMock) -> None:
+        """A merged (non-open) PR for the branch must not be reused; a new PR is created."""
+        repo = "org/repo"
+        head = "pin-actions/org-repo"
+        base_branch = "main"
+        settings = UpdateReposSettings()
+        new_pr_url = "https://github.com/org/repo/pull/999"
+        # gh pr list --state open finds nothing for a merged PR's now-stale branch.
+        mock_run.side_effect = [
+            MagicMock(stdout=""),
+            MagicMock(stdout=new_pr_url + "\n"),
+        ]
+        result = _upsert_pr(repo, head, base_branch, settings, {})
+        assert result == new_pr_url
+        list_call_args = mock_run.call_args_list[0].args
+        assert "open" in list_call_args
+        assert "all" not in list_call_args
+
 
 class TestRepoResult:
     """Test RepoResult model."""
@@ -99,3 +120,40 @@ class TestRepoResult:
 
         with pytest.raises(ValueError, match="Cannot extract owner"):
             _extract_fork_owner("invalid-url-format")
+
+
+class TestTryFixInjection:
+    """Test _try_fix_injection helper."""
+
+    def test_merges_modified_files_and_tallies_review_count(self, tmp_path: Path) -> None:
+        """Fixed files are appended to result.modified; unfixable findings tallied."""
+        workflows = tmp_path / ".github" / "workflows"
+
+        workflows.mkdir(parents=True)
+        workflow = workflows / "ci.yml"
+        workflow.write_text(
+            "on: push\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n"
+            '      - run: echo "${{ github.event.issue.title }}"\n'
+        )
+        settings = UpdateReposSettings()
+        result = RepoResult(repo="org/repo")
+
+        _try_fix_injection(tmp_path, settings, result)
+
+        assert workflow in result.modified
+        assert result.injection_review == 0
+
+
+class TestTryZizmor:
+    """Test _try_zizmor helper."""
+
+    @patch("update_repos.shutil.which", return_value=None)
+    def test_missing_binary_is_a_soft_failure(self, _mock_which: MagicMock, tmp_path: Path) -> None:  # noqa: PT019
+        """Missing zizmor binary logs a warning but does not raise."""
+        settings = UpdateReposSettings()
+
+        result = RepoResult(repo="org/repo")
+
+        _try_zizmor(tmp_path, settings, result)  # must not raise
+
+        assert result.error is None

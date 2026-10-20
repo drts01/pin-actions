@@ -161,11 +161,11 @@ stage_pilot() {
   fetch_and_scan "$PILOT_SIZE" "$PILOT_CONCURRENCY" "$OUT_DIR/corpus-pilot.csv" pilot
   cat >&2 <<'EOF'
 
-==> Pilot complete. Before running `full`, read two rates off the report above:
-      p_pin       share of scanned repos that are fully uses:-pinned  -> this is N / sample
-      p_precommit share of N that is pre-commit eligible              -> this is the denominator for Z
-    Size the full run so that Z's denominator clears ~1000:
-      FULL_SIZE = 1000 / (p_pin * p_precommit)
+==> Pilot complete. The report's "Sizing the full run" section states the measured rates and the sample size
+    that `Z` requires. Compare that figure against "repos" in notes/corpus/frame.meta.json before proceeding:
+      - below the frame size -> set FULL_SIZE to it
+      - above the frame size -> `Z` is unreachable at this frame; lower MIN_STARS or drop `Z`,
+        and size the full run off the headline interval instead (50,000 puts N near 4,200, +/- 1.0 points)
     Then recompute the disk estimate from the measured clone size:
       PER_REPO_KB=$(du -sk notes/corpus/repos | awk '{print int($1 / 2000)}')
     Re-run with the SAME SEED so the pilot clones are reused:

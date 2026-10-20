@@ -1,4 +1,0 @@
-Error: 1 validation error for ScanCorpusSettings
-verbose
-  Input should be a valid integer, unable to parse string as an integer [type=int_parsing, input_value='v', input_type=str]
-    For further information visit https://errors.pydantic.dev/2.13/v/int_parsing

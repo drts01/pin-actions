@@ -49,6 +49,20 @@ One table says most of it. ✅ pins or gates · ⚠️ reports only, no fix · �
 | Pre-commit hook revision           | `rev: v1.2.3`                        |     ✅      |   ❌    |   ❌   |    ❌     |        ❌         |   ⚠️   |
 | **Provenance of the resolved SHA** | does this commit belong to the repo? |     ✅      |   ❌    |   ❌   |    ❌     |        ❌         |   ⚠️   |
 
+!!! important "Before choosing any tool: check whether you can use a lockfile"
+
+    GitHub ships
+    [workflow dependency lockfiles](https://docs.github.com/en/actions/concepts/security/workflow-dependency-lockfiles)
+    (public preview), which pin every action dependency — *including transitive ones* — to a commit whose
+    source-repository identity GitHub verifies at run time.
+    For action references, that is stronger than anything in the table above,
+    and GitHub states SHA pinning in workflow files is no longer necessary once you adopt one.
+
+    A lockfile covers the first two rows of the table.
+    It does not cover container images, cross-repo `with.ref`, pre-commit revisions, or `runs-on:`.
+    The tools above remain the answer for those rows, and for any repository that cannot adopt a lockfile.
+    See [What Pinning Misses §5](pinning-surface.md#5-what-github-now-ships-workflow-dependency-lockfiles).
+
 `ratchet` is the closest tool to `pin-actions` on reference coverage and the main alternative to weigh.
 Two things still separate them.
 

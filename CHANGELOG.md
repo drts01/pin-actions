@@ -22,6 +22,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Updated docs: `configure-caching.md` now covers in-memory cache only
 
 ### Added
+- `docs/explanation/pinning-surface.md` ("What Pinning Misses"): an introductory-level explanation of the six
+  mutable reference types a workflow can carry, with measurements from a scan of ~2,000 public repositories
+  (12.7% of in-scope repositories are fully `uses:`-pinned; 13.1% of those still carry a mutable container image,
+  cross-repo `with.ref`, or pre-commit revision), plus coverage of GitHub's workflow dependency lockfiles and
+  what they do and do not pin. Scanner and raw counts published under `notes/corpus_scanner/`
+- `docs/explanation/threat-model.md`: added Layer 0 (workflow dependency lockfiles) to the mitigation matrix,
+  §4.1 describing the platform-native control and its coverage boundary, §6.1 on how `pin-actions` relates to it,
+  and primary-source citations for the fork-network behavior in §3.1
+- `docs/explanation/comparison.md`: lockfile callout advising readers to prefer GitHub's lockfile for action
+  references where available, and noting the reference types it does not cover
 - Documented and added explicit test coverage for pinning Reusable Workflow refs
   (`org/repo/.github/workflows/x.yml@ref`) — already worked via the existing generic `uses:` resolution
   pipeline, but was untested and incorrectly listed as unsupported in `docs/explanation/comparison.md`
