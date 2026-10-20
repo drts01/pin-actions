@@ -188,8 +188,8 @@ async def resolve_and_rewrite(
         refs_to_resolve: Map of (repo, tag_or_ref) -> list of (item_path,
             current_sha, is_uses) needing that resolution.
         provenance_mode: 'off' skips provenance verification (default).
-            'warn' logs a warning for any newly-resolved SHA that isn't
-            reachable from a real branch/tag/PR on the repo. 'strict' raises
+            'warn' logs a warning for any newly-resolved SHA that isn't a
+            branch head, tag, or merged pull request commit on the repo. 'strict' raises
             :class:`UnverifiedProvenanceError` instead of warning.
 
     Raises:
@@ -235,7 +235,7 @@ async def _verify_resolved_provenance(
     for (repo, sha), result in zip(pairs, results, strict=True):
         if result == "verified":
             continue
-        reason = "not reachable from any branch, tag, or PR on the named repository"
+        reason = "not a branch head, tag, or merged pull request commit on the named repository"
         if provenance_mode == "strict":
             raise UnverifiedProvenanceError(repo, sha, reason)
         logger.warning("Unverified provenance for %s@%s: %s", repo, sha, reason)
@@ -315,7 +315,7 @@ async def apply_version_constrained_tag(
     if provenance_mode != "off":
         result = await client.verify_provenance(repo, new_sha)
         if result != "verified":
-            reason = "not reachable from any branch, tag, or PR on the named repository"
+            reason = "not a branch head, tag, or merged pull request commit on the named repository"
             if provenance_mode == "strict":
                 raise UnverifiedProvenanceError(repo, new_sha, reason)
             logger.warning("Unverified provenance for %s@%s: %s", repo, new_sha, reason)

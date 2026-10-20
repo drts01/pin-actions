@@ -33,15 +33,28 @@ Use `warn` for a first pass over an existing repository, where pre-existing pins
 `pin-actions` checks, in order, stopping at the first match:
 
 1. `GET /commits/{sha}/branches-where-head` — the SHA is the HEAD of some branch.
-2. `GET /commits/{sha}/pulls` — the SHA belongs to a pull request based on this repository.
+2. `GET /commits/{sha}/pulls` — the SHA is the head commit or merge commit of a **merged** pull request
+   into this repository.
 3. The cached tag list — the SHA is the commit of some tag.
 
-A match means the SHA is reachable from a real ref on the named repository.
+A match means a maintainer of the named repository put the SHA there: they pushed the branch, created the tag,
+or merged the pull request.
+
+Two kinds of pull request deliberately do not count:
+
+- **Open or closed-unmerged pull requests.**
+  Anyone can open a pull request from a fork,
+  and GitHub then serves its commits from the upstream repository through `refs/pull/N/head`.
+  Counting it would let an attacker verify their own impostor commit.
+- **Commits in the middle of a merged pull request.**
+  An attacker can push a malicious commit, revert it in a later commit, and get the pull request squash-merged.
+  The malicious commit is listed under the merged pull request but never landed.
+  Only the pull request's final head commit, which the reviewer saw, and its merge commit count.
 
 No match means **not confirmed**, not **proven malicious**.
-A legitimate commit whose branch was deleted and whose pull request was never opened against the upstream reads
-as unverified.
-This is reachability against the GitHub API, not cryptographic attestation.
+A legitimate commit that is no longer a branch head, carries no tag,
+and was never a merged pull request's head reads as unverified.
+This is a check against the GitHub API, not cryptographic attestation.
 
 ## Blind Spot: Pins Without a Trailing Comment
 
@@ -61,7 +74,9 @@ and review any pin that arrives without one.
 
 ## Cost
 
-Verification adds one GitHub API call per unique `(repo, sha)` pair.
+Verification adds up to two GitHub API calls per unique `(repo, sha)` pair, stopping at the first match,
+plus the repository's tag list.
+The tag list is fetched once per repository, up to 1,000 tags, and shared with tag resolution.
 Results are cached for the lifetime of the client,
 so a monorepo pinning `actions/checkout` fifty times pays for it once.
 

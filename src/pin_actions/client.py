@@ -293,7 +293,7 @@ class GitHubClient:
         return await self._date_cache.get_or_fetch((owner_repo, sha), _fetch)
 
     async def verify_provenance(self, repo: str, sha: str) -> ProvenanceResult:
-        """Check whether ``sha`` is reachable from a real branch/tag/PR on ``repo``.
+        """Check whether ``sha`` is a branch head, a tag, or a merged pull request commit on ``repo``.
 
         Best-effort defense against GitHub fork-network "impostor commit"
         attacks (see docs/explanation/threat-model.md, section 3.1): a SHA
@@ -306,7 +306,11 @@ class GitHubClient:
 
         Checks, in order, stopping at the first match:
         1. ``GET /commits/{sha}/branches-where-head`` -- any branch HEAD.
-        2. ``GET /commits/{sha}/pulls`` -- any PR based on this repo.
+        2. ``GET /commits/{sha}/pulls`` -- a *merged* PR based on this repo whose
+           head commit or merge commit is ``sha``. Open PRs never count: anyone
+           can open one, and GitHub serves its commits through ``refs/pull/N/head``.
+           Non-head commits of merged PRs never count: a squash merge can discard
+           a malicious commit that a later commit in the same PR reverted.
         3. Cached tag list from :meth:`list_tags` -- any tag commit SHA.
 
         Results are cached per-repo-sha for the lifetime of the client.
@@ -316,7 +320,7 @@ class GitHubClient:
             sha: Full commit SHA to verify.
 
         Returns:
-            ``"verified"`` if reachable from a real ref on ``repo``, else ``"unverified"``.
+            ``"verified"`` if any check matches, else ``"unverified"``.
 
         Raises:
             RateLimitExhaustedError: If retries are exhausted while rate-limited.
@@ -344,12 +348,17 @@ class GitHubClient:
         return bool(data)
 
     async def _has_matching_pull(self, owner_repo: str, sha: str) -> bool:
-        """Check ``GET /commits/{sha}/pulls`` for a PR based on ``owner_repo``."""
+        """Check ``GET /commits/{sha}/pulls`` for a merged PR into ``owner_repo`` with ``sha`` as head or merge."""
         try:
             data = await self._get_json(f"/repos/{owner_repo}/commits/{sha}/pulls")
         except InvalidRefError:
             return False
-        return any(pull.get("base", {}).get("repo", {}).get("full_name") == owner_repo for pull in data)
+        return any(
+            bool(pull.get("merged_at"))
+            and pull.get("base", {}).get("repo", {}).get("full_name") == owner_repo
+            and sha in (pull.get("head", {}).get("sha"), pull.get("merge_commit_sha"))
+            for pull in data
+        )
 
     async def _has_matching_tag(self, repo: str, sha: str) -> bool:
         """Check the cached tag list for a tag pointing at ``sha``."""

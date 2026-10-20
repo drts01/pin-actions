@@ -84,9 +84,9 @@ class UnverifiedProvenanceError(GitHubAPIError):
     GitHub's fork-network object storage lets a repository resolve/serve a SHA
     that was only ever committed to an unrelated fork of that repository
     (see docs/explanation/threat-model.md, section 3.1). This error means the SHA
-    could not be confirmed reachable from any real branch, tag, or PR on the
-    named repository -- it may be a legitimate but orphaned commit, or an
-    impostor commit from a malicious fork.
+    could not be confirmed as a branch head, tag, or merged pull request commit
+    on the named repository -- it may be a legitimate but orphaned commit, or an
+    impostor commit from a malicious fork or an unmerged pull request.
     """
 
     def __init__(self, repo: str, sha: str, reason: str) -> None:

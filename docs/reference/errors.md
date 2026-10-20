@@ -12,7 +12,7 @@ PinActionsError                    # base for all errors
 │   ├── InvalidRefError            # 404: ref does not exist
 │   ├── RateLimitExhaustedError    # retries exhausted while rate-limited
 │   ├── NetworkError               # unrecoverable network failure
-│   └── UnverifiedProvenanceError  # --provenance strict: SHA not reachable from a real ref
+│   └── UnverifiedProvenanceError  # --provenance strict: SHA not confirmed on the named repo
 └── UnsupportedRegistryError       # registry does not support anonymous Bearer auth (e.g. ECR, GCR)
 ```
 
@@ -27,7 +27,7 @@ PinActionsError                    # base for all errors
 | `InvalidRefError`           | A ref (branch, tag, or commit SHA) returns 404.                                                                                                           | `repo`, `ref`                                                           | Correct the ref. `resolve_sha()` and `get_commit_date()` re-raise with the real repo and ref; raised from any other API path, `repo` holds the API base URL and `ref` holds the request path.                |
 | `RateLimitExhaustedError`   | Retries are exhausted while rate-limited (403 with `x-ratelimit-remaining: 0`, 429, or 5xx).                                                              | `repo` (API base URL), `ref` (request path), `attempts`                 | Authenticate the run (60 → 5000 requests/hour), raise `--max-retries`, or lower `--concurrency`.                                                                                                             |
 | `NetworkError`              | Every attempt fails with a transport error (DNS, connection, timeout).                                                                                    | —                                                                       | Check connectivity and proxy configuration, then retry with a higher `--max-retries`.                                                                                                                        |
-| `UnverifiedProvenanceError` | `--provenance strict` is active and a resolved SHA is not reachable from a branch head, tag, or pull request on the named repository.                     | `repo`, `sha`, `reason`                                                 | Verify the commit upstream. Then pin a different ref, or drop to `--provenance warn` to log instead of fail.                                                                                                 |
+| `UnverifiedProvenanceError` | `--provenance strict` is active and a resolved SHA is not a branch head, tag, or merged pull request commit on the named repository.                      | `repo`, `sha`, `reason`                                                 | Verify the commit upstream. Then pin a different ref, or drop to `--provenance warn` to log instead of fail.                                                                                                 |
 | `UnsupportedRegistryError`  | A container registry does not offer anonymous Bearer auth (ECR, GCR), returns no `Docker-Content-Digest` header, or the image reference cannot be parsed. | `registry` (registry host, or the unparsable image reference), `reason` | None required for normal runs: `run()` and `pin_file()` catch this per image, log a warning, and leave the entry untouched. It only propagates from direct `ContainerRegistryClient.resolve_digest()` calls. |
 
 `AuthError` covers 403 only.

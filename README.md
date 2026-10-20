@@ -36,8 +36,8 @@ It does **not** defeat an attacker who hands you a SHA that lives in a *fork* of
 GitHub serves fork commits from the upstream repository's API namespace,
 so `actions/checkout@<attacker-sha>` resolves cleanly and reads as legitimate in review.
 
-`--provenance strict` refuses to write a SHA that is not reachable from a real branch, tag,
-or pull request on the named repository; `--provenance warn` logs it instead.
+`--provenance strict` refuses to write a SHA that is not a branch head, tag,
+or merged pull request commit on the named repository; `--provenance warn` logs it instead.
 Static analyzers report impostor commits after they land.
 `pin-actions` is the only fixer that blocks them at the moment of writing.
 See [Verify SHA Provenance](https://drts01.github.io/pin-actions/how-to/verify-provenance/).
@@ -95,7 +95,7 @@ pin-actions --paths .github/workflows --github-token $GITHUB_TOKEN
 # Dry-run to see what would change
 pin-actions --dry-run
 
-# Reject any SHA that is not reachable from a real ref on the named repo
+# Reject any SHA that is not a branch head, tag, or merged PR commit on the named repo
 pin-actions --provenance strict
 
 # Move tags forward, but ignore releases younger than 7 days

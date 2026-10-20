@@ -70,8 +70,8 @@ await run(Settings(provenance="strict"))
 await pin_file(client, Path(".github/workflows/ci.yml"), provenance_mode="strict")
 ```
 
-`"strict"` raises `UnverifiedProvenanceError` when a resolved SHA is not reachable from a real branch, tag,
-or pull request on the named repository.
+`"strict"` raises `UnverifiedProvenanceError` when a resolved SHA is not a branch head, tag,
+or merged pull request commit on the named repository.
 See [Verify Provenance](./verify-provenance.md) for the mode semantics.
 
 ## Multi-Repo Processing with a Shared Client

@@ -151,8 +151,8 @@ class Settings(BaseSettings):
     )
     provenance: Literal["off", "warn", "strict"] = Field(
         default="off",
-        description="Verify pinned/resolved SHAs are reachable from a real branch/tag/PR on the "
-        "named repo (defends against GitHub fork-network 'impostor commit' SHAs; see the "
+        description="Verify pinned/resolved SHAs are a branch head, tag, or merged pull request commit on "
+        "the named repo (defends against GitHub fork-network 'impostor commit' SHAs; see the "
         "Threat Model docs, section 3.1). 'off': no check (default). 'warn': log a warning if "
         "unverifiable. 'strict': raise if unverifiable",
     )

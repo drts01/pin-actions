@@ -76,8 +76,8 @@ jobs:
 
 ## Reject Impostor-Commit SHAs
 
-`--provenance strict` refuses to write a SHA that is not reachable from a branch, tag,
-or pull request on the named repository.
+`--provenance strict` refuses to write a SHA that is not a branch head, tag,
+or merged pull request commit on the named repository.
 Add it to either workflow above to gate fork-network commits at write time:
 
 ```yaml

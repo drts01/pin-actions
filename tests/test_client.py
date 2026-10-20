@@ -388,6 +388,22 @@ class TestConcurrentDedup:
         assert all(r == [("v1", "1111111111111111111111111111111111111111")] for r in results)
 
 
+def _pull(
+    *,
+    head_sha: str,
+    merged_at: str | None = "2026-01-01T00:00:00Z",
+    merge_commit_sha: str = "0" * 40,
+    base_repo: str = "owner/repo",
+) -> dict[str, object]:
+    """Build a minimal ``GET /commits/{sha}/pulls`` item."""
+    return {
+        "merged_at": merged_at,
+        "merge_commit_sha": merge_commit_sha,
+        "head": {"sha": head_sha},
+        "base": {"repo": {"full_name": base_repo}},
+    }
+
+
 class TestVerifyProvenance:
     """Test verify_provenance's branch/PR/tag fallback chain and caching."""
 
@@ -408,7 +424,7 @@ class TestVerifyProvenance:
 
     @pytest.mark.asyncio
     async def test_verified_via_matching_pull(self) -> None:
-        """Empty branches-where-head, but a matching PR base repo verifies the SHA."""
+        """Empty branches-where-head, but a merged PR whose head is the SHA verifies it."""
         client = GitHubClient(token="test", concurrency=1)
         sha = "b" * 40
 
@@ -416,13 +432,58 @@ class TestVerifyProvenance:
             if "branches-where-head" in path:
                 return []
             if "pulls" in path:
-                return [{"base": {"repo": {"full_name": "owner/repo"}}}]
+                return [_pull(head_sha=sha)]
             raise AssertionError(path)
 
         with patch.object(client, "_get_json", side_effect=mock_get_json):
             result = await client.verify_provenance("owner/repo", sha)
 
         assert result == "verified"
+
+    @pytest.mark.asyncio
+    async def test_verified_via_merged_pull_merge_commit(self) -> None:
+        """A merged PR whose merge commit is the SHA verifies it."""
+        client = GitHubClient(token="test", concurrency=1)
+        sha = "9" * 40
+
+        async def mock_get_json(path: str, _params: dict | None = None) -> list:
+            if "branches-where-head" in path:
+                return []
+            if "pulls" in path:
+                return [_pull(head_sha="8" * 40, merge_commit_sha=sha)]
+            raise AssertionError(path)
+
+        with patch.object(client, "_get_json", side_effect=mock_get_json):
+            result = await client.verify_provenance("owner/repo", sha)
+
+        assert result == "verified"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("pull_kwargs", "reason"),
+        [
+            ({"merged_at": None}, "open PR from a fork (refs/pull/N/head impostor)"),
+            ({"head_sha": "7" * 40}, "non-head commit of a merged PR (squash-discarded commit)"),
+            ({"base_repo": "other/repo"}, "merged PR into a different repository"),
+        ],
+    )
+    async def test_unverified_pull_regressions(self, pull_kwargs: dict[str, object], reason: str) -> None:
+        """PR matches that do not prove the SHA landed on the named repository read unverified."""
+        client = GitHubClient(token="test", concurrency=1)
+        sha = "2" * 40
+        pull = _pull(**{"head_sha": sha, **pull_kwargs})
+
+        async def mock_get_json(path: str, **_kwargs: object) -> list:
+            if "branches-where-head" in path or path == "/repos/owner/repo/tags":
+                return []
+            if "pulls" in path:
+                return [pull]
+            raise AssertionError(path)
+
+        with patch.object(client, "_get_json", side_effect=mock_get_json):
+            result = await client.verify_provenance("owner/repo", sha)
+
+        assert result == "unverified", reason
 
     @pytest.mark.asyncio
     async def test_verified_via_matching_tag(self) -> None:
@@ -467,7 +528,7 @@ class TestVerifyProvenance:
                 repo = "owner/repo"
                 raise InvalidRefError(repo, path)
             if "pulls" in path:
-                return [{"base": {"repo": {"full_name": "owner/repo"}}}]
+                return [_pull(head_sha=sha)]
             raise AssertionError(path)
 
         with patch.object(client, "_get_json", side_effect=mock_get_json):

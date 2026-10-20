@@ -59,6 +59,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Documented CI scope decision to keep Trivy, Checkov, and Semgrep out of the default pipeline because Ruff security rules + Zizmor + Actionlint + CodeQL already cover this repository's risk profile and there is no product IaC/container pipeline
 
 ### Fixed
+- **Security:** `--provenance warn/strict` no longer counts a SHA as verified because it appears in an open pull request,
+  or as a non-head commit of a merged pull request. `GET /commits/{sha}/pulls` returns open pull requests for
+  commits not on the default branch, and anyone can open one from a fork, so an attacker could verify their own
+  impostor commit. A pull request now counts only when it is merged into the named repository and `sha` is its head
+  commit or merge commit. Behavior change: SHAs that previously read as verified only through an open or
+  intermediate pull request commit now read as unverified
 - Updated locked `urllib3`, `uv`, and `virtualenv` versions to remediate vulnerabilities detected by `uv audit`
 - `jobs.<job>.container` **string shorthand** (`container: node:20`) is now pinned. Only the `jobs.<job>.container.image` mapping form was detected, so workflows using GitHub's documented shorthand silently kept a mutable image tag
 - `scripts/update_repos.py`: `_upsert_pr` PR lookup bug — replaced broken `gh pr view --repo <repo> --head <branch>` (flag does not exist; silent failure → duplicate PR creation attempts) with `gh pr list --repo <repo> --head <branch>` (correct CLI, works for same-repo and fork-sourced PRs)

@@ -50,8 +50,10 @@ a fork can host a commit that's fetchable via the upstream repo's API
 because forks share the same underlying object pool.
 Pinning that SHA alone doesn't prove it came from the upstream repo.
 
-`--provenance` checks whether every newly-resolved/re-verified SHA is reachable from a real branch, tag,
-or PR on the *named* repository before pin-actions writes it:
+`--provenance` checks whether every newly-resolved/re-verified SHA is a branch head, tag,
+or merged pull request head or merge commit on the *named* repository before pin-actions writes it.
+Open pull requests do not count, because anyone can open one
+(see [Verify SHA Provenance](../how-to/verify-provenance.md#what-verified-means)):
 
 | Mode     | Behavior                                                         |
 | -------- | ---------------------------------------------------------------- |
@@ -61,8 +63,11 @@ or PR on the *named* repository before pin-actions writes it:
 
 This is a heuristic, best-effort control, not a cryptographic guarantee:
 GitHub's API has no signed "origin repo" attestation.
-It can produce false negatives (e.g. a legitimate commit whose branch/tag was later deleted) but never false positives
-(silence means "unverified", never mislabels a bad SHA as good).
+It produces false negatives: a legitimate commit that is no longer a branch head, carries no tag,
+and was never a merged pull request's head or merge commit reads as unverified.
+It can also produce false positives: it proves a maintainer of the named repository put the commit there,
+not that the code is safe, so a malicious pull request a maintainer merged, or a compromised maintainer account,
+still verifies.
 
 ```bash
 # Warn on unverifiable SHAs but keep pinning
