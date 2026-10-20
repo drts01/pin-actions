@@ -22,6 +22,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Updated docs: `configure-caching.md` now covers in-memory cache only
 
 ### Added
+- `docs/explanation/mutable-references-across-platforms.md` ("Beyond GitHub Actions"): an introductory-level
+  survey of mutable references on GitLab CI, CircleCI, Azure Pipelines, Jenkins, Buildkite, Tekton, Drone, and
+  Bitbucket Pipelines,
+  why container-image tags are mutable on every registry regardless of publisher-side immutability settings,
+  and which platforms and tools are exposed to impostor commits via shared fork storage or pull/merge request refs
 - `docs/explanation/pinning-surface.md` ("What Pinning Misses"): an introductory-level explanation of the six
   mutable reference types a workflow can carry, with measurements from a scan of ~2,000 public repositories
   (12.7% of in-scope repositories are fully `uses:`-pinned; 13.1% of those still carry a mutable container image,

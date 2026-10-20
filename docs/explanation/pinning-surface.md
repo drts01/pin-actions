@@ -181,7 +181,7 @@ It is 40 hex characters that nobody is going to verify by hand.
 
 This is called an **impostor commit**,
 and it is why `pin-actions` ships [provenance verification](../how-to/verify-provenance.md): before writing a SHA,
-it checks that the commit is reachable from a real branch, tag, or pull request **on the repository you named**.
+it checks that the commit is a branch head, a tag, or a merged pull request commit **on the repository you named**.
 
 GitHub's hardening guide does warn about this, in one sentence:
 
@@ -261,6 +261,8 @@ pin-actions --provenance strict --exclude-newer '7 days'
 
 ## See also
 
+- [Mutable References Beyond GitHub Actions](mutable-references-across-platforms.md) — the same problem on GitLab,
+  CircleCI, Azure Pipelines, Jenkins, Buildkite, Tekton, Drone, and container registries
 - [Threat Model](threat-model.md) — the full architectural analysis, including `pull_request_target` abuse
 - [Comparison with Similar Tools](comparison.md) — which tools cover which of the six reference types
 - [Verify SHA Provenance](../how-to/verify-provenance.md) — how to turn on impostor-commit checking

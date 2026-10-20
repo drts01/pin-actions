@@ -202,7 +202,9 @@ Frame it that way in the first sentence: "Here is concretely why GitHub put a ru
 6. Demo step 5: `pin-actions --provenance strict`.
    It refuses.
    Show the error.
-7. Slide: what verification actually means here — reachability from a real branch, tag, or PR.
+7. Slide: what verification actually means here — a branch head, a tag,
+   or the head or merge commit of a *merged* PR on the named repository.
+   Open PRs do not count; anyone can open one.
    **Say the limitation out loud:** this is best-effort reachability, not cryptographic attestation.
    Artifact attestations and sigstore are the real answer and are not yet available for this.
 8. Slide: the lockfile does this natively, at run time, with repository IDs rather than names.
@@ -264,19 +266,22 @@ Tool slide last, 20 seconds, one URL.
 Ordered by what blocks the abstract.
 Reprioritized after the pilot: the demo now blocks the abstract and the full scan does not.
 
-| #   | Task                                                                                        | Blocks         | Status                                                         |
-| --- | ------------------------------------------------------------------------------------------- | -------------- | -------------------------------------------------------------- |
-| 1   | Build the corpus scanner; sample public repos with workflow files                           | Abstract `N`   | **Done** — `notes/corpus_scanner/`                             |
-| 2   | Run the pilot; decide the framing from the measured rates                                   | Thesis         | **Done** — see [Pilot Results](#pilot-results)                 |
-| 3   | Fact-check the fork-network and pinning claims against GitHub's documentation               | Thesis         | **Done** — see [Primary-Source Review](#primary-source-review) |
-| 4   | Run the full 50,000-repository scan; publish the artifacts                                  | Abstract `N`   | Todo — **now the top priority**                                |
-| 5   | Adopt `gh actions-lock` on a test repository; verify coverage claims empirically            | Part 0, Part 1 | Todo                                                           |
-| 6   | Reproduce the fork/impostor demo end-to-end in a throwaway org                              | Part 2         | Todo                                                           |
-| 7   | Confirm each competing tool's behavior against the impostor SHA, empirically, not from docs | Part 2         | Todo                                                           |
-| 8   | Decide whether to widen the frame for `Z` or drop `Z`                                       | Part 1         | Todo                                                           |
-| 9   | Fact-check the incident timeline and CVE against primary sources                            | Part 0         | Todo                                                           |
-| 10  | Secure clearance to present anonymized fleet data                                           | Part 3         | Todo                                                           |
-| 11  | Write and submit the abstract                                                               | Nov 1          | Todo                                                           |
+| #   | Task                                                                                        | Blocks         | Status                                                                                           |
+| --- | ------------------------------------------------------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------ |
+| 1   | Build the corpus scanner; sample public repos with workflow files                           | Abstract `N`   | **Done** — `notes/corpus_scanner/`                                                               |
+| 2   | Run the pilot; decide the framing from the measured rates                                   | Thesis         | **Done** — see [Pilot Results](#pilot-results)                                                   |
+| 3   | Fact-check the fork-network and pinning claims against GitHub's documentation               | Thesis         | **Done** — see [Primary-Source Review](#primary-source-review)                                   |
+| 4   | Run the full 50,000-repository scan; publish the artifacts                                  | Abstract `N`   | Todo — **now the top priority**                                                                  |
+| 5   | Adopt `gh actions-lock` on a test repository; verify coverage claims empirically            | Part 0, Part 1 | Todo                                                                                             |
+| 6   | Reproduce the fork/impostor demo end-to-end in a throwaway org                              | Part 2         | Todo                                                                                             |
+| 7   | Confirm each competing tool's behavior against the impostor SHA, empirically, not from docs | Part 2         | Todo                                                                                             |
+| 8   | Decide whether to widen the frame for `Z` or drop `Z`                                       | Part 1         | Todo                                                                                             |
+| 9   | Fact-check the incident timeline and CVE against primary sources                            | Part 0         | Todo                                                                                             |
+| 10  | Secure clearance to present anonymized fleet data                                           | Part 3         | Todo                                                                                             |
+| 11  | Write and submit the abstract                                                               | Nov 1          | Todo                                                                                             |
+| 12  | Reproduce a pre-commit impostor `rev:` end to end on repositories you own                   | Part 1, Part 2 | Todo                                                                                             |
+| 13  | Fix `verify_provenance` to reject open-PR-only SHAs; add a regression test                  | Part 2 demo    | **Done** — merged PR head or merge commit only                                                   |
+| 14  | Empirically test GitLab paths A and B (API, `git fetch`, `include:project`, component @SHA) | Q&A            | Partly answered from source; end-to-end plan in [`impostor-e2e-tests.md`](impostor-e2e-tests.md) |
 
 Tasks 4 and 5 are the proposal.
 The measurement is the thesis again, so `N` belongs in the abstract,
@@ -392,6 +397,101 @@ Captured in [`docs/explanation/threat-model.md` §4.1 and §6.1](../docs/explana
 **Process note.**
 Two consecutive thesis pivots were proposed before anyone read the primary sources.
 Run task 7 (fact-checking) *before* the next framing decision, not after.
+
+### Cross-platform review
+
+Checked 2026-10-20 against vendor documentation for GitLab CI, CircleCI, Azure Pipelines, Jenkins, Buildkite, Tekton,
+Drone, Docker Hub, Amazon ECR, and GHCR.
+Full write-up, written for a general audience, in
+[`docs/explanation/mutable-references-across-platforms.md`](../docs/explanation/mutable-references-across-platforms.md).
+
+**The thesis generalizes, and narrows.**
+Every platform has mutable config-layer references.
+CircleCI registry orbs are the one platform that solved the config layer by construction:
+published versions are immutable and orb-to-orb dependencies are flattened at publish time.
+GitHub's lockfile puts it second.
+GitLab, Azure, Jenkins, Buildkite, Tekton, and Drone have guidance or optional controls only.
+
+**The image layer is the industry-wide gap.**
+Tags are mutable pointers under the OCI Distribution Spec on every registry.
+Docker Hub (beta, opt-in) and ECR (per-repository) offer tag immutability,
+but it is a *publisher* control a consumer cannot observe or require.
+Digest pinning is the only consumer-side control on any registry.
+CircleCI's own orb docs define an executor as `cimg/ruby:<< parameters.tag >>` defaulting to `'2.7'`:
+an immutable orb running a mutable image.
+That is the strongest single slide for "the other half" — the platform that solved the config layer still leaks `X`.
+
+**Impostor commits have two paths, not one.**
+
+- *Path A, shared fork storage:* verified on GitHub only.
+  GitLab's object pools are seeded from the upstream project only, so fork-only commits stay in the fork
+  (inference from GitLab's docs; a GitLab staff remark in issue #600030 conflicts and is unresolved).
+- *Path B, pull/merge request refs:* opening a PR or MR copies the contributor's commit into `refs/pull/N/head`
+  or `refs/merge-requests/N/head` in the target repository.
+  No maintainer action required.
+  Verified for GitLab via Git (MR head refs persist 14 days after close); GitHub documents the same.
+
+Consumer exposure depends on whether the client fetches the exact SHA. pre-commit
+(`git fetch origin <rev> --depth=1`),
+pip `git+https`, and the Tekton `git` resolver fetch by SHA: exposed to path A on GitHub
+(inference from source, high confidence).
+Buildkite plugins and Jenkins shared libraries (default settings) clone branches and tags first: not exposed.
+Go modules refuse by design.
+
+**pre-commit is the talk-relevant finding.**
+It fetches `rev:` by SHA, it is outside every lockfile, and it is already one of the three measured surfaces.
+A pre-commit impostor demo would tie Part 1 and Part 2 together.
+Not yet reproduced; see task 12.
+
+**Bitbucket Cloud** restricts new forks to the parent workspace from July 1, 2026; storage sharing is undocumented.
+
+### Impostor-commit follow-up (2026-10-20)
+
+Checked against vendor source code and issue trackers; every claim below was re-read at the primary source.
+None has been tested end to end.
+
+**GitLab `include:project` and components: exposed to path B, and possibly permanently.**
+Both resolve the pinned ref with `project.commit(ref)`
+(`lib/gitlab/ci/config/external/file/project.rb`, `lib/gitlab/ci/components/instance_path.rb`),
+an object lookup with no branch-or-tag check.
+An MR copies the contributor's commit into the target project.
+The `refs/merge-requests/<iid>/head` ref is deleted 14 days after close,
+but `merge_request_diff.rb` enqueues `KeepAroundRefsWorker` for the MR head SHA in both the target and source projects.
+Inference: an impostor commit opened as an MR, then closed, stays resolvable through `include:project`.
+This is talk-worthy and the strongest cross-platform Q&A answer.
+
+**Azure Pipelines checking out a GitHub repository resource: exposed to paths A and B.** The agent fetches the resolved
+SHA directly, `git fetch origin +<sha>`, when Git is 2.26 or newer and `DisableFetchByCommit` is unset (default `false`,
+`AgentKnobs.cs`).
+GitHub serves fork and PR commits to that request.
+Open: whether `ref:` on a `type: github` resource accepts a raw SHA, and how compile-time templates resolve
+(server code is not public).
+
+**Bitbucket Cloud: not exposed to path B.** No PR refs: BCLOUD-5814 requested them in 2012 and is still "Reviewing".
+Pipelines `import:` cannot pin a SHA at all;
+Atlassian's docs say a branch import "will always reference the HEAD commit of the targeted branch".
+Path A remains undocumented.
+**Bitbucket Data Center** does create `refs/pull-requests/<id>/from` (BSERV-12284),
+so it is exposed to path B for any client that fetches a SHA (inference).
+
+Written up in the cross-platform doc's §4.
+
+### `--provenance strict` accepted path B (found and fixed 2026-10-20)
+
+`GitHubClient.verify_provenance()` returned `"verified"`
+if `GET /commits/{sha}/pulls` returned any PR whose base was the named repository.
+GitHub's REST docs: "If the commit is not present in the default branch,
+it will return merged and open pull requests associated with the commit."
+Anyone can open a PR from a fork against a public repository,
+so an attacker who opened one passed `--provenance strict`.
+
+**Fixed (task 13).**
+A PR now counts only when `merged_at` is set, its base is the named repository,
+and the SHA is the PR's head commit or merge commit.
+The head-or-merge rule also closes a second hole: push a malicious commit, revert it in the same PR,
+get it squash-merged, and the malicious SHA would otherwise be "in a merged PR".
+Regression tests: `tests/test_client.py::TestVerifyProvenance::test_unverified_pull_regressions`.
+Demo step 5 is unblocked; re-run it against an open PR before the talk to confirm the refusal live.
 
 ### Scanner methodology notes
 
@@ -540,9 +640,28 @@ They open pull requests after the fact.
 They cannot make a pull request land already pinned, and they do not verify provenance.
 Complementary, not substitutes.
 
+**"Isn't this just a GitHub problem?"**
+No. Every CI platform reviewed has mutable config-layer references, and every container registry has mutable tags.
+CircleCI registry orbs are the one config layer that is immutable by construction —
+and CircleCI's own docs show an immutable orb running a mutable image.
+The image layer is the gap no platform closes.
+
+**"What if the attacker opens a pull request with the impostor commit?"**
+The PR copies the commit into `refs/pull/N/head` on the upstream repository.
+GitHub's lockfile still rejects it, because it requires the commit to be on a branch.
+`--provenance strict` rejects it too: only the head or merge commit of a *merged* PR counts.
+That rule also defeats the revert-then-squash variant, where the malicious commit sits inside a merged PR.
+On GitLab the same trick works against `include:project` pinned to a SHA, and keep-around refs may make it permanent.
+
+**"Is this only GitHub?"**
+Shared fork storage is GitHub-specific as far as anyone has documented.
+Merge request refs are not: GitLab includes and components resolve an MR-only commit by SHA
+(from source), and Azure's agent fetches GitHub commits by SHA.
+Bitbucket Cloud has no PR refs, and its shared-config imports cannot pin a SHA at all.
+
 **"Isn't `--provenance strict` just checking GitHub's own API?
 What if GitHub is compromised?"** Correct, and stated in the talk.
-It raises the bar from "any SHA in the fork network" to "a SHA reachable from a real ref on the named repo."
+It raises the bar from "any SHA in the fork network" to "a SHA a maintainer put on the named repo."
 It is not an attestation and should not be sold as one.
 
 **"Doesn't pinning everything break Dependabot/Renovate update flows?"**
@@ -599,6 +718,11 @@ Things that feel important and are not.
   Unlikely on this timescale, but re-verify in March 2027.
 - The project may be renamed before the conference; see [naming notes](naming.md).
   Decide the name before submitting on November 1 — changing it after acceptance is worse than either option.
+- ~~`--provenance strict` accepts a SHA from any open PR against the named repository (path B).~~
+  **Resolved** by task 13.
+  Residual: a maintainer who merges a malicious PR defeats the check by design; say so if asked.
+- The GitLab keep-around and Azure fetch-by-SHA findings come from reading source, not from tests.
+  Present them as "the source says", or run task 14 first.
 - `sethvargo/ratchet` has been evaluated and already closes most of the coverage gap on GitHub Actions.
   The talk's Part 1 tool-coverage slide must show `ratchet` as near-complete,
   or the committee and audience will catch the omission.

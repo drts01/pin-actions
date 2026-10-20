@@ -75,8 +75,8 @@ so `actions/checkout@<attacker-sha>` resolves successfully and reads as legitima
 (see [Threat Model §3.1](threat-model.md#31-github-fork-network-vulnerabilities-imposter-commits)).
 
 `pin-actions` is the only compared tool that gates on this *while writing*.
-`--provenance strict` refuses to write a SHA that is not reachable from a branch, tag,
-or pull request on the named repository; `--provenance warn` logs it and continues.
+`--provenance strict` refuses to write a SHA that is not a branch head, tag,
+or merged pull request commit on the named repository; `--provenance warn` logs it and continues.
 `zizmor`'s `impostor-commit` audit detects the same condition, but only after the SHA is already committed.
 The remaining tools resolve and write whatever the API returns.
 

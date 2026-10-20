@@ -43,6 +43,7 @@ nav = [
     { "Design Decisions" = "explanation/design-decisions.md" },
     { "Caching" = "explanation/caching.md" },
     { "What Pinning Misses" = "explanation/pinning-surface.md" },
+    { "Beyond GitHub Actions" = "explanation/mutable-references-across-platforms.md" },
     { "Threat Model" = "explanation/threat-model.md" },
     { "Script Injection" = "explanation/code-injection.md" },
     { "Comparison with Similar Tools" = "explanation/comparison.md" },
