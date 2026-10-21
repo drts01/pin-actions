@@ -32,14 +32,19 @@ def _collect_precommit_refs(doc: Any, *, host: str) -> list[tuple[tuple[Any, ...
     """
     results: list[tuple[tuple[Any, ...], str, str, bool]] = []
     try:
-        repos = doc["repos"]
-    except KeyError, TypeError:
+        repos = enumerate(doc["repos"])
+    except KeyError, TypeError, IndexError:
         return results
 
-    for index, repo_entry in enumerate(repos):
-        url = repo_entry.get("repo", None)
-        ref = repo_entry.get("rev", None)
-        repo = url and git_url_to_repo(url, host=host)
+    for index, repo_entry in repos:
+        try:
+            url = repo_entry.get("repo", None)
+            ref = repo_entry.get("rev", None)
+        except AttributeError, TypeError:
+            continue
+        if not isinstance(url, str) or not isinstance(ref, str):
+            continue
+        repo = git_url_to_repo(url, host=host)
         if repo and ref:
             results.append((("repos", index, "rev"), repo, ref, False))
     return results

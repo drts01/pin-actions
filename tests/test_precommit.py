@@ -93,6 +93,32 @@ class TestPinPrecommitFile:
         assert config_file.read_text() == original_content
 
     @pytest.mark.asyncio
+    async def test_sequence_root_is_skipped(self, tmp_path: Path) -> None:
+        """Skip valid YAML that is not a pre-commit mapping."""
+        client = GitHubClient(token="test")
+        config_file = tmp_path / ".pre-commit-config.yaml"
+        original_content = "[]\n"
+        config_file.write_text(original_content)
+
+        modified = await pin_precommit_file(client, config_file, dry_run=False)
+
+        assert not modified
+        assert config_file.read_text() == original_content
+
+    @pytest.mark.asyncio
+    async def test_non_string_rev_is_skipped(self, tmp_path: Path) -> None:
+        """Skip repository entries whose rev is not a string."""
+        client = GitHubClient(token="test")
+        config_file = tmp_path / ".pre-commit-config.yaml"
+        original_content = "repos:\n  - repo: https://github.com/owner/repo\n    rev: 1.0\n"
+        config_file.write_text(original_content)
+
+        modified = await pin_precommit_file(client, config_file, dry_run=False)
+
+        assert not modified
+        assert config_file.read_text() == original_content
+
+    @pytest.mark.asyncio
     async def test_malformed_yaml_raises(self, tmp_path: Path) -> None:
         """Raise YAMLParseError on malformed YAML."""
         # Arrange
