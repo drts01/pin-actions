@@ -85,8 +85,9 @@ Keep them listed so the reasoning is not relitigated.
 > and a tool only helps in the repositories that run it.
 >
 > So I measured what is actually left.
-> I scanned [N] public repositories that had already pinned every single `uses:` to a commit SHA,
+> I scanned 4,008 public repositories that had already pinned every single `uses:` to a commit SHA,
 > and counted what was still mutable underneath.
+> One in seven still had something mutable.
 > I will publish the scanner, the raw counts, and the sampling seed so you can check the numbers.
 >
 > Along the way I will show you live why the lockfile's run-time identity check exists:
@@ -100,7 +101,7 @@ Keep them listed so the reasoning is not relitigated.
 >
 > You will leave able to audit your own pinning surface and with a concrete checklist to close it.
 
-Keep the bracketed `[N]` only until the full scan is run; the pilot value is 168 and the full run lands near 4,200.
+`N` is 4,008, from the 2026-10-21 full run over 49,984 repositories; see [Full-Run Results](#full-run-results).
 The abstract no longer claims the answer is "uncomfortable,"
 and it no longer claims the fork-network behavior is unknown.
 Both claims were checked and neither survived.
@@ -148,8 +149,11 @@ Land the point in 30 seconds: tags are pointers, pointers move, SHAs do not.
 The room already agrees.
 Do not belabor it.
 
-One extra beat earned by the pilot data: **87.3% of active public repositories are not fully pinned at all.**
+One extra beat earned by the full-run data:
+**87.8% of public repositories that use third-party actions do not pin all of them to a commit SHA.**
 The advice is near-universal and compliance is not.
+Scope the claim on the slide: active, non-archived, non-fork repositories above 100 stars, with at least one non-local,
+non-expression `uses:` (28,855 of 32,863; 95% CI 87.4%–88.2%).
 
 Then the slide that keeps the talk current — **workflow dependency lockfiles**.
 State it plainly and without hedging:
@@ -185,12 +189,17 @@ Then the six mutable reference types, one slide each, 45 seconds each, with a on
 Then the data slide.
 This is the centerpiece again, and the lockfile framing makes it land harder than it did on its own:
 
-> Of [N] repositories where every `uses:` is already pinned to a commit SHA,
-> **one in eight** still reference at least one mutable container image, cross-repo checkout ref,
+> Of 4,008 repositories where every `uses:` is already pinned to a commit SHA,
+> **one in seven** (14.8%) still reference at least one mutable container image, cross-repo checkout ref,
 > or pre-commit revision —
 > and not one of those reference types is covered by a lockfile.
 
-Say the inverse out loud before anyone else does: roughly seven in eight pinned repositories are clean on this measure.
+Break it down on the same slide: 8.9% have a mutable container image (`X`)
+and 2.8% have an unpinned cross-repo `with.ref` (`Y`).
+Report the pre-commit share separately because it has its own denominator.
+
+Say the inverse out loud before anyone else does: about 85% of pinned repositories show none of these three.
+Do not call them clean; the scanner has known undercounts (see the methodology notes).
 The finding is that a residual surface exists at all, that no guide tells you to look for it,
 and that the platform's new fix does not reach it.
 Volunteering the deflating reading is what makes the rest of the numbers trustworthy.
@@ -284,25 +293,26 @@ Tool slide last, 20 seconds, one URL.
 
 Ordered by what blocks the abstract.
 Reprioritized after the pilot: the demo now blocks the abstract and the full scan does not.
+The full scan finished on 2026-10-21.
 
-| #   | Task                                                                                        | Blocks         | Status                                                                                           |
-| --- | ------------------------------------------------------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------ |
-| 1   | Build the corpus scanner; sample public repos with workflow files                           | Abstract `N`   | **Done** — `notes/corpus_scanner/`                                                               |
-| 2   | Run the pilot; decide the framing from the measured rates                                   | Thesis         | **Done** — see [Pilot Results](#pilot-results)                                                   |
-| 3   | Fact-check the fork-network and pinning claims against GitHub's documentation               | Thesis         | **Done** — see [Primary-Source Review](#primary-source-review)                                   |
-| 4   | Run the full 50,000-repository scan; publish the artifacts                                  | Abstract `N`   | Todo — **now the top priority**                                                                  |
-| 5   | Adopt `gh actions-lock` on a test repository; verify coverage claims empirically            | Part 0, Part 1 | Todo                                                                                             |
-| 6   | Reproduce the fork/impostor demo end-to-end in a throwaway org                              | Part 2         | Todo                                                                                             |
-| 7   | Confirm each competing tool's behavior against the impostor SHA, empirically, not from docs | Part 2         | Todo                                                                                             |
-| 8   | Decide whether to widen the frame for `Z` or drop `Z`                                       | Part 1         | Todo                                                                                             |
-| 9   | Fact-check the incident timeline and CVE against primary sources                            | Part 0         | Todo                                                                                             |
-| 10  | Secure clearance to present anonymized fleet data                                           | Part 3         | Todo                                                                                             |
-| 11  | Write and submit the abstract                                                               | Nov 1          | Todo                                                                                             |
-| 12  | Reproduce a pre-commit impostor `rev:` end to end on repositories you own                   | Part 1, Part 2 | Todo                                                                                             |
-| 13  | Fix `verify_provenance` to reject open-PR-only SHAs; add a regression test                  | Part 2 demo    | **Done** — merged PR head or merge commit only                                                   |
-| 14  | Empirically test GitLab paths A and B (API, `git fetch`, `include:project`, component @SHA) | Q&A            | Partly answered from source; end-to-end plan in [`impostor-e2e-tests.md`](impostor-e2e-tests.md) |
+| #   | Task                                                                                        | Blocks         | Status                                                                                            |
+| --- | ------------------------------------------------------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------- |
+| 1   | Build the corpus scanner; sample public repos with workflow files                           | Abstract `N`   | **Done** — `notes/corpus_scanner/`                                                                |
+| 2   | Run the pilot; decide the framing from the measured rates                                   | Thesis         | **Done** — see [Pilot Results](#pilot-results)                                                    |
+| 3   | Fact-check the fork-network and pinning claims against GitHub's documentation               | Thesis         | **Done** — see [Primary-Source Review](#primary-source-review)                                    |
+| 4   | Run the full 50,000-repository scan; publish the artifacts                                  | Abstract `N`   | **Scan done** — see [Full-Run Results](#full-run-results); publishing the artifacts is still todo |
+| 5   | Adopt `gh actions-lock` on a test repository; verify coverage claims empirically            | Part 0, Part 1 | Todo                                                                                              |
+| 6   | Reproduce the fork/impostor demo end-to-end in a throwaway org                              | Part 2         | Todo                                                                                              |
+| 7   | Confirm each competing tool's behavior against the impostor SHA, empirically, not from docs | Part 2         | Todo                                                                                              |
+| 8   | Decide whether to widen the frame for `Z` or drop `Z`                                       | Part 1         | Todo — the full run gives n=204; see [Full-Run Results](#full-run-results)                        |
+| 9   | Fact-check the incident timeline and CVE against primary sources                            | Part 0         | Todo                                                                                              |
+| 10  | Secure clearance to present anonymized fleet data                                           | Part 3         | Todo                                                                                              |
+| 11  | Write and submit the abstract                                                               | Nov 1          | Todo                                                                                              |
+| 12  | Reproduce a pre-commit impostor `rev:` end to end on repositories you own                   | Part 1, Part 2 | Todo                                                                                              |
+| 13  | Fix `verify_provenance` to reject open-PR-only SHAs; add a regression test                  | Part 2 demo    | **Done** — merged PR head or merge commit only                                                    |
+| 14  | Empirically test GitLab paths A and B (API, `git fetch`, `include:project`, component @SHA) | Q&A            | Partly answered from source; end-to-end plan in [`impostor-e2e-tests.md`](impostor-e2e-tests.md)  |
 
-Tasks 4 and 5 are the proposal.
+Tasks 4 and 5 are the proposal; the scan half of task 4 is done.
 The measurement is the thesis again, so `N` belongs in the abstract,
 and task 5 is what lets the lockfile coverage boundary be stated as fact rather than as a reading of the docs.
 Get both done before writing the final abstract.
@@ -311,7 +321,44 @@ Task 6 is no longer abstract-blocking, but it is still the best ten minutes of t
 If it does not reproduce, Part 2 becomes a slide-only explanation of why lockfiles verify identity,
 and the talk survives — which is precisely the resilience the previous framing lacked.
 
+## Full-Run Results
+
+Run 2026-10-21 over 49,984 repositories, a seeded 50,000-repository sample of the 149,570-repository frame.
+The other 16 repositories no longer existed when cloned.
+Full output is in [`corpus/report-full.md`](corpus/report-full.md); per-repository rows are in `corpus/corpus.csv`.
+This section supersedes the pilot figures below for every slide.
+
+| Statistic                                   | Value                | 95% CI      | Verdict                                  |
+| ------------------------------------------- | -------------------- | ----------- | ---------------------------------------- |
+| Fully pinned share of in-scope repositories | 12.2% (4,008/32,863) | 11.8%–12.6% | Part 0 hook: 87.8% are not fully pinned  |
+| Headline residual surface                   | 14.8% (592/4,008)    | 13.7%–15.9% | Part 1 headline: "one in seven"          |
+| `X` mutable container image                 | 8.9% (358/4,008)     | 8.1%–9.9%   | Keep; the largest single component       |
+| `Y` unpinned cross-repo `with.ref`          | 2.8% (113/4,008)     | 2.4%–3.4%   | Keep; do not lead with it                |
+| `Z` unpinned pre-commit rev in CI           | 79.9% (163/204)      | 73.9%–84.8% | Supporting observation, not the headline |
+
+What changed from the pilot:
+
+- **The headline moved from one in eight to one in seven.**
+  13.1% (n=168) became 14.8% (n=4,008), inside the pilot's interval.
+- **The pin rate held.**
+  12.7% became 12.2%; "compliance is one in eight" still holds for the pin rate.
+  Keep the two figures apart on the slides: one in eight in-scope repositories is fully pinned,
+  and one in seven of *those* still has residual surface.
+- **`Z` is now an interval, not an anecdote.** n=204 gives about ±5.5 points,
+  enough to say "roughly four in five" with its denominator on the slide.
+  It is still below the 1,000-repository target and covers 5.1% of `N`, so it cannot be the headline.
+
+Corrections applied before these figures were produced:
+
+- Eight clones from an interrupted fetch had empty working trees and were counted as having no workflows.
+  They were repaired at their recorded HEAD commit SHAs and rescanned.
+- `yamlrocks` 0.6.1 rejected 471 valid YAML files, mostly flow sequences with leading commas.
+  The scanner now falls back to PyYAML's read-only `BaseLoader`; 35 files remain unparsable.
+- The local-action count now includes the `$/` repository-root form as well as `./`.
+
 ## Pilot Results
+
+Kept for the record; the figures in [Full-Run Results](#full-run-results) replace these on every slide.
 
 Run 2026-10-19 over a 1,996-repository subsample of the frame;
 full output in [`corpus/report-pilot.md`](corpus/report-pilot.md).
@@ -397,7 +444,7 @@ and the committee reads submissions with current docs open.
 Lockfiles cover action and reusable-workflow references.
 They do not cover container images, cross-repo `with.ref`, pre-commit revisions, or `runs-on:`,
 and they do not cover the dependencies of reusable workflows defined elsewhere.
-Every reference type in the 13.1% is outside the lockfile's scope.
+Every reference type in the 14.8% is outside the lockfile's scope.
 The measurement's relevance *increases* as lockfiles roll out,
 because the lockfile removes the `uses:` column and leaves the residual surface as the whole remaining problem.
 
@@ -547,10 +594,10 @@ To drive the stages directly:
 
 ```bash
 export GITHUB_TOKEN=...   # search is 10 req/min unauthenticated, 30 req/min authenticated
-uv run python -m notes.corpus_scanner frame  --min-stars 100 --pushed-since 2026-04-01 --out notes/corpus/frame.jsonl
-uv run python -m notes.corpus_scanner fetch  --frame notes/corpus/frame.jsonl --cache notes/corpus/repos --sample 50000 --seed 20260401 --concurrency 10
-uv run python -m notes.corpus_scanner scan   --cache notes/corpus/repos --out notes/corpus/corpus.csv
-uv run python -m notes.corpus_scanner report --csv notes/corpus/corpus.csv --exclude-dynamic
+uv run --group corpus python -m notes.corpus_scanner frame  --min-stars 100 --pushed-since 2026-04-01 --out notes/corpus/frame.jsonl
+uv run --group corpus python -m notes.corpus_scanner fetch  --frame notes/corpus/frame.jsonl --cache notes/corpus/repos --sample 50000 --seed 20260401 --concurrency 10
+uv run --group corpus python -m notes.corpus_scanner scan   --cache notes/corpus/repos --out notes/corpus/corpus.csv
+uv run --group corpus python -m notes.corpus_scanner report --csv notes/corpus/corpus.csv --exclude-dynamic
 ```
 
 Configuration goes through `pydantic-settings` like the rest of the project,
@@ -577,10 +624,10 @@ Publish `frame.jsonl`, `frame.meta.json`, `sample.jsonl`, the sampling seed, `ma
 and the script itself.
 
 The full frame is roughly 150k repositories; cloning all of them is ~12 h and ~200 GB.
-The pilot measured a pin rate of 8.4% of scanned repositories,
-so a 50,000-repository sample puts `N` near 4,200 and the headline percentage inside roughly ±1.0 points.
+The full run measured a pin rate of 8.0% of scanned repositories,
+so the 50,000-repository sample put `N` at 4,008 and the headline percentage inside roughly ±1.1 points.
 That is the right size for the headline, `X`, and `Y`.
-It is not enough for `Z`; see [Pilot Results](#pilot-results).
+It is not enough to make `Z` a headline; see [Full-Run Results](#full-run-results).
 
 ### Measurement definitions
 
@@ -616,6 +663,7 @@ Still-known undercounts to disclose on the methodology slide:
 - Docker container action definitions (`runs.image` in an `action.yml`) are not classified.
 - `runs-on:` runner images are mutable and not pinnable by any tool; acknowledged as future work.
 - Default-branch snapshot only; no history.
+- 35 YAML files that neither parser accepts are excluded from classification.
 - Frame floor of 100 stars.
   Pinning discipline plausibly correlates with popularity,
   so both the pin rate and the residual surface may differ below the floor.
@@ -642,16 +690,16 @@ Most of the talk is a measurement and a GitHub platform behavior.
 Both are tool-independent.
 The checklist opens by recommending GitHub's lockfile over any third-party tool, including the speaker's.
 
-**"13% isn't very much.
+**"15% isn't very much.
 Doesn't that mean pinning basically works?"**
 For the residual surface, largely yes, and the talk says so.
 The argument is not that the gap is enormous; it is that nobody knew the number, no guide tells you to look,
-no lockfile covers it, and the one in eight who are exposed are exposed to arbitrary code execution.
+no lockfile covers it, and the one in seven who are exposed are exposed to arbitrary code execution.
 
-**"Your pre-commit number has a denominator of eight."**
-Correct, which is why it is not on a slide as a percentage.
+**"Your pre-commit number has a small denominator."**
+Correct: 204 repositories, 95% CI 73.9%–84.8%, which is why it is a supporting figure and not the headline.
 The pre-commit-eligible population is 0.4% of repositories scanned;
-measuring it properly needs a frame wider than the one sampled.
+a 1,000-repository denominator needs a frame wider than the one sampled.
 Stated as a limitation, not smoothed over.
 
 **"Why not just use Dependabot or Renovate?"**
@@ -703,7 +751,7 @@ Things that feel important and are not.
 - Arguing that pinning is good.
   The room agrees before you start.
 - Arguing that the residual surface is enormous.
-  It is one in eight; say so and move on.
+  It is one in seven; say so and move on.
 - The full tool feature matrix.
   One coverage table in Part 1, with a lockfile column; link the rest.
 - A deep dive on lockfile mechanics.
@@ -714,8 +762,9 @@ Things that feel important and are not.
 
 ## Open Risks
 
-- ~~The headline statistic may come back undramatic.~~ **Fired.** The pilot returned 13.1%.
-  Resolved by reframing as "one in eight, and no lockfile covers any of it"; see [Pilot Results](#pilot-results).
+- ~~The headline statistic may come back undramatic.~~ **Fired.**
+  The pilot returned 13.1%; the full run returned 14.8%.
+  Resolved by reframing as "one in seven, and no lockfile covers any of it"; see [Full-Run Results](#full-run-results).
 - ~~Competing tools may ship provenance checks between submission and April 2027.~~
   **Fired, and worse than anticipated.**
   GitHub itself shipped it, in the platform, enforced at run time.
@@ -727,8 +776,10 @@ Things that feel important and are not.
   Treat the Part 1 coverage boundary as a perishable claim with a known expiry risk.
 - The impostor demo has not been reproduced end-to-end yet.
   No longer thesis-critical, but it is still the best segment in the talk.
-- `Z` is not measurable at the current sampling frame.
-  Decide by the full run whether to widen the frame below 100 stars or drop the statistic.
+- `Z` cannot reach a 1,000-repository denominator at the current sampling frame.
+  The full run gives 79.9% (163/204, 95% CI 73.9%–84.8%): usable as a supporting figure with its denominator shown,
+  not as a headline.
+  Widen the frame below 100 stars only if `Z` must carry more weight.
 - Live demo depends on GitHub Actions executing on conference wifi timing.
   Pre-record.
 - Fleet data clearance may not arrive.
