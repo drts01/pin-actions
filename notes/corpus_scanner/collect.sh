@@ -114,7 +114,7 @@ stage_frame() {
   mkdir -p "$OUT_DIR"
   log "frame: stars $MIN_STARS..$MAX_STARS pushed after $PUSHED_SINCE (estimated 90-120 min)"
 
-  uv run python -m notes.corpus_scanner -v "$VERBOSE" frame \
+  uv run --group corpus python -m notes.corpus_scanner -v "$VERBOSE" frame \
     --min-stars "$MIN_STARS" \
     --max-stars "$MAX_STARS" \
     --pushed-since "$PUSHED_SINCE" \
@@ -138,7 +138,7 @@ fetch_and_scan() {
   require_space "$size"
   log "$label: cloning $size repositories at concurrency $concurrency"
 
-  uv run python -m notes.corpus_scanner -v "$VERBOSE" fetch \
+  uv run --group corpus python -m notes.corpus_scanner -v "$VERBOSE" fetch \
     --frame "$FRAME" \
     --cache "$CACHE" \
     --sample "$size" \
@@ -149,10 +149,10 @@ fetch_and_scan() {
   cp "$MANIFEST" "$OUT_DIR/manifest-$label.jsonl"
 
   log "$label: scanning clones"
-  uv run python -m notes.corpus_scanner -v "$VERBOSE" scan --cache "$CACHE" --out "$corpus"
+  uv run --group corpus python -m notes.corpus_scanner -v "$VERBOSE" scan --cache "$CACHE" --out "$corpus"
 
   log "$label: report"
-  uv run python -m notes.corpus_scanner report --csv "$corpus" --exclude-dynamic \
+  uv run --group corpus python -m notes.corpus_scanner report --csv "$corpus" --exclude-dynamic \
     --out "$OUT_DIR/report-$label.md"
   cat "$OUT_DIR/report-$label.md"
 }
@@ -191,7 +191,7 @@ EOF
 
 stage_report() {
   [ -s "$OUT_DIR/corpus.csv" ] || die "no corpus at $OUT_DIR/corpus.csv"
-  uv run python -m notes.corpus_scanner report --csv "$OUT_DIR/corpus.csv" --exclude-dynamic
+  uv run --group corpus python -m notes.corpus_scanner report --csv "$OUT_DIR/corpus.csv" --exclude-dynamic
 }
 
 # --- Dispatch ----------------------------------------------------------------------------------------------------

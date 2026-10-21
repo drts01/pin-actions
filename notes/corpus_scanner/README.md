@@ -18,6 +18,9 @@ Run four resumable stages:
 
 The scanner intentionally imports private collectors from `pin_actions`
 so classification matches the implementation under study.
+If yamlrocks rejects valid corpus YAML, scanning falls back to PyYAML's read-only BaseLoader;
+this parser is scoped to the `corpus` dependency group and is never used for editing files.
+Cached clones with missing sparse-checkout content are repaired on fetch.
 
 Treat those imports as repository-local coupling;
 changes to collector signatures may require corresponding scanner updates.
@@ -41,10 +44,10 @@ To drive the stages directly, run commands from the repository root:
 
 ```bash
 export GITHUB_TOKEN=...  # Optional, but increases the GitHub search rate limit.
-uv run python -m notes.corpus_scanner frame --min-stars 100 --pushed-since 2026-04-01 --out notes/corpus/frame.jsonl
-uv run python -m notes.corpus_scanner fetch --frame notes/corpus/frame.jsonl --cache notes/corpus/repos --sample 50000 --seed 20260401 --concurrency 10
-uv run python -m notes.corpus_scanner scan --cache notes/corpus/repos --out notes/corpus/corpus.csv
-uv run python -m notes.corpus_scanner report --csv notes/corpus/corpus.csv --exclude-dynamic
+uv run --group corpus python -m notes.corpus_scanner frame --min-stars 100 --pushed-since 2026-04-01 --out notes/corpus/frame.jsonl
+uv run --group corpus python -m notes.corpus_scanner fetch --frame notes/corpus/frame.jsonl --cache notes/corpus/repos --sample 50000 --seed 20260401 --concurrency 10
+uv run --group corpus python -m notes.corpus_scanner scan --cache notes/corpus/repos --out notes/corpus/corpus.csv
+uv run --group corpus python -m notes.corpus_scanner report --csv notes/corpus/corpus.csv --exclude-dynamic
 ```
 
 ## Sampling
@@ -89,7 +92,7 @@ where the normal interval can extend past zero or one.
 Run the isolated test suite from the repository root:
 
 ```bash
-uv run --group test python -m pytest --no-cov notes/corpus_scanner/tests
+uv run --group corpus --group test python -m pytest --no-cov notes/corpus_scanner/tests
 ```
 
 The tests mock GitHub API and Git subprocess boundaries; they do not access live services.

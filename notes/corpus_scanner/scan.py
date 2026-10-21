@@ -4,6 +4,8 @@ import csv
 from dataclasses import asdict, dataclass, fields
 from typing import TYPE_CHECKING, Any
 
+import yaml
+
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -70,13 +72,47 @@ def _is_dynamic(value: str) -> bool:
     return "${{" in value
 
 
+class _ReadOnlyDocument:
+    """Expose PyYAML values through the walk interface used by the collectors."""
+
+    def __init__(self, value: Any) -> None:  # noqa: ANN401
+        self.value = value
+
+    def walk(self) -> list[tuple[tuple[str | int, ...], Any]]:
+        """Visit scalar values and their paths without modifying the source YAML."""
+        items: list[tuple[tuple[str | int, ...], Any]] = []
+
+        def visit(value: Any, path: tuple[str | int, ...]) -> None:  # noqa: ANN401
+            if isinstance(value, dict):
+                for key, child in value.items():
+                    visit(child, (*path, key))
+            elif isinstance(value, list):
+                for index, child in enumerate(value):
+                    visit(child, (*path, index))
+            else:
+                items.append((path, value))
+
+        visit(self.value, ())
+        return items
+
+    def __getitem__(self, key: str) -> Any:  # noqa: ANN401
+        """Allow the pre-commit collector to inspect ``repos``."""
+        return self.value[key]
+
+
 def _load_doc(path: Path) -> Any | None:  # noqa: ANN401
-    """Round-trip parse a path, returning ``None`` when it is not usable YAML."""
+    """Parse YAML for analysis, falling back when yamlrocks rejects valid corpus YAML."""
+    content = path.read_bytes()
     try:
-        doc = yamlrocks.loads(path.read_bytes(), option=yamlrocks.OPT_ROUND_TRIP)
+        doc = yamlrocks.loads(content, option=yamlrocks.OPT_ROUND_TRIP)
+        if isinstance(doc, yamlrocks.YAMLRocksDocument):
+            return doc
     except Exception:  # noqa: BLE001 -- arbitrary corpus files may fail in any parser layer
+        doc = None
+    try:
+        return _ReadOnlyDocument(yaml.load(content, Loader=yaml.BaseLoader))
+    except yaml.YAMLError, UnicodeError:
         return None
-    return doc if isinstance(doc, yamlrocks.YAMLRocksDocument) else None
 
 
 def _count_local_uses(doc: Any) -> int:  # noqa: ANN401
@@ -84,7 +120,7 @@ def _count_local_uses(doc: Any) -> int:  # noqa: ANN401
     return sum(
         1
         for item_path, value in doc.walk()
-        if item_path and item_path[-1] == "uses" and isinstance(value, str) and value.startswith("./")
+        if item_path and item_path[-1] == "uses" and isinstance(value, str) and value.startswith(("./", "$/"))
     )
 
 

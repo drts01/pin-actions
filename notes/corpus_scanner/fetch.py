@@ -57,7 +57,7 @@ async def _git(*args: str, timeout: float) -> tuple[int, str, str]:  # noqa: ASY
     return proc.returncode or 0, stdout.decode(errors="replace"), stderr.decode(errors="replace")
 
 
-async def fetch_repo(repo: str, cache: Path, *, timeout: float) -> dict[str, Any]:  # noqa: ASYNC109 -- see _git
+async def fetch_repo(repo: str, cache: Path, *, timeout: float) -> dict[str, Any]:  # noqa: ASYNC109, PLR0911, PLR0912 -- see _git
     """Blobless sparse-clone one repository and record its HEAD commit SHA.
 
     Args:
@@ -89,6 +89,45 @@ async def fetch_repo(repo: str, cache: Path, *, timeout: float) -> dict[str, Any
             code, _, err = await _git("-C", str(dest), "sparse-checkout", "set", *_SPARSE_PATHS, timeout=timeout)
             if code != 0:
                 return {"repo": repo, "ok": False, "error": err.strip()[:_ERROR_EXCERPT_CHARS]}
+        else:
+            # Interrupted sparse checkouts can leave a valid HEAD but no workflow files on disk.
+            missing = [path for path in _SPARSE_PATHS if not (dest / path).is_dir()]
+            if missing:
+                code, out, err = await _git(
+                    "-C", str(dest), "ls-tree", "-r", "--name-only", "HEAD", "--", *missing, timeout=timeout
+                )
+                if code != 0:
+                    return {"repo": repo, "ok": False, "error": err.strip()[:_ERROR_EXCERPT_CHARS]}
+                if out.strip():
+                    code, _, err = await _git(
+                        "-C", str(dest), "sparse-checkout", "set", *_SPARSE_PATHS, timeout=timeout
+                    )
+                    if code != 0:
+                        return {"repo": repo, "ok": False, "error": err.strip()[:_ERROR_EXCERPT_CHARS]}
+                    # Git may retain deletions from an interrupted checkout even after setting the cone.
+                    missing_files = [path for path in out.splitlines() if not (dest / path).is_file()]
+                    if missing_files:
+                        code, tracked, err = await _git(
+                            "-C", str(dest), "ls-files", "--", *missing_files, timeout=timeout
+                        )
+                        if code != 0:
+                            return {"repo": repo, "ok": False, "error": err.strip()[:_ERROR_EXCERPT_CHARS]}
+                        if len(tracked.splitlines()) != len(missing_files):
+                            # An interrupted clone may have an empty index despite a valid HEAD.
+                            code, _, err = await _git("-C", str(dest), "reset", "--mixed", "HEAD", timeout=timeout)
+                            if code != 0:
+                                return {"repo": repo, "ok": False, "error": err.strip()[:_ERROR_EXCERPT_CHARS]}
+                        code, _, err = await _git(
+                            "-C", str(dest), "restore", "--worktree", "--", *missing_files, timeout=timeout
+                        )
+                        if code != 0:
+                            return {"repo": repo, "ok": False, "error": err.strip()[:_ERROR_EXCERPT_CHARS]}
+                    if any(not (dest / path).is_file() for path in out.splitlines()):
+                        return {
+                            "repo": repo,
+                            "ok": False,
+                            "error": "sparse checkout left tracked workflow files missing",
+                        }
         code, out, err = await _git("-C", str(dest), "rev-parse", "HEAD", timeout=timeout)
     except (TimeoutError, OSError) as exc:
         return {"repo": repo, "ok": False, "error": f"{type(exc).__name__}: {exc}"[:_ERROR_EXCERPT_CHARS]}

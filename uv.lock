@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.14, <4"
 
 [options]
@@ -832,6 +832,9 @@ ci = [
     { name = "tox-gh" },
     { name = "tox-uv" },
 ]
+corpus = [
+    { name = "pyyaml" },
+]
 docs = [
     { name = "mkdocstrings-python" },
     { name = "zensical" },
@@ -870,6 +873,7 @@ ci = [
     { name = "tox-gh", specifier = "~=1.8" },
     { name = "tox-uv", specifier = "~=1.36" },
 ]
+corpus = [{ name = "pyyaml", specifier = ">=6.0.2,<7" }]
 docs = [
     { name = "mkdocstrings-python", specifier = "~=2.0" },
     { name = "zensical", specifier = ">=0.0.53" },

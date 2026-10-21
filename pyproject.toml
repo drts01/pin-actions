@@ -65,6 +65,9 @@ ci = [
   "tox-gh~=1.8",
   "tox-uv~=1.36",
 ]
+corpus = [
+  "pyyaml~=6.0",
+]
 lint = [
   "prek>=0.3.11",
 ]

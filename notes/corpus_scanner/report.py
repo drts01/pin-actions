@@ -103,12 +103,17 @@ def report(csv_path: Path, *, exclude_dynamic: bool) -> str:
         ("Unpinned cross-repo `with.ref` (`Y`)", withref_gap, denominator),
         ("Unpinned pre-commit rev in CI (`Z`)", precommit_gap, len(precommit_frame)),
     )
+    excluded_dynamic = sum(1 for row in with_workflows if int(row["uses_total"]) and int(row["uses_dynamic"]))
     dynamic_note = (
-        "Excluded from the numerators as neither pinned nor statically mutable: "
-        f"{sum(int(row['uses_dynamic']) for row in pinned)} expression-valued `uses:`, "
+        f"{'Excluded' if exclude_dynamic else 'Not excluded'} from the in-scope denominator: "
+        f"{excluded_dynamic if exclude_dynamic else 0} "
+        f"{'repository' if exclude_dynamic and excluded_dynamic == 1 else 'repositories'} "
+        "with expression-valued `uses:`. "
+        "Excluded from the residual numerators as neither pinned nor statically mutable: "
         f"{sum(int(row['withref_dynamic']) for row in pinned)} expression-valued `with.ref`, "
         f"{sum(int(row['image_dynamic']) for row in pinned)} expression-valued image refs. "
-        f"Local `uses: ./...` actions ({sum(int(row['uses_local']) for row in pinned)}) are out of scope."
+        f"Local `uses: ./...` and `uses: $/...` actions ({sum(int(row['uses_local']) for row in pinned)}) "
+        "are out of scope."
     )
 
     lines = [

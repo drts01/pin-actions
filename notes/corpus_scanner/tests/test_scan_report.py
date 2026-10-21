@@ -113,6 +113,66 @@ def test_scan_repo_classifies_static_dynamic_local_and_precommit_refs(tmp_path: 
     )
 
 
+@pytest.mark.parametrize(
+    "content",
+    [
+        "[]\n",
+        "repos:\n  - repo: https://github.com/owner/repo\n    rev: 1.0\n",
+        "repos:\n  - invalid-entry\n",
+        "repos:\n",
+    ],
+)
+def test_scan_repo_skips_invalid_precommit_shapes(tmp_path: Path, content: str) -> None:
+    """Treat syntactically valid non-pre-commit shapes as containing no refs."""
+    (tmp_path / ".pre-commit-config.yaml").write_text(content, encoding="utf-8")
+
+    stats = scan_repo("owner/repo", _SHA, tmp_path)
+
+    assert stats.parse_errors == 0
+    assert stats.precommit_total == 0
+    assert stats.precommit_mutable == 0
+
+
+def test_scan_repo_falls_back_to_pyyaml_for_valid_flow_yaml(tmp_path: Path) -> None:
+    """Count references in valid YAML rejected by yamlrocks' flow indentation rules."""
+    workflows = tmp_path / ".github" / "workflows"
+    workflows.mkdir(parents=True)
+    (workflows / "ci.yml").write_text(
+        f"jobs:\n  test:\n    steps: [\n      {{uses: actions/checkout@{_SHA}}}\n"
+        "    , {uses: actions/setup-python@v5}\n    ]\n",
+        encoding="utf-8",
+    )
+    (tmp_path / ".pre-commit-config.yaml").write_text(
+        "repos: [\n  {repo: https://github.com/astral-sh/ruff-pre-commit, rev: v0.14.0}\n]\n",
+        encoding="utf-8",
+    )
+
+    stats = scan_repo("owner/repo", _SHA, tmp_path)
+
+    assert stats.parse_errors == 0
+    assert stats.uses_total == 2  # noqa: PLR2004
+    assert stats.uses_pinned == 1
+    assert not stats.fully_pinned
+    assert stats.precommit_total == 1
+    assert stats.precommit_mutable == 1
+
+
+def test_scan_repo_counts_both_forms_of_local_uses(tmp_path: Path) -> None:
+    """Count both directory-relative and repo-root local actions as out of scope."""
+    workflows = tmp_path / ".github" / "workflows"
+    workflows.mkdir(parents=True)
+    (workflows / "ci.yml").write_text(
+        f"jobs:\n  test:\n    steps:\n      - uses: ./local\n      - uses: $/.github/actions/local\n"
+        f"      - uses: actions/checkout@{_SHA}\n",
+        encoding="utf-8",
+    )
+
+    stats = scan_repo("owner/repo", _SHA, tmp_path)
+
+    assert stats.uses_local == 2  # noqa: PLR2004
+    assert stats.uses_total == stats.uses_pinned == 1
+
+
 def test_scan_corpus_skips_failed_fetches_and_serializes_boolean_counts(tmp_path: Path) -> None:
     """Write one CSV row per successful manifest entry and encode booleans as integers."""
     cache = tmp_path / "repos"
@@ -153,6 +213,8 @@ def test_report_uses_expected_denominators_and_can_exclude_dynamic_repositories(
     assert "| Any of the three (headline) | 2 | 2 | **100.0%** |" in inclusive
     assert "Fully `uses:`-pinned (denominator `N`): **1**" in exclusive
     assert "| Any of the three (headline) | 1 | 1 | **100.0%** |" in exclusive
+    assert "Excluded from the in-scope denominator: 1 repository with expression-valued `uses:`." in exclusive
+    assert "Not excluded from the in-scope denominator: 0 repositories" in inclusive
 
 
 def test_report_excludes_local_only_repositories_from_the_pin_rate_denominator(tmp_path: Path) -> None:

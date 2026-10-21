@@ -39,6 +39,40 @@ async def test_fetch_repo_clones_configures_sparse_checkout_and_reads_head(
 
 
 @pytest.mark.asyncio
+async def test_fetch_repo_repairs_incomplete_cached_sparse_checkout(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Restore missing tracked workflows rather than treating a bare HEAD as a complete clone."""
+    (tmp_path / "owner" / "repo" / ".git").mkdir(parents=True)
+    calls: list[tuple[str, ...]] = []
+
+    async def git(*args: str, timeout: float) -> tuple[int, str, str]:  # noqa: ASYNC109 -- mocks _git
+        """Record Git arguments and return a fixed HEAD commit SHA."""
+        assert timeout == 30.0
+        calls.append(args)
+        if "ls-tree" in args:
+            return 0, ".github/workflows/ci.yml\n", ""
+        if "restore" in args:
+            workflow = tmp_path / "owner" / "repo" / ".github" / "workflows" / "ci.yml"
+            workflow.parent.mkdir(parents=True)
+            workflow.write_text("name: CI\n", encoding="utf-8")
+        if args[-2:] == ("rev-parse", "HEAD"):
+            return 0, f"{'a' * 40}\n", ""
+        return 0, "", ""
+
+    monkeypatch.setattr(fetch, "_git", git)
+
+    result = await fetch.fetch_repo("owner/repo", tmp_path, timeout=30.0)
+
+    assert result["ok"] is True
+    assert any("ls-tree" in call for call in calls)
+    assert any("sparse-checkout" in call for call in calls)
+    assert any("reset" in call for call in calls)
+    assert any("restore" in call for call in calls)
+    assert not any("clone" in call for call in calls)
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("failure", "expected"),
     [
