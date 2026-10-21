@@ -73,22 +73,27 @@ Keep them listed so the reasoning is not relitigated.
 > and verify at run time that the commit really came from the repository it names.
 > If you can adopt one, you should.
 >
-> Then comes the part nobody is talking about.
+> Then comes the part the lockfile leaves to you.
 > A lockfile covers `uses:`.
 > A workflow has at least five other ways to execute code from somewhere else:
 > job containers, service containers, `docker://` steps, cross-repository checkout refs,
 > and pre-commit hook revisions.
 > Every one of them is mutable.
 > None of them is in the lockfile.
+> Good tools already exist for some of them — `ratchet` pins container images across six CI systems —
+> but cross-repository checkout refs and pre-commit revisions are outside most pinning tools,
+> and a tool only helps in the repositories that run it.
 >
+> So I measured what is actually left.
 > I scanned [N] public repositories that had already pinned every single `uses:` to a commit SHA,
-> and measured what was still mutable underneath.
+> and counted what was still mutable underneath.
 > I will publish the scanner, the raw counts, and the sampling seed so you can check the numbers.
 >
 > Along the way I will show you live why the lockfile's run-time identity check exists:
 > GitHub serves commits from a repository's entire fork network under the upstream repository's API namespace,
-> so a SHA that exists only in an attacker's fork resolves cleanly, passes review, and executes —
-> and the popular pinning tools write it without complaint.
+> so a SHA that exists only in an attacker's fork resolves cleanly, passes review, and executes.
+> Most pinning tools write that SHA without checking where it came from;
+> I will show which ones do.
 >
 > Finally, the operational part: what happened when we rolled this across a real repository fleet,
 > what broke, and what the remediation actually costs.
@@ -99,6 +104,20 @@ Keep the bracketed `[N]` only until the full scan is run; the pilot value is 168
 The abstract no longer claims the answer is "uncomfortable,"
 and it no longer claims the fork-network behavior is unknown.
 Both claims were checked and neither survived.
+
+Revised 2026-10-20 for `ratchet`, which pins `docker://`, `container.image`, and `services[*].image` on GitHub Actions
+(see [`naming.md`](naming.md) and `docs/explanation/comparison.md`):
+
+- Dropped "the part nobody is talking about"; `ratchet` and Updatecli already address the image rows.
+- Named `ratchet` in the abstract.
+  A reviewer who knows it reads the omission as ignorance; naming it reads as a survey.
+- Moved the novelty claim from "no tool covers this" to "nobody has measured what is left".
+  The measurement survives any tool's existence; the coverage claim did not.
+- Replaced "the popular pinning tools write it without complaint" with "most pinning tools write
+  that SHA without checking where it came from".
+  `zizmor` flags impostor commits after the fact, so "popular tools" was false as a blanket claim.
+  The remaining claim rests on source review of `ratchet`, `pinact`, Updatecli, and `pin-github-action`;
+  confirm it empirically with task 7 before submitting, or soften to "tools I tested".
 
 ## Outline — 35 minutes of content
 
