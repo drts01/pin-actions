@@ -88,16 +88,17 @@ Keep them listed so the reasoning is not relitigated.
 > I scanned 4,008 public repositories that had already pinned every single `uses:` to a commit SHA,
 > and counted what was still mutable underneath.
 > One in seven still had something mutable.
-> I will publish the scanner, the raw counts, and the sampling seed so you can check the numbers.
+> I will publish the scanner, sampling inputs and seed, raw counts, and instructions to reproduce and extend
+> the measurement alongside the talk and slides.
 >
 > Along the way I will show you live why the lockfile's run-time identity check exists:
 > GitHub serves commits from a repository's entire fork network under the upstream repository's API namespace,
 > so a SHA that exists only in an attacker's fork resolves cleanly, passes review, and executes.
-> Most pinning tools write that SHA without checking where it came from;
+> Most pinning tools I reviewed do not check whether that SHA came from the named repository;
 > I will show which ones do.
 >
-> Finally, the operational part: what happened when we rolled this across a real repository fleet,
-> what broke, and what the remediation actually costs.
+> Finally, the operational part: a public-corpus dry run showing what remediation changes,
+> where it fails, and what review and maintenance cost.
 >
 > You will leave able to audit your own pinning surface and with a concrete checklist to close it.
 
@@ -114,11 +115,11 @@ Revised 2026-10-20 for `ratchet`, which pins `docker://`, `container.image`, and
   A reviewer who knows it reads the omission as ignorance; naming it reads as a survey.
 - Moved the novelty claim from "no tool covers this" to "nobody has measured what is left".
   The measurement survives any tool's existence; the coverage claim did not.
-- Replaced "the popular pinning tools write it without complaint" with "most pinning tools write
-  that SHA without checking where it came from".
+- Replaced "the popular pinning tools write it without complaint" with "most pinning tools I reviewed do not check
+  whether that SHA came from the named repository".
   `zizmor` flags impostor commits after the fact, so "popular tools" was false as a blanket claim.
-  The remaining claim rests on source review of `ratchet`, `pinact`, Updatecli, and `pin-github-action`;
-  confirm it empirically with task 7 before submitting, or soften to "tools I tested".
+  The qualified claim rests on source review of `ratchet`, `pinact`, Updatecli, and `pin-github-action`;
+  task 7 must still be completed before presenting any empirical tool comparison or demo.
 
 ## Outline — 35 minutes of content
 
@@ -224,9 +225,8 @@ Frame it that way in the first sentence: "Here is concretely why GitHub put a ru
 4. Demo step 3: put `actions/<action>@<fork-sha>` in a workflow.
    It runs.
    Show the marker in the log.
-5. Demo step 4: run the popular pinning tools against it.
-   They re-resolve, verify, and leave it alone.
-   Nobody objects.
+5. Demo step 4: run the pinning tools tested in task 7 against it.
+   Show each tool's observed behavior; do not claim they all accept the impostor SHA before testing.
 6. Demo step 5: `pin-actions --provenance strict`.
    It refuses.
    Show the error.
@@ -258,20 +258,14 @@ Use a throwaway org, a fork you control, and a workflow with `permissions: {}` a
 
 ### 0:27–0:33 — Part 3: What rolling this out actually costs
 
-The fleet story.
-Use the real campaign data from `output.csv`, `repos.txt`, and `prs.txt`.
+Use a public-corpus dry run to show how many files and refs change, what fails, and the review cost.
+Show representative, reproducible examples of parse failures, unresolvable refs,
+version comments that preserve reviewability, and the tradeoff between a release cooldown and staleness.
+Do not claim a fleet rollout or its observed failure rates on the basis of this dry run.
 
-Include, specifically:
-
-- How many repositories, how many files, how many refs changed.
-- The failure modes: `403 Write access to repository not granted`, parse failures, unresolvable refs.
-- The fork-and-PR fallback for repositories you cannot push to.
-- What review burden a wall of SHA diffs creates, and how the trailing `# v4` comment mitigates it.
-- The cooldown argument: why you should refuse releases younger than ~7 days, and what that costs in staleness.
-
-> **Blocker.** The campaign data is internal (`uhc-consumer/*`).
-> Anonymize repository names and obtain employer clearance before this appears in a proposal or slide.
-> If clearance is not forthcoming, replace this section with a public-corpus dry run.
+Internal campaign data (`output.csv`, `repos.txt`, `prs.txt`, `uhc-consumer/*`) is optional.
+Use it only after anonymizing it and obtaining employer clearance;
+no fleet data or clearance is needed to submit or deliver the public-corpus version of this talk.
 
 ### 0:33–0:35 — Close
 
@@ -292,30 +286,36 @@ Tool slide last, 20 seconds, one URL.
 ## Pre-CFP Work — the critical path
 
 Ordered by what blocks the abstract.
-Reprioritized after the pilot: the demo now blocks the abstract and the full scan does not.
+Reprioritized after the full scan: verify lockfile coverage before submission;
+the impostor demo and empirical tool comparison are talk-preparation work, not abstract blockers.
 The full scan finished on 2026-10-21.
 
-| #   | Task                                                                                        | Blocks         | Status                                                                                            |
-| --- | ------------------------------------------------------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------- |
-| 1   | Build the corpus scanner; sample public repos with workflow files                           | Abstract `N`   | **Done** — `notes/corpus_scanner/`                                                                |
-| 2   | Run the pilot; decide the framing from the measured rates                                   | Thesis         | **Done** — see [Pilot Results](#pilot-results)                                                    |
-| 3   | Fact-check the fork-network and pinning claims against GitHub's documentation               | Thesis         | **Done** — see [Primary-Source Review](#primary-source-review)                                    |
-| 4   | Run the full 50,000-repository scan; publish the artifacts                                  | Abstract `N`   | **Scan done** — see [Full-Run Results](#full-run-results); publishing the artifacts is still todo |
-| 5   | Adopt `gh actions-lock` on a test repository; verify coverage claims empirically            | Part 0, Part 1 | Todo                                                                                              |
-| 6   | Reproduce the fork/impostor demo end-to-end in a throwaway org                              | Part 2         | Todo                                                                                              |
-| 7   | Confirm each competing tool's behavior against the impostor SHA, empirically, not from docs | Part 2         | Todo                                                                                              |
-| 8   | Decide whether to widen the frame for `Z` or drop `Z`                                       | Part 1         | Todo — the full run gives n=204; see [Full-Run Results](#full-run-results)                        |
-| 9   | Fact-check the incident timeline and CVE against primary sources                            | Part 0         | Todo                                                                                              |
-| 10  | Secure clearance to present anonymized fleet data                                           | Part 3         | Todo                                                                                              |
-| 11  | Write and submit the abstract                                                               | Nov 1          | Todo                                                                                              |
-| 12  | Reproduce a pre-commit impostor `rev:` end to end on repositories you own                   | Part 1, Part 2 | Todo                                                                                              |
-| 13  | Fix `verify_provenance` to reject open-PR-only SHAs; add a regression test                  | Part 2 demo    | **Done** — merged PR head or merge commit only                                                    |
-| 14  | Empirically test GitLab paths A and B (API, `git fetch`, `include:project`, component @SHA) | Q&A            | Partly answered from source; end-to-end plan in [`impostor-e2e-tests.md`](impostor-e2e-tests.md)  |
+| #   | Task                                                                                        | Blocks         | Status                                                                                                                         |
+| --- | ------------------------------------------------------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | Build the corpus scanner; sample public repos with workflow files                           | Abstract `N`   | **Done** — `notes/corpus_scanner/`                                                                                             |
+| 2   | Run the pilot; decide the framing from the measured rates                                   | Thesis         | **Done** — see [Pilot Results](#pilot-results)                                                                                 |
+| 3   | Fact-check the fork-network and pinning claims against GitHub's documentation               | Thesis         | **Done** — see [Primary-Source Review](#primary-source-review)                                                                 |
+| 4   | Run the full 50,000-repository scan; publish the artifacts                                  | Abstract `N`   | **Scan done** — see [Full-Run Results](#full-run-results); publish data, code, seed, and instructions with the talk and slides |
+| 5   | Test `gh actions-lock` here and verify uncovered refs on a disposable branch or test repo   | Part 0, Part 1 | Todo — installed `gh` (2.102.0) does not currently have the `actions-lock` command                                             |
+| 6   | Reproduce the fork/impostor demo end-to-end in a throwaway org                              | Part 2         | Todo                                                                                                                           |
+| 7   | Confirm each competing tool's behavior against the impostor SHA, empirically, not from docs | Part 2         | Todo                                                                                                                           |
+| 8   | Decide whether to widen the frame for `Z` or drop `Z`                                       | Part 1         | **Done** — use `Z` only as supporting evidence (163/204, 79.9%); do not widen the frame for the proposal                       |
+| 9   | Fact-check the incident timeline and CVE against primary sources                            | Part 0         | Todo                                                                                                                           |
+| 10  | Secure clearance to present anonymized fleet data                                           | Part 3         | Optional — public-corpus dry run is the default; no internal data in proposal or slides without clearance                      |
+| 11  | Write and submit the abstract                                                               | Nov 1          | Todo                                                                                                                           |
+| 12  | Reproduce a pre-commit impostor `rev:` end to end on repositories you own                   | Part 1, Part 2 | Todo                                                                                                                           |
+| 13  | Fix `verify_provenance` to reject open-PR-only SHAs; add a regression test                  | Part 2 demo    | **Done** — merged PR head or merge commit only                                                                                 |
+| 14  | Empirically test GitLab paths A and B (API, `git fetch`, `include:project`, component @SHA) | Q&A            | Partly answered from source; end-to-end plan in [`impostor-e2e-tests.md`](impostor-e2e-tests.md)                               |
 
-Tasks 4 and 5 are the proposal; the scan half of task 4 is done.
-The measurement is the thesis again, so `N` belongs in the abstract,
-and task 5 is what lets the lockfile coverage boundary be stated as fact rather than as a reading of the docs.
-Get both done before writing the final abstract.
+The scan half of task 4 is done; publish its artifacts with the talk and slides in a dedicated repository.
+The measurement is the thesis again, so `N` belongs in the abstract.
+Use this repository's already SHA-pinned workflows for the first task 5 test,
+then use a disposable branch or test repository with container images, cross-repository `with.ref`,
+and pre-commit revisions to check exclusions.
+The current `gh` installation does not recognize `actions-lock`; install or enable the feature before testing.
+Complete task 5 before stating the coverage boundary as an empirically verified fact in the final abstract.
+For task 7, retain the qualified phrase "most pinning tools I reviewed" based on source review;
+do not claim empirical impostor behavior for untested tools.
 
 Task 6 is no longer abstract-blocking, but it is still the best ten minutes of the talk.
 If it does not reproduce, Part 2 becomes a slide-only explanation of why lockfiles verify identity,
@@ -682,8 +682,8 @@ Part 1 measures precisely the surface the lockfile leaves behind.
 **"Isn't the fork-network behavior already documented by GitHub?"**
 Yes, and the talk quotes both the behavior and the one-line warning from GitHub's own docs.
 The contribution is not the disclosure.
-It is showing what that one line means in practice, showing that no mainstream tool enforced it,
-and explaining why the platform ended up building the check in.
+It is showing what that one line means in practice, comparing the tools actually reviewed or tested,
+and explaining why the platform built the check in.
 
 **"Isn't this just an ad for your tool?"**
 Most of the talk is a measurement and a GitHub platform behavior.
@@ -740,7 +740,7 @@ The trailing `# v4` comment is what makes that work; do not strip it.
 Acknowledge it as future work rather than hand-waving.
 
 **"What's the review cost of a 200-line SHA diff?"** Real and nontrivial.
-Answer with the fleet data and the comment-preservation mitigation.
+Answer with the public-corpus dry run and the comment-preservation mitigation; use fleet data only if cleared.
 
 ## Cut List
 
@@ -783,11 +783,12 @@ Things that feel important and are not.
 - Live demo depends on GitHub Actions executing on conference wifi timing.
   Pre-record.
 - Fleet data clearance may not arrive.
-  Have the public-corpus substitute ready.
+  The public-corpus dry run is the default; internal fleet data is optional and must not be published without clearance.
 - GitHub may change fork-network API behavior and invalidate the demo outright.
   Unlikely on this timescale, but re-verify in March 2027.
-- The project may be renamed before the conference; see [naming notes](naming.md).
-  Decide the name before submitting on November 1 — changing it after acceptance is worse than either option.
+- The project name is **pinref** for the proposal; see [naming notes](naming.md).
+  Recheck name availability before publishing or renaming the distribution.
+  The codebase rename need not block proposal submission, but avoid mixing names in public materials.
 - ~~`--provenance strict` accepts a SHA from any open PR against the named repository (path B).~~
   **Resolved** by task 13.
   Residual: a maintainer who merges a malicious PR defeats the check by design; say so if asked.
