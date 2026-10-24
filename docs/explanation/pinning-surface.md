@@ -41,7 +41,7 @@ it is why SHA-pinned repositories were unaffected by the tag-hijacking incidents
     The `# v4.2.2` comment is not decoration.
     It tells human reviewers what the SHA means,
     and it is how Dependabot and Renovate know which version to bump you to.
-    `pin-actions` writes and preserves it automatically.
+    `pinref` writes and preserves it automatically.
 
 ## 2. `uses:` is not the only way a workflow runs someone else's code
 
@@ -148,8 +148,8 @@ If you fix only one thing after reading this page, grep your workflows for `imag
 
 The scanner, the raw per-repository CSV,
 and the sampling seed are published in the repository under
-[`notes/corpus_scanner/`](https://github.com/drts01/pin-actions/tree/trunk/notes/corpus_scanner) so you can re-run it
-and check us.
+[`notes/corpus_scanner/`](https://github.com/drts01/pinref/tree/trunk/notes/corpus_scanner) so you can re-run it and
+check us.
 
 ## 4. A SHA tells you *what* code runs, not *whose*
 
@@ -180,7 +180,7 @@ The SHA is a real SHA.
 It is 40 hex characters that nobody is going to verify by hand.
 
 This is called an **impostor commit**,
-and it is why `pin-actions` ships [provenance verification](../how-to/verify-provenance.md): before writing a SHA,
+and it is why `pinref` ships [provenance verification](../how-to/verify-provenance.md): before writing a SHA,
 it checks that the commit is a branch head, a tag, or a merged pull request commit **on the repository you named**.
 
 GitHub's hardening guide does warn about this, in one sentence:
@@ -240,7 +240,7 @@ The residual surface measured in §3 is the part lockfiles do not touch.
    Keep the `# v4.2.2` comment.
 3. **Verify provenance when you pin.**
    Any new SHA in a pull request should be checked against the repository it claims to come from —
-   `pin-actions --provenance strict` refuses to write one that is not.
+   `pinref --provenance strict` refuses to write one that is not.
 4. **Grep for `image:`, not just `uses:`.**
    Pin container images to `sha256:` digests.
 5. **Grep for `ref:` under `with:`.**
@@ -251,12 +251,12 @@ The residual surface measured in §3 is the part lockfiles do not touch.
    `--exclude-newer '7 days'` refuses releases younger than your cooldown window.
 8. **Run both a detector and a fixer.**
    They are different jobs: `zizmor` finds problems across many vulnerability classes;
-   `pin-actions` and similar tools remediate them.
+   `pinref` and similar tools remediate them.
 
 One command covers steps 2 through 7:
 
 ```bash
-pin-actions --provenance strict --exclude-newer '7 days'
+pinref --provenance strict --exclude-newer '7 days'
 ```
 
 ## See also

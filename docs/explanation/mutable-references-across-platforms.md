@@ -5,7 +5,7 @@ This page answers the obvious next question: is this a GitHub problem, or does e
 
 Every platform has it.
 What differs is how much the platform does about it for you.
-`pin-actions` only rewrites GitHub Actions workflows, but the ideas on this page apply to whatever CI system you use.
+`pinref` only rewrites GitHub Actions workflows, but the ideas on this page apply to whatever CI system you use.
 
 Every claim below was checked against the vendor's own documentation on 2026-10-20.
 Where a claim is our reading of source code or behavior rather than something a vendor states,
@@ -383,7 +383,7 @@ an earlier commit in the same pull request can be reverted before a squash merge
 6. **Remember that wrappers do not pin their contents.**
    Check the images inside your orbs, actions, and Tasks, not only the references to them.
 
-`pin-actions` automates steps 1 and 2 for GitHub Actions workflows, and step 2 for pre-commit configurations.
+`pinref` automates steps 1 and 2 for GitHub Actions workflows, and step 2 for pre-commit configurations.
 Its `--provenance` option implements step 4 for GitHub: it accepts a branch head, a tag,
 or the head or merge commit of a merged pull request, and rejects open pull requests.
 [Verify SHA Provenance](../how-to/verify-provenance.md) documents exactly which refs it accepts.
@@ -451,5 +451,5 @@ GitLab CI, CircleCI, Cloud Build, Drone, and Tekton; see [Comparison with Simila
 
 - [What Pinning Misses](pinning-surface.md) — the GitHub Actions version of this page, with measurements
 - [Threat Model](threat-model.md) — the full analysis for GitHub Actions
-- [Pin Container Images](../how-to/pin-container-images.md) — digest-pinning the image layer with `pin-actions`
+- [Pin Container Images](../how-to/pin-container-images.md) — digest-pinning the image layer with `pinref`
 - [Verify SHA Provenance](../how-to/verify-provenance.md) — checking that a SHA comes from the repository it names

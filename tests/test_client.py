@@ -4,8 +4,8 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from pin_actions.client import GitHubClient
-from pin_actions.errors import AuthError, InvalidRefError, RateLimitExhaustedError
+from pinref.client import GitHubClient
+from pinref.errors import AuthError, InvalidRefError, RateLimitExhaustedError
 
 
 def _mock_http_client(get_side_effect) -> MagicMock:
@@ -105,7 +105,7 @@ class TestGetJsonRealPath:
         mock_http_client = _mock_http_client(lambda *_a, **_k: mock_resp)
 
         with (
-            patch("pin_actions.client.httpx2.AsyncClient", return_value=mock_http_client),
+            patch("pinref.client.httpx2.AsyncClient", return_value=mock_http_client),
             pytest.raises(InvalidRefError, match="Ref not found"),
         ):
             await client.resolve_sha("owner/repo", "nonexistent")
@@ -118,7 +118,7 @@ class TestGetJsonRealPath:
         mock_http_client = _mock_http_client(lambda *_a, **_k: mock_resp)
 
         with (
-            patch("pin_actions.client.httpx2.AsyncClient", return_value=mock_http_client),
+            patch("pinref.client.httpx2.AsyncClient", return_value=mock_http_client),
             pytest.raises(RateLimitExhaustedError, match="Failed to resolve"),
         ):
             await client.resolve_sha("owner/repo", "v4")
@@ -131,7 +131,7 @@ class TestGetJsonRealPath:
         mock_http_client = _mock_http_client(lambda *_a, **_k: mock_resp)
 
         with (
-            patch("pin_actions.client.httpx2.AsyncClient", return_value=mock_http_client),
+            patch("pinref.client.httpx2.AsyncClient", return_value=mock_http_client),
             pytest.raises(AuthError, match="403"),
         ):
             await client.resolve_sha("owner/repo", "v4")
@@ -149,7 +149,7 @@ class TestGetJsonRealPath:
         response_iter = iter(responses)
         mock_http_client = _mock_http_client(lambda *_a, **_k: next(response_iter))
 
-        with patch("pin_actions.client.httpx2.AsyncClient", return_value=mock_http_client):
+        with patch("pinref.client.httpx2.AsyncClient", return_value=mock_http_client):
             result = await client.resolve_sha("owner/repo", "v4")
 
         assert result == sha
@@ -166,7 +166,7 @@ class TestGetJsonRealPath:
         mock_resp = MagicMock(status_code=200, json=MagicMock(return_value={"sha": sha}))
         mock_http_client = _mock_http_client(lambda *_a, **_k: mock_resp)
 
-        with patch("pin_actions.client.httpx2.AsyncClient", return_value=mock_http_client):
+        with patch("pinref.client.httpx2.AsyncClient", return_value=mock_http_client):
             result = await client.resolve_sha("uhg-pipelines/epl-jf/saas-setup", "v5")
 
         assert result == sha
@@ -298,7 +298,7 @@ class TestRetryAndBackoff:
         response_iter = iter(responses)
         mock_http_client = _mock_http_client(lambda *_a, **_k: next(response_iter))
 
-        with patch("pin_actions.client.httpx2.AsyncClient", return_value=mock_http_client):
+        with patch("pinref.client.httpx2.AsyncClient", return_value=mock_http_client):
             result = await client.resolve_sha("owner/repo", "v4")
 
         assert result == "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -318,7 +318,7 @@ class TestRetryAndBackoff:
         response_iter = iter(responses)
         mock_http_client = _mock_http_client(lambda *_a, **_k: next(response_iter))
 
-        with patch("pin_actions.client.httpx2.AsyncClient", return_value=mock_http_client):
+        with patch("pinref.client.httpx2.AsyncClient", return_value=mock_http_client):
             result = await client.resolve_sha("owner/repo", "v4")
 
         assert result == "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
@@ -353,7 +353,7 @@ class TestFetchAllTagsPagination:
         response_iter = iter(page_responses)
         mock_http_client = _mock_http_client(lambda *_a, **_k: next(response_iter))
 
-        with patch("pin_actions.client.httpx2.AsyncClient", return_value=mock_http_client):
+        with patch("pinref.client.httpx2.AsyncClient", return_value=mock_http_client):
             tags = await client.list_tags("owner/repo")
 
         assert len(tags) == 150

@@ -54,7 +54,7 @@ independent of whichever `--update` mode is active.
 
 ### No-Match Warning
 
-If no tag satisfies the constraint, pin-actions warns and leaves the entry untouched — safer than raising
+If no tag satisfies the constraint, pinref warns and leaves the entry untouched — safer than raising
 (would abort) or silently no-op'ing (user wouldn't know).
 
 ## Already-Pinned Refs
@@ -67,7 +67,7 @@ A SHA with a trailing comment (`repo@sha # tag`) is re-resolved on every run:
 
 ## with.ref Pinning (Checkout)
 
-`pin-actions` **only** pins `with.ref` when:
+`pinref` **only** pins `with.ref` when:
 
 - The step uses `actions/checkout`
 - **Both** `with.repository` and `with.ref` are present

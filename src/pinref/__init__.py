@@ -2,10 +2,10 @@
 
 from importlib.metadata import version
 
-from pin_actions._util import git_url_to_repo
-from pin_actions.client import GitHubClient
-from pin_actions.config import Settings
-from pin_actions.core import (
+from pinref._util import git_url_to_repo
+from pinref.client import GitHubClient
+from pinref.config import Settings
+from pinref.core import (
     LEVELS_BY_VERBOSITY,
     UpdateOptions,
     apply_version_constrained_tag,
@@ -15,7 +15,7 @@ from pin_actions.core import (
     resolve_and_rewrite,
     run,
 )
-from pin_actions.errors import (
+from pinref.errors import (
     GitHubAPIError,
     InvalidRefError,
     NetworkError,
@@ -23,9 +23,9 @@ from pin_actions.errors import (
     RateLimitExhaustedError,
     YAMLParseError,
 )
-from pin_actions.precommit import pin_precommit_file
+from pinref.precommit import pin_precommit_file
 
-__version__ = version("pin-actions")
+__version__ = version("pinref")
 
 __all__ = [
     "LEVELS_BY_VERBOSITY",

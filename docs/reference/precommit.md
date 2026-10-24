@@ -3,7 +3,7 @@
 Pin GitHub-hosted pre-commit hook revisions through the same resolution, version-selection, provenance-verification,
 and round-trip YAML pipeline used for GitHub Actions refs.
 
-::: pin_actions.precommit
+::: pinref.precommit
 
 ## See Also
 

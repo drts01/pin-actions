@@ -52,7 +52,7 @@ The original tag is preserved in the trailing comment, exactly as with action re
 Pin only `uses:` refs and leave images alone:
 
 ```bash
-pin-actions --no-image-pin --github-token $GITHUB_TOKEN
+pinref --no-image-pin --github-token $GITHUB_TOKEN
 ```
 
 ## Registry Support
@@ -76,4 +76,4 @@ Image pinning resolves the tag you already named, so there is nothing to select 
 
 - [Architecture Overview](../explanation/architecture.md) — registry resolution and concurrency model
 - [Reference: errors](../reference/errors.md) — `UnsupportedRegistryError` attributes
-- [Comparing pin-actions to Similar Tools](../explanation/comparison.md) — which tools cover which image surfaces
+- [Comparing pinref to Similar Tools](../explanation/comparison.md) — which tools cover which image surfaces

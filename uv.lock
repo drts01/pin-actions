@@ -812,8 +812,8 @@ wheels = [
 ]
 
 [[package]]
-name = "pin-actions"
-version = "0.1.0"
+name = "pinref"
+version = "0.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "httpx2" },
@@ -873,7 +873,7 @@ ci = [
     { name = "tox-gh", specifier = "~=1.8" },
     { name = "tox-uv", specifier = "~=1.36" },
 ]
-corpus = [{ name = "pyyaml", specifier = ">=6.0.2,<7" }]
+corpus = [{ name = "pyyaml", specifier = "~=6.0" }]
 docs = [
     { name = "mkdocstrings-python", specifier = "~=2.0" },
     { name = "zensical", specifier = ">=0.0.53" },

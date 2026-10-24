@@ -8,9 +8,9 @@ from datetime import date  # noqa: TC003 -- pydantic resolves the annotation at 
 from pathlib import Path
 from typing import Self
 
-from pin_actions.client import GitHubClient
-from pin_actions.core import LEVELS_BY_VERBOSITY, configure_logging
-from pin_actions.errors import PinActionsError
+from pinref.client import GitHubClient
+from pinref.core import LEVELS_BY_VERBOSITY, configure_logging
+from pinref.errors import PinActionsError
 from pydantic import AliasChoices, Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, CliApp, CliSubCommand, SettingsConfigDict
 
@@ -37,7 +37,7 @@ class FrameStage(BaseSettings):
     )
     github_token: SecretStr | None = Field(
         default=None,
-        validation_alias=AliasChoices("PIN_ACTIONS_TOKEN", "GITHUB_TOKEN"),
+        validation_alias=AliasChoices("PINREF_TOKEN", "GITHUB_TOKEN"),
         description="GitHub API token; search is 10 req/min unauthenticated, 30 req/min authenticated",
     )
 
@@ -169,7 +169,7 @@ class ScanCorpusSettings(BaseSettings):
         ge=0,
         le=3,
         validation_alias=AliasChoices("verbose", "v"),
-        description="Verbosity level 0-3, matching the pin-actions CLI",
+        description="Verbosity level 0-3, matching the pinref CLI",
     )
 
     frame: CliSubCommand[FrameStage]
@@ -180,7 +180,7 @@ class ScanCorpusSettings(BaseSettings):
     def cli_cmd(self) -> None:
         """Configure logging and dispatch to the selected stage."""
         configure_logging(self.verbose)
-        logger.setLevel(LEVELS_BY_VERBOSITY[self.verbose]["pin_actions"])
+        logger.setLevel(LEVELS_BY_VERBOSITY[self.verbose]["pinref"])
         CliApp.run_subcommand(self)
 
 

@@ -5,13 +5,13 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 from conftest import bench_async
-from pin_actions._util import is_full_sha
-from pin_actions.core import resolve_and_rewrite
+from pinref._util import is_full_sha
+from pinref.core import resolve_and_rewrite
 
 if TYPE_CHECKING:
     from unittest.mock import AsyncMock
 
-    from pin_actions.client import _Cache
+    from pinref.client import _Cache
 
 pytest.importorskip("pytest_benchmark")
 

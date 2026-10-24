@@ -12,8 +12,8 @@ see [Remediate Code Injection](../how-to/remediate-code-injection.md).
 ## What Counts as Untrusted
 
 The script matches expression bodies against a static table of context paths, `UNTRUSTED_CONTEXTS` in
-[`src/scripts/fix_injection.py`](https://github.com/drts01/pin-actions/blob/trunk/src/scripts/fix_injection.py),
-transcribed from GitHub Security Lab's untrusted-input list and CodeQL's `untrusted_event_properties.yml` data model.
+[`src/scripts/fix_injection.py`](https://github.com/drts01/pinref/blob/trunk/src/scripts/fix_injection.py), transcribed
+from GitHub Security Lab's untrusted-input list and CodeQL's `untrusted_event_properties.yml` data model.
 It covers four kinds of source.
 
 - **Anonymous event-payload text.**
@@ -80,6 +80,6 @@ The script deliberately does not do the following.
 
 - `zizmor`'s `template-injection` audit flags the same sink with broader static analysis,
   and its `dangerous-triggers` audit covers the pwn-request class excluded here —
-  see [Comparing pin-actions to Similar Tools](comparison.md).
+  see [Comparing pinref to Similar Tools](comparison.md).
 - [Threat Model](threat-model.md) — the mutable-ref supply-chain model that motivates pinning to a commit SHA,
   a concern separate from injection into `run:` text.

@@ -1,6 +1,6 @@
 """Tests for exception hierarchy (attributes, messages, inheritance)."""
 
-from pin_actions.errors import (
+from pinref.errors import (
     GitHubAPIError,
     InvalidRefError,
     NetworkError,
@@ -50,7 +50,7 @@ class TestYAMLParseError:
 class TestGitHubAPIError:
     """Test GitHubAPIError base class."""
 
-    def test_is_pin_actions_error(self) -> None:
+    def test_is_pinref_error(self) -> None:
         """GitHubAPIError is a PinActionsError."""
         # Arrange, Act
         error = GitHubAPIError("API error")

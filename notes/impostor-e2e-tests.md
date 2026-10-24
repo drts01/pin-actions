@@ -30,7 +30,7 @@ Every platform then runs the same two phases:
 
 Phase A expectation: exposed.
 Phase B expectation: exposed.
-`pin-actions` should read unverified in both phases.
+`pinref` should read unverified in both phases.
 
 ```bash
 curl -sS -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $GITHUB_TOKEN" \
@@ -44,7 +44,7 @@ curl -sS -H "Authorization: Bearer $GITHUB_TOKEN" \
 import asyncio
 import os
 
-from pin_actions.client import GitHubClient
+from pinref.client import GitHubClient
 
 
 async def main() -> None:

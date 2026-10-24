@@ -6,7 +6,7 @@ on:
     branches: [trunk]
     paths:
       - docs/**
-      - src/pin_actions/**
+      - src/pinref/**
       - zensical.toml
       - pyproject.toml
       - .github/workflows/docs.yml

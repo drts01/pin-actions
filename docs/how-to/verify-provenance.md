@@ -14,7 +14,7 @@ so `actions/checkout@<attacker-sha>` resolves successfully and reads as legitima
 Log a warning and continue:
 
 ```bash
-pin-actions --provenance warn --github-token $GITHUB_TOKEN
+pinref --provenance warn --github-token $GITHUB_TOKEN
 ```
 
 ## Reject Unverifiable SHAs
@@ -22,7 +22,7 @@ pin-actions --provenance warn --github-token $GITHUB_TOKEN
 Raise `UnverifiedProvenanceError` and leave the file untouched:
 
 ```bash
-pin-actions --provenance strict --github-token $GITHUB_TOKEN
+pinref --provenance strict --github-token $GITHUB_TOKEN
 ```
 
 Use `strict` in CI, where a failed job is the desired outcome.
@@ -30,7 +30,7 @@ Use `warn` for a first pass over an existing repository, where pre-existing pins
 
 ## What "Verified" Means
 
-`pin-actions` checks, in order, stopping at the first match:
+`pinref` checks, in order, stopping at the first match:
 
 1. `GET /commits/{sha}/branches-where-head` — the SHA is the HEAD of some branch.
 2. `GET /commits/{sha}/pulls` — the SHA is the head commit or merge commit of a **merged** pull request
@@ -58,7 +58,7 @@ This is a check against the GitHub API, not cryptographic attestation.
 
 ## Blind Spot: Pins Without a Trailing Comment
 
-Provenance is verified when `pin-actions` **writes** a SHA.
+Provenance is verified when `pinref` **writes** a SHA.
 An already-pinned ref carrying no trailing tag comment is skipped before verification ever runs:
 
 ```yaml
@@ -66,10 +66,10 @@ An already-pinned ref carrying no trailing tag comment is skipped before verific
 ```
 
 There is no recorded tag to re-resolve against,
-so the entry is left alone and `pin-actions --provenance strict` reports no modifications.
+so the entry is left alone and `pinref --provenance strict` reports no modifications.
 
 This is the shape a hand-edited impostor SHA takes.
-Treat the trailing comment as load-bearing: let `pin-actions` write the pins so the comment is always present,
+Treat the trailing comment as load-bearing: let `pinref` write the pins so the comment is always present,
 and review any pin that arrives without one.
 
 ## Cost
@@ -89,7 +89,7 @@ The default is `off`.
 ```python
 import asyncio
 
-from pin_actions import Settings, run
+from pinref import Settings, run
 
 
 async def main():

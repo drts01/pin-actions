@@ -2,7 +2,7 @@
 
 Settings class for CLI and library usage.
 
-::: pin_actions.config
+::: pinref.config
 
 ## Config file
 
@@ -11,16 +11,16 @@ Settings can be provided via TOML config files, in addition to CLI flags and env
 **Lookup order** (highest to lowest precedence):
 
 1. CLI flags
-2. `PIN_ACTIONS_*` / `GITHUB_TOKEN` environment variables
+2. `PINREF_*` / `GITHUB_TOKEN` environment variables
 3. `.env` file
-4. `./pin-actions.toml` (current directory)
-5. `$XDG_CONFIG_HOME/pin-actions/config.toml` (falls back to `~/.config/pin-actions/config.toml`)
-6. `pyproject.toml` under `[tool.pin-actions]`
+4. `./pinref.toml` (current directory)
+5. `$XDG_CONFIG_HOME/pinref/config.toml` (falls back to `~/.config/pinref/config.toml`)
+6. `pyproject.toml` under `[tool.pinref]`
 7. Field defaults
 
-All config files are optional — pin-actions runs with zero configuration if none are present.
+All config files are optional — pinref runs with zero configuration if none are present.
 
-**Example `pin-actions.toml`:**
+**Example `pinref.toml`:**
 
 ```toml
 concurrency = 10
@@ -29,7 +29,7 @@ host = "github.example.com"
 
 Setting `host` to a GitHub Enterprise Server hostname automatically derives the API base URL (`https://{host}/api/v3`).
 
-**Cool-off period example (`pin-actions.toml`):**
+**Cool-off period example (`pinref.toml`):**
 
 ```toml
 exclude_newer = "7 days"
@@ -44,7 +44,7 @@ The `exclude_newer` setting applies only to `--update` mode and accepts three fo
 Default: unset (no cool-off).
 When set, tags younger than the cutoff are excluded from auto-selection, mitigating same-day supply-chain compromises.
 
-**Provenance verification example (`pin-actions.toml`):**
+**Provenance verification example (`pinref.toml`):**
 
 ```toml
 provenance = "strict"
@@ -56,7 +56,7 @@ and the fork-network threat this mitigates.
 **Example `pyproject.toml`:**
 
 ```toml
-[tool.pin-actions]
+[tool.pinref]
 concurrency = 10
 update = "minor"
 exclude_newer = "7 days"

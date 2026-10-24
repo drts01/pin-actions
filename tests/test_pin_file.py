@@ -4,12 +4,12 @@ from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from pin_actions._duration import parse_exclude_newer
-from pin_actions.client import GitHubClient
-from pin_actions.config import Settings
-from pin_actions.core import UpdateOptions, build_update_options, pin_file
-from pin_actions.errors import InvalidRefError, UnsupportedRegistryError, YAMLParseError
-from pin_actions.registry import ContainerRegistryClient
+from pinref._duration import parse_exclude_newer
+from pinref.client import GitHubClient
+from pinref.config import Settings
+from pinref.core import UpdateOptions, build_update_options, pin_file
+from pinref.errors import InvalidRefError, UnsupportedRegistryError, YAMLParseError
+from pinref.registry import ContainerRegistryClient
 
 if TYPE_CHECKING:
     from pathlib import Path

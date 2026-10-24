@@ -8,7 +8,7 @@ Prefer succinct solutions and the smallest complete change that fixes the root c
 
 ## Project Purpose
 
-Maintain `pin-actions`, a Python 3.14 CLI and library that replaces mutable GitHub Action refs
+Maintain `pinref`, a Python 3.14 CLI and library that replaces mutable GitHub Action refs
 and container image tags with immutable digests.
 Preserve its supply-chain security guarantees.
 Preserve YAML comments, formatting, and no-op behavior through `yamlrocks` round-trip editing.
@@ -16,7 +16,7 @@ Support both CLI users and library callers.
 
 ## Repository Layout
 
-- Keep package code in `src/pin_actions/` and public exports in `src/pin_actions/__init__.py`.
+- Keep package code in `src/pinref/` and public exports in `src/pinref/__init__.py`.
 - Keep orchestration in `core.py`, configuration in `config.py`, GitHub API behavior in `client.py`, registry resolution
   in `registry.py`, version logic in `versioning.py`, and domain exceptions in `errors.py`.
 - Keep tests in `tests/`, script tests in `scripts/test_*.py`, documentation in `docs/`,
@@ -80,7 +80,7 @@ Support both CLI users and library callers.
 ## Public API and Configuration
 
 - Preserve backward compatibility for exported names unless the change explicitly requires a breaking API update.
-- Update `src/pin_actions/__init__.py` when adding or removing public APIs.
+- Update `src/pinref/__init__.py` when adding or removing public APIs.
 - Use Pydantic settings fields and validators for configuration.
 - Preserve settings precedence: explicit initialization or CLI, environment, dotenv, file secrets, local TOML, XDG TOML,
   `pyproject.toml`, defaults.

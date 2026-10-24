@@ -61,5 +61,5 @@ Rewrite these by hand, then re-run the script to confirm the file is clean.
 - [Explanation: Script Injection in Workflow `run:` Steps](../explanation/code-injection.md) —
     the sink, the untrusted-input taxonomy, and the scope boundaries
 - [Explanation: Threat Model](../explanation/threat-model.md) —
-    the supply-chain attack model `pin-actions` defends against
+    the supply-chain attack model `pinref` defends against
 - Run `uv run fix_injection --help` for the full flag list

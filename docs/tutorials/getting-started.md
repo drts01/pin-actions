@@ -1,28 +1,28 @@
 # Getting Started
 
-Learn how to install and run pin-actions for the first time.
+Learn how to install and run pinref for the first time.
 
 ## Installation
 
 Use `uv` (recommended) or pip:
 
 ```bash
-uv add pin-actions
+uv add pinref
 ```
 
 Or via pip:
 
 ```bash
-pip install pin-actions
+pip install pinref
 ```
 
 ## First Run: Dry-Run
 
-Before making any changes, always preview what pin-actions will do with `--dry-run`:
+Before making any changes, always preview what pinref will do with `--dry-run`:
 
 ```bash
 export GITHUB_TOKEN=ghp_xxxx
-pin-actions --dry-run --paths .github/workflows
+pinref --dry-run --paths .github/workflows
 ```
 
 This parses your workflows, resolves mutable refs to SHAs, and prints what **would** be changed — without writing files.
@@ -32,7 +32,7 @@ This parses your workflows, resolves mutable refs to SHAs, and prints what **wou
 Once you're confident in the changes:
 
 ```bash
-pin-actions --paths .github/workflows --github-token $GITHUB_TOKEN
+pinref --paths .github/workflows --github-token $GITHUB_TOKEN
 ```
 
 Check `git diff` to verify the changes, then commit:

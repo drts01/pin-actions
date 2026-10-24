@@ -1,6 +1,6 @@
 # Contributing
 
-Thank you for your interest in pin-actions!
+Thank you for your interest in pinref!
 
 ## Development Setup
 
@@ -12,8 +12,8 @@ Thank you for your interest in pin-actions!
 ### Clone & Install
 
 ```bash
-git clone https://github.com/drts01/pin-actions.git
-cd pin-actions
+git clone https://github.com/drts01/pinref.git
+cd pinref
 uv sync
 ```
 
@@ -60,7 +60,7 @@ Then open `site/index.html` in your browser.
 
 ## Security Automation in CI
 
-`pin-actions` enforces supply-chain and workflow security in CI, not in pre-commit hooks.
+`pinref` enforces supply-chain and workflow security in CI, not in pre-commit hooks.
 Run these checks in GitHub Actions only:
 
 - `uv lock --check`
@@ -189,5 +189,5 @@ Open an issue or discussion on GitHub — we're happy to help!
 
 ---
 
-Thank you for contributing to pin-actions!
+Thank you for contributing to pinref!
 🙏

@@ -2,7 +2,7 @@
 
 from hypothesis import given
 from hypothesis import strategies as st
-from pin_actions.versioning import parse_tag_version, select_latest_tags
+from pinref.versioning import parse_tag_version, select_latest_tags
 
 
 class TestParseTagVersion:

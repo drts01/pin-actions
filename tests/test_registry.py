@@ -1,11 +1,11 @@
-"""Tests for pin_actions.registry (container image digest resolution)."""
+"""Tests for pinref.registry (container image digest resolution)."""
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx2
 import pytest
-from pin_actions.errors import NetworkError, UnsupportedRegistryError
-from pin_actions.registry import ContainerRegistryClient, is_image_digest, parse_image_ref
+from pinref.errors import NetworkError, UnsupportedRegistryError
+from pinref.registry import ContainerRegistryClient, is_image_digest, parse_image_ref
 
 
 class TestIsImageDigest:

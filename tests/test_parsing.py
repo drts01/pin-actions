@@ -4,8 +4,8 @@ from typing import Any
 
 from hypothesis import given
 from hypothesis import strategies as st
-from pin_actions._util import git_url_to_repo, is_full_sha
-from pin_actions.core import _is_docker_ref, _is_local_action, _parse_uses
+from pinref._util import git_url_to_repo, is_full_sha
+from pinref.core import _is_docker_ref, _is_local_action, _parse_uses
 
 
 class TestIsFullSha:

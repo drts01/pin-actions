@@ -4,9 +4,9 @@ from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from pin_actions.config import Settings
-from pin_actions.core import run
-from pin_actions.errors import YAMLParseError
+from pinref.config import Settings
+from pinref.core import run
+from pinref.errors import YAMLParseError
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -43,7 +43,7 @@ class TestRunBasic:
             return shas.get((repo, ref), ref)
 
         # Act
-        with patch("pin_actions.core.GitHubClient") as mock_client_class:
+        with patch("pinref.core.GitHubClient") as mock_client_class:
             mock_client = MagicMock()
             mock_client.resolve_sha = AsyncMock(side_effect=mock_resolve_sha)
             mock_client_class.return_value = mock_client
@@ -111,7 +111,7 @@ class TestRunErrors:
             return "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" if ref == "v4" else ref
 
         # Act, Assert
-        with patch("pin_actions.core.GitHubClient") as mock_client_class:
+        with patch("pinref.core.GitHubClient") as mock_client_class:
             mock_client = MagicMock()
             mock_client.resolve_sha = AsyncMock(side_effect=mock_resolve_sha)
             mock_client_class.return_value = mock_client
@@ -146,7 +146,7 @@ class TestRunSharedClient:
         provided_client.resolve_sha = AsyncMock(side_effect=mock_resolve_sha)
 
         # Act
-        with patch("pin_actions.core.GitHubClient") as mock_client_class:
+        with patch("pinref.core.GitHubClient") as mock_client_class:
             modified = await run(settings, client=provided_client)
 
             # Assert: GitHubClient constructor should never be called
@@ -189,7 +189,7 @@ class TestRunSharedClient:
         provided_client.resolve_sha = AsyncMock(side_effect=mock_resolve_sha)
 
         # Act: call run twice with the same client
-        with patch("pin_actions.core.GitHubClient") as mock_client_class:
+        with patch("pinref.core.GitHubClient") as mock_client_class:
             modified_a = await run(settings_a, client=provided_client)
             modified_b = await run(settings_b, client=provided_client)
 
@@ -222,7 +222,7 @@ class TestRunSharedClient:
             return "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" if ref == "v4" else ref
 
         # Act
-        with patch("pin_actions.core.GitHubClient") as mock_client_class:
+        with patch("pinref.core.GitHubClient") as mock_client_class:
             mock_client = MagicMock()
             mock_client.resolve_sha = AsyncMock(side_effect=mock_resolve_sha)
             mock_client.aclose = AsyncMock()
@@ -252,7 +252,7 @@ class TestRunImagePinToggle:
 
         settings = Settings(paths=[workflows_dir], github_token=None, dry_run=False, concurrency=1, image_pin=False)
 
-        with patch("pin_actions.core.ContainerRegistryClient") as mock_registry_class:
+        with patch("pinref.core.ContainerRegistryClient") as mock_registry_class:
             modified = await run(settings)
 
         mock_registry_class.assert_not_called()
@@ -274,8 +274,8 @@ class TestRunImagePinToggle:
             return ref
 
         with (
-            patch("pin_actions.core.GitHubClient") as mock_client_class,
-            patch("pin_actions.core.ContainerRegistryClient") as mock_registry_class,
+            patch("pinref.core.GitHubClient") as mock_client_class,
+            patch("pinref.core.ContainerRegistryClient") as mock_registry_class,
         ):
             mock_client = MagicMock()
             mock_client.resolve_sha = AsyncMock(side_effect=mock_resolve_sha)

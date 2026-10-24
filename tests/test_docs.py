@@ -4,7 +4,7 @@ import re
 import tomllib
 from pathlib import Path
 
-from pin_actions.config import Settings
+from pinref.config import Settings
 
 REPO_ROOT = Path(__file__).parent.parent
 DOCS_DIR = REPO_ROOT / "docs"
@@ -39,7 +39,7 @@ def test_nav_matches_docs_on_disk() -> None:
 def test_cli_reference_documents_all_settings_fields() -> None:
     """Every Settings field's --kebab-case flag (or raw name) must appear in reference/cli.md.
 
-    The ``::: pin_actions.config.Settings`` mkdocstrings directive renders full field docs
+    The ``::: pinref.config.Settings`` mkdocstrings directive renders full field docs
     at build time, so this only guards the hand-written prose/examples against drift; actual
     field coverage is verified by the mkdocstrings directive itself at `tox -e docs` time.
     """

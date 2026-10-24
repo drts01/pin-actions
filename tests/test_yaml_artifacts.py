@@ -1,6 +1,6 @@
-"""Tests for pin_actions._yaml_artifacts (yamlrocks blank-line-artifact workaround)."""
+"""Tests for pinref._yaml_artifacts (yamlrocks blank-line-artifact workaround)."""
 
-from pin_actions._yaml_artifacts import strip_blank_line_artifacts
+from pinref._yaml_artifacts import strip_blank_line_artifacts
 
 
 class TestStripBlankLineArtifacts:

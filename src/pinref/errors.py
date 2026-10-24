@@ -1,4 +1,4 @@
-"""Exception hierarchy for pin-actions.
+"""Exception hierarchy for pinref.
 
 Library callers should catch ``PinActionsError`` (or a more specific
 subclass) to handle failures programmatically. The CLI (`main()`) catches
@@ -7,7 +7,7 @@ this hierarchy at the top level and converts it to a stderr message + exit code.
 
 
 class PinActionsError(Exception):
-    """Base exception for all pin-actions errors."""
+    """Base exception for all pinref errors."""
 
 
 class YAMLParseError(PinActionsError):

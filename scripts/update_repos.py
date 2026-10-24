@@ -1,5 +1,5 @@
 #!/usr/bin/env -S uv run --with-editable . --script
-"""Batch-pin GitHub Actions across repositories using pin_actions as a library."""
+"""Batch-pin GitHub Actions across repositories using pinref as a library."""
 
 import asyncio
 import contextlib
@@ -17,7 +17,7 @@ from functools import partial
 from pathlib import Path
 from typing import Literal
 
-from pin_actions import LEVELS_BY_VERBOSITY, GitHubClient, PinActionsError, Settings, configure_logging, run
+from pinref import LEVELS_BY_VERBOSITY, GitHubClient, PinActionsError, Settings, configure_logging, run
 from pydantic import AliasChoices, BaseModel, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -30,7 +30,7 @@ logger = logging.getLogger("update_repos")
 _cli_out = logging.getLogger("update_repos.cli.out")
 
 DEFAULT_COMMIT_MESSAGE = "chore: pin GitHub Actions to immutable commit SHAs"
-DEFAULT_PR_BODY = "Pinned by [pin-actions](https://github.com/drts01/pin-actions)."
+DEFAULT_PR_BODY = "Pinned by [pinref](https://github.com/drts01/pinref)."
 
 
 class UpdateReposSettings(BaseSettings):
@@ -64,7 +64,7 @@ class UpdateReposSettings(BaseSettings):
     )
     concurrency: int = Field(default=4, ge=1, description="Max concurrent repo clones")
     api_concurrency: int = Field(default=5, ge=1, description="Max concurrent GitHub API requests")
-    branch_name: str = Field(default="pin-actions", description="Branch name")
+    branch_name: str = Field(default="pinref", description="Branch name")
     base_branch: str | None = Field(
         default=None,
         description="PR base branch; defaults to each repo's actual default branch",
@@ -184,7 +184,7 @@ def _fail(result: RepoResult, repo: str, msg: str) -> bool:
 
 def _git_config(repo_dir: Path, env: dict[str, str] | None = None) -> None:
     """Set git user config for commits (required in CI environments)."""
-    for key, val in (("user.email", "pin-actions@github.com"), ("user.name", "pin-actions")):
+    for key, val in (("user.email", "pinref@github.com"), ("user.name", "pinref")):
         _run("git", "config", key, val, cwd=repo_dir, env=env)
 
 
@@ -393,7 +393,7 @@ def _publish(repo: str, repo_dir: Path, settings: UpdateReposSettings, result: R
 async def _process_repo(client: GitHubClient, repo: str, settings: UpdateReposSettings) -> RepoResult:
     """Clone, pin, and publish (commit/push/PR) one repo."""
     result = RepoResult(repo=repo)
-    with tempfile.TemporaryDirectory(prefix="pin-actions-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="pinref-") as tmp:
         repo_dir = Path(tmp) / "repo"
         if not _try_clone(repo, repo_dir, settings, result):
             return result
@@ -464,7 +464,7 @@ def _configure_logging(verbose: int) -> None:
 
     # update_repos-specific customizations
     levels = LEVELS_BY_VERBOSITY[min(verbose, 3)]
-    logger.setLevel(levels["pin_actions"])
+    logger.setLevel(levels["pinref"])
 
     # Rebuild CLI logger's handlers for test isolation (capsys-safe: fresh stream references).
     _cli_out.propagate = False

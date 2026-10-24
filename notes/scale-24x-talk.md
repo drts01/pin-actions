@@ -108,7 +108,7 @@ and it no longer claims the fork-network behavior is unknown.
 Both claims were checked and neither survived.
 
 Revised 2026-10-20 for `ratchet`, which pins `docker://`, `container.image`, and `services[*].image` on GitHub Actions
-(see [`naming.md`](naming.md) and `docs/explanation/comparison.md`):
+(see [`docs/explanation/comparison.md`](../docs/explanation/comparison.md)):
 
 - Dropped "the part nobody is talking about"; `ratchet` and Updatecli already address the image rows.
 - Named `ratchet` in the abstract.
@@ -207,7 +207,7 @@ Volunteering the deflating reading is what makes the rest of the numbers trustwo
 
 Second data slide: tool coverage.
 Which of the six each popular tool actually pins, **with a lockfile column**.
-Present it neutrally and include `pin-actions` in the same table as everyone else.
+Present it neutrally and include `pinref` in the same table as everyone else.
 `ratchet` is near-complete on GitHub Actions; show that honestly.
 Neutral framing here buys credibility for Part 2.
 
@@ -227,7 +227,7 @@ Frame it that way in the first sentence: "Here is concretely why GitHub put a ru
    Show the marker in the log.
 5. Demo step 4: run the pinning tools tested in task 7 against it.
    Show each tool's observed behavior; do not claim they all accept the impostor SHA before testing.
-6. Demo step 5: `pin-actions --provenance strict`.
+6. Demo step 5: `pinref --provenance strict`.
    It refuses.
    Show the error.
 7. Slide: what verification actually means here — a branch head, a tag,
@@ -456,7 +456,7 @@ That is honest, it is still a strong live moment,
 and it positions the speaker as current rather than as someone who missed a platform release.
 
 **This also matters beyond the CFP.**
-`pin-actions` competes with a first-party feature on `uses:` pinning and provenance,
+`pinref` competes with a first-party feature on `uses:` pinning and provenance,
 and should compete on the surface the lockfile does not cover.
 Captured in [`docs/explanation/threat-model.md` §4.1 and §6.1](../docs/explanation/threat-model.md).
 
@@ -602,7 +602,7 @@ uv run --group corpus python -m notes.corpus_scanner report --csv notes/corpus/c
 
 Configuration goes through `pydantic-settings` like the rest of the project,
 so every flag also reads from the environment and `.env`,
-the token is a `SecretStr` resolved from `PIN_ACTIONS_TOKEN` or `GITHUB_TOKEN`,
+the token is a `SecretStr` resolved from `PINREF_TOKEN` or `GITHUB_TOKEN`,
 and `--pushed-since` is validated as a real date rather than pasted into the query as a string.
 `--verbose`/`-v` is a root flag (0–3) and precedes the stage name.
 
@@ -650,7 +650,7 @@ Resolve these before the slide is drawn; every one of them is a question the com
 
 ### Finding from building the scanner
 
-`pin-actions` itself only detected the `jobs.<job>.container.image` mapping form,
+`pinref` itself only detected the `jobs.<job>.container.image` mapping form,
 not GitHub's documented `jobs.<job>.container: node:20` string shorthand.
 Fixed in `core._is_image_path` before running the scan, so `X` is not a lower bound.
 
@@ -786,9 +786,7 @@ Things that feel important and are not.
   The public-corpus dry run is the default; internal fleet data is optional and must not be published without clearance.
 - GitHub may change fork-network API behavior and invalidate the demo outright.
   Unlikely on this timescale, but re-verify in March 2027.
-- The project name is **pinref** for the proposal; see [naming notes](naming.md).
-  Recheck name availability before publishing or renaming the distribution.
-  The codebase rename need not block proposal submission, but avoid mixing names in public materials.
+- The project name is **pinref** for the proposal and distribution; use it consistently in public materials.
 - ~~`--provenance strict` accepts a SHA from any open PR against the named repository (path B).~~
   **Resolved** by task 13.
   Residual: a maintainer who merges a malicious PR defeats the check by design; say so if asked.

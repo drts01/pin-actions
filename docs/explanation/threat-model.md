@@ -202,17 +202,17 @@ jobs:
 
 ---
 
-## 6. How `pin-actions` Addresses This Threat Model
+## 6. How `pinref` Addresses This Threat Model
 
 This project directly implements the mitigation layers described above:
 
-| Mitigation Layer                            | `pin-actions` Feature                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| :------------------------------------------ | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Layer 1** (SHA pinning with inline tags)  | Core function: `pin_file()` / `run()` resolve mutable `uses:` refs to full 40-character SHAs with a version comment (see [Architecture](architecture.md))                                                                                                                                                                                                                                                                                                                                                                     |
-| **Layer 3** (Automated dependency upgrades) | `--update major/minor/patch` re-resolves pinned tags forward within a version constraint; `--exclude-newer` adds a cool-off period against same-day supply-chain attacks (§3.1/§3.2 above)                                                                                                                                                                                                                                                                                                                                    |
-| **Layer 4** (Static analysis / linters)     | This repository dogfoods `zizmor` and `actionlint` in `.pre-commit-config.yaml` and CI                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| **§3.1 Fork-network imposter commits**      | `--provenance warn/strict` (via `GitHubClient.verify_provenance()`) checks that every newly-resolved SHA is a branch head, tag, or merged pull request head or merge commit on the *named* repository — not merely fetchable through the shared fork-network object pool or an open pull request ref — before pin-actions writes it. `warn` logs and continues; `strict` fails the run. This is a heuristic, best-effort control (no signed "origin repo" attestation exists), not a substitute for manual review of new SHAs |
-| **§3.3 Docker escape hatch**                | `--image-pin` (via `pin_actions.registry.ContainerRegistryClient`) resolves `docker://` steps and `container.image`/`services[*].image` tags to immutable `sha256:` content digests — closing the exact gap described in §3.3, where SHA-pinning the action itself doesn't pin its underlying container image                                                                                                                                                                                                                 |
+| Mitigation Layer                            | `pinref` Feature                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| :------------------------------------------ | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Layer 1** (SHA pinning with inline tags)  | Core function: `pin_file()` / `run()` resolve mutable `uses:` refs to full 40-character SHAs with a version comment (see [Architecture](architecture.md))                                                                                                                                                                                                                                                                                                                                                                |
+| **Layer 3** (Automated dependency upgrades) | `--update major/minor/patch` re-resolves pinned tags forward within a version constraint; `--exclude-newer` adds a cool-off period against same-day supply-chain attacks (§3.1/§3.2 above)                                                                                                                                                                                                                                                                                                                               |
+| **Layer 4** (Static analysis / linters)     | This repository dogfoods `zizmor` and `actionlint` in `.pre-commit-config.yaml` and CI                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| **§3.1 Fork-network imposter commits**      | `--provenance warn/strict` (via `GitHubClient.verify_provenance()`) checks that every newly-resolved SHA is a branch head, tag, or merged pull request head or merge commit on the *named* repository — not merely fetchable through the shared fork-network object pool or an open pull request ref — before pinref writes it. `warn` logs and continues; `strict` fails the run. This is a heuristic, best-effort control (no signed "origin repo" attestation exists), not a substitute for manual review of new SHAs |
+| **§3.3 Docker escape hatch**                | `--image-pin` (via `pinref.registry.ContainerRegistryClient`) resolves `docker://` steps and `container.image`/`services[*].image` tags to immutable `sha256:` content digests — closing the exact gap described in §3.3, where SHA-pinning the action itself doesn't pin its underlying container image                                                                                                                                                                                                                 |
 
 Not addressed by this tool (out of scope, mitigate separately):
 
@@ -227,11 +227,11 @@ Not addressed by this tool (out of scope, mitigate separately):
 
 ### 6.1 Relationship to Workflow Dependency Lockfiles
 
-Lockfiles (§4.1) and `pin-actions` overlap on exactly one row of this threat model: action references.
+Lockfiles (§4.1) and `pinref` overlap on exactly one row of this threat model: action references.
 Where they overlap, **the lockfile is the stronger control** — it is enforced by the platform at run time,
 it reaches transitive dependencies, and its identity check does not rely on a best-effort reachability heuristic.
 
-`pin-actions` remains the control for everything outside that row:
+`pinref` remains the control for everything outside that row:
 
 - Container images (§3.3) in `docker://` steps, `container.image`, and `services[*].image`.
 - Cross-repository `with.ref` checkouts.
@@ -240,9 +240,9 @@ it reaches transitive dependencies, and its identity check does not rely on a be
     or any host where the feature is unavailable, and every repository that has not onboarded while
     the feature remains in public preview.
 
-`pin-actions` does not currently read or write `.github/workflows/actions.lock`.
+`pinref` does not currently read or write `.github/workflows/actions.lock`.
 The two can coexist: a lockfile governs action resolution,
-while `pin-actions` continues to pin the reference types the lockfile ignores.
+while `pinref` continues to pin the reference types the lockfile ignores.
 
 ## See Also
 

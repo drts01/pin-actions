@@ -67,7 +67,7 @@ class TestUpsertPr:
     def test_reuses_existing_pr(self, mock_run: MagicMock) -> None:
         """Reuse existing PR."""
         repo = "org/repo"
-        head = "pin-actions/org-repo"
+        head = "pinref/org-repo"
         base_branch = "main"
         settings = UpdateReposSettings()
         existing_url = "https://github.com/org/repo/pull/123"
@@ -79,7 +79,7 @@ class TestUpsertPr:
     def test_creates_new_pr(self, mock_run: MagicMock) -> None:
         """Create new PR when none exists."""
         repo = "org/repo"
-        head = "pin-actions/org-repo"
+        head = "pinref/org-repo"
         base_branch = "main"
         settings = UpdateReposSettings()
         new_pr_url = "https://github.com/org/repo/pull/789"
@@ -94,7 +94,7 @@ class TestUpsertPr:
     def test_opens_new_pr_when_previous_pr_was_merged(self, mock_run: MagicMock) -> None:
         """A merged (non-open) PR for the branch must not be reused; a new PR is created."""
         repo = "org/repo"
-        head = "pin-actions/org-repo"
+        head = "pinref/org-repo"
         base_branch = "main"
         settings = UpdateReposSettings()
         new_pr_url = "https://github.com/org/repo/pull/999"

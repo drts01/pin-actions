@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Breaking Changes
+- Renamed the project to `pinref`: install `pinref`, run `pinref`, import `pinref`, and use `PINREF_*` environment variables, `pinref.toml`, `~/.config/pinref/config.toml`, or `[tool.pinref]` for configuration. The existing `PinActionsError` exception remains exported.
 - Consolidated `api_base_url` + `git_host` into a single `host` field; use `--host github.example.com` for GHE Server (API URL is derived automatically)
 - `pin_file(client, path, *, dry_run=False, options=None)` — collapsed from 6 params to 3; `UpdateOptions` now carries pre-parsed `cutoff: datetime | None`
 - `Settings.path` default changed from `.github/workflows` to `.github` (also scans `.github/actions/**/action.yml`)

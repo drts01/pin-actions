@@ -1,4 +1,4 @@
 """Research-only corpus scanner for the SCaLE 24x talk.
 
-This package is intentionally separate from the published :mod:`pin_actions` package.
+This package is intentionally separate from the published :mod:`pinref` package.
 """

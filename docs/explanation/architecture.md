@@ -1,6 +1,6 @@
 # Architecture Overview
 
-`pin-actions` combines async I/O, thread-safe caching, intelligent rate-limiting,
+`pinref` combines async I/O, thread-safe caching, intelligent rate-limiting,
 and round-trip YAML editing to pin mutable CI references while preserving comments and formatting.
 
 ## High-Level Flow
@@ -61,10 +61,10 @@ sequenceDiagram
 
 ## Entry Points
 
-- **Workflow CLI**: `pin_actions.core.main()` — implements `pin-actions`
-- **Pre-commit CLI**: `pin_actions.precommit.main()` — implements `pin-precommit`
-- **Workflow library**: `pin_actions.run()` and `pin_actions.pin_file()`
-- **Pre-commit library**: `pin_actions.pin_precommit_file()`
+- **Workflow CLI**: `pinref.core.main()` — implements `pinref`
+- **Pre-commit CLI**: `pinref.precommit.main()` — implements `pin-precommit`
+- **Workflow library**: `pinref.run()` and `pinref.pin_file()`
+- **Pre-commit library**: `pinref.pin_precommit_file()`
 - **Direct client**: `GitHubClient.resolve_sha()` — resolve one ref
 
 ## YAML Round-Trip Editing
@@ -156,7 +156,7 @@ With `Retry-After` header, GitHub's advised delay is respected.
 
 ### In-memory LRU cache
 
-`_Cache[T]` (`pin_actions/client.py`) guards its `OrderedDict` store and in-flight task map with a `threading.Lock`,
+`_Cache[T]` (`pinref/client.py`) guards its `OrderedDict` store and in-flight task map with a `threading.Lock`,
 held only around the dict mutations themselves — never across an `await`.
 This makes the cache correct both under asyncio's single-threaded cooperative scheduling *and* under a free-threaded
 (PEP 779, no-GIL)
@@ -184,7 +184,7 @@ _date_cache: _Cache[str]  # (repo, sha) -> commit date
 
 ## Container image pinning
 
-`ContainerRegistryClient` (`pin_actions/registry.py`) resolves `docker://` step refs, `jobs.<job>.container.image`
+`ContainerRegistryClient` (`pinref/registry.py`) resolves `docker://` step refs, `jobs.<job>.container.image`
 (including the `jobs.<job>.container: image:tag` string shorthand),
 and `jobs.<job>.services[*].image` tags to immutable `sha256:` content digests,
 using the same OCI Distribution Spec / Docker Registry v2 Bearer-token flow shared by all public registries

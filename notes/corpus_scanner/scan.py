@@ -10,10 +10,10 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 import yamlrocks
-from pin_actions._util import is_full_sha
-from pin_actions.core import _collect_image_refs, _collect_refs, _is_local_action
-from pin_actions.precommit import _collect_precommit_refs
-from pin_actions.registry import is_image_digest
+from pinref._util import is_full_sha
+from pinref.core import _collect_image_refs, _collect_refs, _is_local_action
+from pinref.precommit import _collect_precommit_refs
+from pinref.registry import is_image_digest
 
 from .io import read_jsonl
 

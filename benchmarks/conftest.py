@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 import yamlrocks
-from pin_actions.client import GitHubClient, _Cache
+from pinref.client import GitHubClient, _Cache
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable

@@ -2,7 +2,7 @@
 
 Semver and CalVer tag parsing and version-constrained selection.
 
-::: pin_actions.versioning
+::: pinref.versioning
 
 ## See Also
 

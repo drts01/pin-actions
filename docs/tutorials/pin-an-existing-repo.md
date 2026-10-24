@@ -5,7 +5,7 @@ cross-repo checkouts, container images, and service images —
 with every new commit SHA provenance-checked before it is written.
 
 **Time:** about 15 minutes.
-**Prerequisites:** `git`, and `pin-actions` installed ([Getting Started](getting-started.md)).
+**Prerequisites:** `git`, and `pinref` installed ([Getting Started](getting-started.md)).
 A `GITHUB_TOKEN` is optional for this tutorial but strongly recommended;
 without one you share the 60-requests-per-hour unauthenticated rate limit.
 
@@ -46,7 +46,7 @@ jobs:
 ```
 
 This file is deliberately pathological.
-It contains every mutable-reference shape `pin-actions` handles, including one that is *already* pinned to a stale SHA.
+It contains every mutable-reference shape `pinref` handles, including one that is *already* pinned to a stale SHA.
 
 Commit it so you have a clean baseline to diff against:
 
@@ -57,11 +57,11 @@ git commit -m "ci: add unpinned workflow"
 
 ## 2. See What Would Change
 
-Run `pin-actions` from the repository root.
+Run `pinref` from the repository root.
 The defaults already target `.github/workflows`, so no `--paths` flag is needed:
 
 ```bash
-pin-actions --diff
+pinref --diff
 ```
 
 `--diff` writes nothing.
@@ -108,7 +108,7 @@ Six distinct transformations happened in one pass.
 Three details are worth pausing on.
 
 **Tag drift is corrected, not ignored.** The third step was already pinned.
-`pin-actions` read the trailing `# v4` comment, asked GitHub where `v4` points *now*,
+`pinref` read the trailing `# v4` comment, asked GitHub where `v4` points *now*,
 and rewrote the SHA because the tag had moved.
 Pinning is not a one-time operation, and the trailing comment is what makes repinning possible.
 
@@ -118,7 +118,7 @@ The digest is what matters; the name is just how you find it.
 
 **Nothing else moved.**
 `# keep this comment` survives, indentation is untouched, and `on: [push]` stays in flow style.
-`pin-actions` edits the YAML syntax tree and compares the serialized result before writing,
+`pinref` edits the YAML syntax tree and compares the serialized result before writing,
 so a file with nothing to change is never touched at all.
 
 ## 4. Apply the Changes
@@ -126,7 +126,7 @@ so a file with nothing to change is never touched at all.
 Drop `--diff` to write:
 
 ```bash
-pin-actions
+pinref
 ```
 
 Then inspect the result with the tool you already trust:
@@ -138,7 +138,7 @@ git --no-pager diff
 Run it a second time:
 
 ```bash
-pin-actions
+pinref
 ```
 
 It reports no modifications.
@@ -156,7 +156,7 @@ Start in `warn` mode on a repository you did not pin yourself:
 
 ```bash
 git checkout .github/workflows/ci.yml
-pin-actions --provenance warn
+pinref --provenance warn
 ```
 
 Every SHA in this tutorial verifies, so you will see no warnings.
@@ -164,7 +164,7 @@ Once a clean pass is confirmed, promote to `strict`:
 
 ```bash
 git checkout .github/workflows/ci.yml
-pin-actions --provenance strict
+pinref --provenance strict
 ```
 
 In `strict` mode an unverifiable SHA raises `UnverifiedProvenanceError` and the file is left untouched.
@@ -172,7 +172,7 @@ That is the mode to use in CI, where a failed job is the outcome you want.
 
 ## 6. Know the Blind Spot
 
-Provenance is checked when `pin-actions` *writes* a SHA.
+Provenance is checked when `pinref` *writes* a SHA.
 An already-pinned ref with **no trailing tag comment** is skipped entirely —
 it is never re-resolved and never provenance-checked:
 
@@ -180,11 +180,11 @@ it is never re-resolved and never provenance-checked:
 - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
 ```
 
-Run `pin-actions --provenance strict` against that line and you get "No files modified".
+Run `pinref --provenance strict` against that line and you get "No files modified".
 There is no recorded tag to re-resolve against, so the entry is left alone.
 
 This is exactly the shape a hand-edited impostor SHA would take.
-Treat the trailing comment as load-bearing: let `pin-actions` write your pins so the comment is always present,
+Treat the trailing comment as load-bearing: let `pinref` write your pins so the comment is always present,
 and review any pin that arrives without one.
 
 ## 7. Commit
@@ -201,10 +201,10 @@ New steps get added unpinned, and upstream tags keep moving.
 Two mechanisms keep the repository converged:
 
 - **Gate pull requests.**
-    Run `pin-actions --diff --provenance strict` in CI so an unpinned ref cannot merge.
+    Run `pinref --diff --provenance strict` in CI so an unpinned ref cannot merge.
     See [Run in CI](../how-to/run-in-ci.md).
 - **Repin on a schedule.**
-    Run `pin-actions` periodically and open a pull request with the result,
+    Run `pinref` periodically and open a pull request with the result,
     so tag drift surfaces as a reviewable change rather than silent staleness.
 
 ## 9. Clean Up
@@ -219,8 +219,8 @@ The sequence is identical, with one change: start in `warn`, not `strict`.
 
 ```bash
 cd /path/to/your/repo
-pin-actions --diff                      # read the proposed changes
-pin-actions --provenance warn           # apply, logging anything unverifiable
+pinref --diff                      # read the proposed changes
+pinref --provenance warn           # apply, logging anything unverifiable
 git --no-pager diff                     # review
 ```
 

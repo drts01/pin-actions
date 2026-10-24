@@ -2,7 +2,7 @@
 
 Async HTTP client for GitHub API with rate limiting, caching, and concurrency control.
 
-::: pin_actions.client
+::: pinref.client
 
 ## See Also
 

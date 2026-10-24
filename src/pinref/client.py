@@ -13,14 +13,14 @@ if TYPE_CHECKING:
 
 import httpx2
 
-from pin_actions._util import is_full_sha
-from pin_actions.errors import AuthError, GitHubAPIError, InvalidRefError, NetworkError, RateLimitExhaustedError
+from pinref._util import is_full_sha
+from pinref.errors import AuthError, GitHubAPIError, InvalidRefError, NetworkError, RateLimitExhaustedError
 
 logger = logging.getLogger(__name__)
 
 _MAX_TAG_PAGES = 10  # 100 tags/page cap; guards against runaway pagination on huge repos
 _TAGS_PER_PAGE = 100
-_USER_AGENT = "pin-actions"
+_USER_AGENT = "pinref"
 
 # PEP 695 type alias for the result of a provenance check (see verify_provenance).
 type ProvenanceResult = Literal["verified", "unverified"]

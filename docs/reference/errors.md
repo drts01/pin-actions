@@ -39,7 +39,7 @@ which `run()` then wraps in a `PinActionsError` while collecting per-file failur
 Six names are re-exported from the package root:
 
 ```python
-from pin_actions import (
+from pinref import (
     GitHubAPIError,
     InvalidRefError,
     NetworkError,
@@ -49,11 +49,11 @@ from pin_actions import (
 )
 ```
 
-`AuthError`, `UnverifiedProvenanceError`, and `UnsupportedRegistryError` are not in `pin_actions.__all__`.
+`AuthError`, `UnverifiedProvenanceError`, and `UnsupportedRegistryError` are not in `pinref.__all__`.
 Import them from the module:
 
 ```python
-from pin_actions.errors import AuthError, UnsupportedRegistryError, UnverifiedProvenanceError
+from pinref.errors import AuthError, UnsupportedRegistryError, UnverifiedProvenanceError
 ```
 
 ## Batch failures from `run()`
@@ -62,7 +62,7 @@ from pin_actions.errors import AuthError, UnsupportedRegistryError, UnverifiedPr
 It raises an `ExceptionGroup` when any file fails, and returns no partial results in that case:
 
 ```python
-from pin_actions import run
+from pinref import run
 
 try:
     modified = await run(settings)
@@ -74,7 +74,7 @@ except ExceptionGroup as eg:
 
 Call `pin_file()` per file instead when you need the successful results alongside the failures.
 
-::: pin_actions.errors
+::: pinref.errors
 
 ## CLI exit codes
 

@@ -65,15 +65,15 @@ jobs:
             {
               echo 'should_publish=true'
               echo 'target_index=pypi'
-              echo 'target_url=https://pypi.org/p/pin-actions'
+              echo 'target_url=https://pypi.org/p/pinref'
               echo 'auth_method=oidc'
             } >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          target_url='https://pypi.org/p/pin-actions'
+          target_url='https://pypi.org/p/pinref'
           if [ "$INPUT_TARGET_INDEX" = 'testpypi' ]; then
-            target_url='https://test.pypi.org/p/pin-actions'
+            target_url='https://test.pypi.org/p/pinref'
           fi
 
           {

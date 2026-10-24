@@ -1,6 +1,6 @@
 # Caching
 
-How pin-actions' in-memory cache avoids redundant GitHub API calls.
+How pinref' in-memory cache avoids redundant GitHub API calls.
 
 ## In-Memory Cache
 
@@ -35,7 +35,7 @@ To share a cache across multiple `run()`/`pin_file()` calls
 (e.g. multiple repositories or `Settings` invocations), pass a shared client explicitly:
 
 ```python
-from pin_actions import GitHubClient, Settings, run
+from pinref import GitHubClient, Settings, run
 import asyncio
 from pathlib import Path
 
@@ -66,7 +66,7 @@ Benefits of a shared client:
 (default 1000 entries per cache — SHA, tags, and commit-date caches are each independently bounded):
 
 ```python
-from pin_actions import GitHubClient
+from pinref import GitHubClient
 
 # Bounded cache (default: 1000 entries, LRU eviction)
 client = GitHubClient(token="ghp_xxxx", max_cache_size=1000)

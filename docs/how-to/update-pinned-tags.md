@@ -1,6 +1,6 @@
 # Update Pinned Tags
 
-By default, `pin-actions` re-resolves already-pinned tags on every run and rewrites the SHA if the tag has moved.
+By default, `pinref` re-resolves already-pinned tags on every run and rewrites the SHA if the tag has moved.
 `--update` moves pins forward to newer versions instead.
 
 ## Re-resolve Tags (Default)
@@ -9,7 +9,7 @@ Without `--update`, the tag recorded in the trailing comment is resolved fresh o
 If `actions/checkout@v4` now points to a different commit, the SHA is rewritten:
 
 ```bash
-pin-actions --github-token $GITHUB_TOKEN
+pinref --github-token $GITHUB_TOKEN
 ```
 
 ## Move Pins Forward
@@ -21,7 +21,7 @@ pin-actions --github-token $GITHUB_TOKEN
 | `--update patch` | same `major.minor` | `v4.2.3` → `v4.2.9` |
 
 ```bash
-pin-actions --update minor --github-token $GITHUB_TOKEN
+pinref --update minor --github-token $GITHUB_TOKEN
 ```
 
 Branch refs never parse as a version, so `--update` has no effect on them.
@@ -34,7 +34,7 @@ By default the rewritten comment matches the original's precision, so `v4` stays
 see the [precision table](../reference/cli.md#precision-preservation-full-version):
 
 ```bash
-pin-actions --update minor --full-version --github-token $GITHUB_TOKEN
+pinref --update minor --full-version --github-token $GITHUB_TOKEN
 ```
 
 ## Cool-off Period
@@ -44,7 +44,7 @@ A newly published tag may carry an undiscovered compromise.
 This mirrors npm's `minimumReleaseAge`, pnpm, and Renovate.
 
 ```bash
-pin-actions --update minor --exclude-newer "7 days" --github-token $GITHUB_TOKEN
+pinref --update minor --exclude-newer "7 days" --github-token $GITHUB_TOKEN
 ```
 
 Accepted formats:
@@ -53,7 +53,7 @@ Accepted formats:
 - ISO 8601 duration — `P7D`, `PT24H`, `P1W` (relative to now)
 - Friendly duration — `7 days`, `24 hours`, `1 week` (case-insensitive)
 
-If every candidate is too new, `pin-actions` warns and leaves the pin unchanged.
+If every candidate is too new, `pinref` warns and leaves the pin unchanged.
 
 Cool-off applies only to `--update`.
 Exact tag re-resolution is unaffected,
@@ -61,11 +61,11 @@ because a tag you named explicitly is not auto-selected and carries different ri
 
 ## Handling Missing Tags
 
-If no tag satisfies the constraint, `pin-actions` logs a warning
-and leaves the entry unchanged rather than dropping the pin or aborting the batch:
+If no tag satisfies the constraint, `pinref` logs a warning and leaves the entry unchanged rather than dropping the pin
+or aborting the batch:
 
 ```text
-WARNING:pin_actions.core: no tag matching version constraint for actions/checkout@v4.0.5; leaving pinned as-is
+WARNING:pinref.core: no tag matching version constraint for actions/checkout@v4.0.5; leaving pinned as-is
 ```
 
 ## See Also

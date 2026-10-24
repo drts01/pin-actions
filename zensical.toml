@@ -1,8 +1,8 @@
 [project]
-site_name = "pin-actions"
+site_name = "pinref"
 site_description = "Pin mutable GitHub Actions to immutable commit SHAs"
-repo_url = "https://github.com/drts01/pin-actions"
-repo_name = "drts01/pin-actions"
+repo_url = "https://github.com/drts01/pinref"
+repo_name = "drts01/pinref"
 edit_uri = "edit/trunk/docs/"
 strict = true
 

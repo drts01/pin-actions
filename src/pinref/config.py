@@ -15,25 +15,25 @@ from pydantic_settings import (
 
 
 def _xdg_config_path() -> Path:
-    """Resolve the XDG config file path for pin-actions.
+    """Resolve the XDG config file path for pinref.
 
     Returns:
-        Path to ``$XDG_CONFIG_HOME/pin-actions/config.toml``, falling back to
-        ``~/.config/pin-actions/config.toml`` when ``XDG_CONFIG_HOME`` is unset.
+        Path to ``$XDG_CONFIG_HOME/pinref/config.toml``, falling back to
+        ``~/.config/pinref/config.toml`` when ``XDG_CONFIG_HOME`` is unset.
     """
     xdg_home = os.environ.get("XDG_CONFIG_HOME")
     base = Path(xdg_home) if xdg_home else Path.home() / ".config"
-    return base / "pin-actions" / "config.toml"
+    return base / "pinref" / "config.toml"
 
 
 class Settings(BaseSettings):
-    """CLI & environment configuration for pin-actions."""
+    """CLI & environment configuration for pinref."""
 
     model_config = SettingsConfigDict(
-        env_prefix="PIN_ACTIONS_",
+        env_prefix="PINREF_",
         case_sensitive=False,
         populate_by_name=True,
-        pyproject_toml_table_header=("tool", "pin-actions"),
+        pyproject_toml_table_header=("tool", "pinref"),
     )
 
     @override
@@ -48,8 +48,8 @@ class Settings(BaseSettings):
     ) -> tuple[PydanticBaseSettingsSource, ...]:
         """Add TOML config file sources (pyproject.toml, XDG, cwd) below env/CLI precedence.
 
-        Precedence high→low: init/CLI, env, dotenv, secrets, pin-actions.toml (cwd),
-        XDG config.toml, pyproject.toml [tool.pin-actions], field defaults.
+        Precedence high→low: init/CLI, env, dotenv, secrets, pinref.toml (cwd),
+        XDG config.toml, pyproject.toml [tool.pinref], field defaults.
 
         Args:
             settings_cls: Settings class.
@@ -63,7 +63,7 @@ class Settings(BaseSettings):
         """
         toml_settings = TomlConfigSettingsSource(
             settings_cls,
-            toml_file=[_xdg_config_path(), Path("pin-actions.toml")],
+            toml_file=[_xdg_config_path(), Path("pinref.toml")],
         )
         pyproject_settings = PyprojectTomlConfigSettingsSource(settings_cls)
         return (
@@ -81,8 +81,8 @@ class Settings(BaseSettings):
     )
     github_token: SecretStr | None = Field(
         default=None,
-        validation_alias=AliasChoices("PIN_ACTIONS_TOKEN", "GITHUB_TOKEN"),
-        description="GitHub API token (env: GITHUB_TOKEN or PIN_ACTIONS_TOKEN)",
+        validation_alias=AliasChoices("PINREF_TOKEN", "GITHUB_TOKEN"),
+        description="GitHub API token (env: GITHUB_TOKEN or PINREF_TOKEN)",
     )
 
     dry_run: bool = Field(

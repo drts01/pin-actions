@@ -4,7 +4,7 @@ Pin GitHub Actions across many repositories in one run with `scripts/update_repo
 a bundled script that clones each repository, pins its refs, and opens pull requests.
 
 !!! note "Library usage example"
-    The script is a working example of `pin_actions` used as a library.
+    The script is a working example of `pinref` used as a library.
     Library calls are isolated in `_try_pin()`: `Settings(...)` and `await run(settings, client=client, cwd=repo_dir)`.
 
 ## Overview
@@ -33,8 +33,8 @@ The script is not standalone: it imports `scripts.fix_injection`, and its sheban
 Clone the repository and run it from the checkout root.
 
 ```bash
-git clone https://github.com/drts01/pin-actions
-cd pin-actions
+git clone https://github.com/drts01/pinref
+cd pinref
 uv run --with-editable . scripts/update_repos.py --repos org/service-a --dry-run
 ```
 
@@ -54,7 +54,7 @@ uv run --with-editable . scripts/update_repos.py --repos org/service-a --repos o
 uv run --with-editable . scripts/update_repos.py \
   --repos-file repos.txt \
   --push \
-  --branch-name automated/pin-actions \
+  --branch-name automated/pinref \
   --commit-message "fix(ci): pin actions to commit SHAs per security policy" \
   --format json --output-file results.json
 ```
@@ -94,21 +94,21 @@ see [Update Pinned Tags](./update-pinned-tags.md) for the semantics.
 Run `uv run --with-editable . scripts/update_repos.py --help` for the complete list.
 Understand these before any non-dry run.
 
-| Flag                | Default       | Behavior                                                                   |
-| ------------------- | ------------- | -------------------------------------------------------------------------- |
-| `--repos`           | —             | Repository as `owner/repo`; repeat for multiple                            |
-| `--repos-file`      | —             | File with one `owner/repo` per line                                        |
-| `--dry-run`         | off           | Resolve and report only; no writes, commits, or pushes                     |
-| `--fix-injection`   | **on**        | Also rewrite `run:` steps to remediate script injection                    |
-| `--push`            | off           | Push the branch and open or update a PR via `gh`                           |
-| `--fork`            | off           | Push to a fork (created if needed) and open a cross-fork PR                |
-| `--fork-org`        | —             | Fork into this organization instead of the authenticated user              |
-| `--branch-name`     | `pin-actions` | Exact branch name created in every repository; force-pushed on re-runs     |
-| `--base-branch`     | repo default  | PR base branch; detected per repository when unset                         |
-| `--run-zizmor`      | off           | Also run `zizmor --fix` (requires `zizmor` on `PATH`; skipped on dry runs) |
-| `--zizmor-fix`      | `safe`        | `zizmor --fix` mode: `safe` or `all`                                       |
-| `--concurrency`     | `4`           | Max repositories cloned and processed in parallel                          |
-| `--api-concurrency` | `5`           | Max in-flight GitHub API requests on the shared client                     |
+| Flag                | Default      | Behavior                                                                   |
+| ------------------- | ------------ | -------------------------------------------------------------------------- |
+| `--repos`           | —            | Repository as `owner/repo`; repeat for multiple                            |
+| `--repos-file`      | —            | File with one `owner/repo` per line                                        |
+| `--dry-run`         | off          | Resolve and report only; no writes, commits, or pushes                     |
+| `--fix-injection`   | **on**       | Also rewrite `run:` steps to remediate script injection                    |
+| `--push`            | off          | Push the branch and open or update a PR via `gh`                           |
+| `--fork`            | off          | Push to a fork (created if needed) and open a cross-fork PR                |
+| `--fork-org`        | —            | Fork into this organization instead of the authenticated user              |
+| `--branch-name`     | `pinref`     | Exact branch name created in every repository; force-pushed on re-runs     |
+| `--base-branch`     | repo default | PR base branch; detected per repository when unset                         |
+| `--run-zizmor`      | off          | Also run `zizmor --fix` (requires `zizmor` on `PATH`; skipped on dry runs) |
+| `--zizmor-fix`      | `safe`       | `zizmor --fix` mode: `safe` or `all`                                       |
+| `--concurrency`     | `4`          | Max repositories cloned and processed in parallel                          |
+| `--api-concurrency` | `5`          | Max in-flight GitHub API requests on the shared client                     |
 
 ### Script-injection remediation
 
@@ -130,7 +130,7 @@ See [Remediate Code Injection](./remediate-code-injection.md) for exactly what i
 ```text
 REPO          MODIFIED BRANCH      BASE_BRANCH FORK_OWNER PR_URL                                   REVIEW STATUS
 ---------------------------------------------------------------------------------------------------------------------------------
-org/service-a 2        pin-actions main        —          https://github.com/org/service-a/pull/42 1      OK
+org/service-a 2        pinref main        —          https://github.com/org/service-a/pull/42 1      OK
 org/service-b 0        —           develop     —          —                                        —      ERROR: 1 file(s) failed
 ```
 
@@ -175,11 +175,11 @@ Add `--verbose 2` for per-file detail.
 
 ## Library Integration
 
-To process already-local repositories without cloning, import `pin_actions` directly and pass `cwd=` per repository: see
+To process already-local repositories without cloning, import `pinref` directly and pass `cwd=` per repository: see
 [Use as a Library — Multi-Repo Processing with a Shared Client](./use-as-a-library.md#multi-repo-processing-with-a-shared-client).
 
 The sibling script `scripts/update_repos-with-zizmor.py` is a variant
-that delegates pinning to `zizmor --fix=all` instead of the `pin_actions` library.
+that delegates pinning to `zizmor --fix=all` instead of the `pinref` library.
 
 ## See Also
 

@@ -50,9 +50,9 @@ from pathlib import Path
 from typing import Any
 
 import yamlrocks
-from pin_actions._yaml_artifacts import strip_blank_line_artifacts
-from pin_actions.config import Settings
-from pin_actions.errors import PinActionsError, YAMLParseError
+from pinref._yaml_artifacts import strip_blank_line_artifacts
+from pinref.config import Settings
+from pinref.errors import PinActionsError, YAMLParseError
 from pydantic import Field
 
 # GitHub Security Lab's documented list of attacker-controllable context paths, plus
@@ -544,7 +544,7 @@ def remediate_run_step(
                 # a freshly-assigned multi-line string is always re-emitted as an escaped
                 # double-quoted scalar, so route through the placeholder/splice workaround
                 # even when the only change is bare env-var quoting.
-                token = f"__PIN_ACTIONS_RUN_{len(placeholders)}__"
+                token = f"__PINREF_RUN_{len(placeholders)}__"
                 placeholders[token] = (quoted_text, original_style)
                 _set_path(doc, item_path, token)
             else:
@@ -592,7 +592,7 @@ def remediate_run_step(
         # round-trip re-emit path does not). Work around it by writing a single-line
         # placeholder token now and splicing a real block scalar back into the
         # rendered YAML text afterwards -- see _splice_block_scalars.
-        token = f"__PIN_ACTIONS_RUN_{len(placeholders)}__"
+        token = f"__PINREF_RUN_{len(placeholders)}__"
         placeholders[token] = (new_text, original_style)
         _set_path(doc, item_path, token)
     else:
@@ -604,7 +604,7 @@ def remediate_run_step(
     return findings, False
 
 
-_PLACEHOLDER_LINE_RE = re.compile(r"^([ \t]*(?:-[ \t]+)?)([^\s:]+):[ \t]*(__PIN_ACTIONS_RUN_\d+__)[ \t]*$")
+_PLACEHOLDER_LINE_RE = re.compile(r"^([ \t]*(?:-[ \t]+)?)([^\s:]+):[ \t]*(__PINREF_RUN_\d+__)[ \t]*$")
 
 
 def _chomp_indicator(text: str) -> tuple[str, str]:
@@ -754,7 +754,7 @@ def _report_findings(findings: list[InjectionFinding], quoted_paths: list[tuple[
 def main() -> None:
     """CLI entry point for fix-injection."""
     if "--version" in sys.argv:
-        from pin_actions import __version__  # noqa: PLC0415 -- deferred to avoid import cost when unused
+        from pinref import __version__  # noqa: PLC0415 -- deferred to avoid import cost when unused
 
         print(f"fix-injection {__version__}")
         return

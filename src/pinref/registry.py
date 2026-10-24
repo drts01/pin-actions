@@ -16,8 +16,8 @@ from typing import Self
 
 import httpx2
 
-from pin_actions.client import _Cache
-from pin_actions.errors import NetworkError, UnsupportedRegistryError
+from pinref.client import _Cache
+from pinref.errors import NetworkError, UnsupportedRegistryError
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ _DIGEST_LENGTH = 64
 _HEX = frozenset("0123456789abcdefABCDEF")
 _DOCKER_HUB_REGISTRY = "registry-1.docker.io"
 _AUTH_CHALLENGE_RE = re.compile(r'(\w+)="([^"]*)"')
-_USER_AGENT = "pin-actions"
+_USER_AGENT = "pinref"
 
 
 def is_image_digest(ref: str) -> bool:

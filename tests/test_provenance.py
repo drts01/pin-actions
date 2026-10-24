@@ -4,9 +4,9 @@ from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from pin_actions.config import Settings
-from pin_actions.core import run
-from pin_actions.errors import UnverifiedProvenanceError
+from pinref.config import Settings
+from pinref.core import run
+from pinref.errors import UnverifiedProvenanceError
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -44,7 +44,7 @@ class TestProvenanceOff:
         mock_client = _patched_client(resolve_sha_map={("actions/checkout", "v4"): sha}, provenance_result="unverified")
 
         # Act
-        with patch("pin_actions.core.GitHubClient", return_value=mock_client):
+        with patch("pinref.core.GitHubClient", return_value=mock_client):
             modified = await run(settings)
 
         # Assert
@@ -69,7 +69,7 @@ class TestProvenanceWarn:
         mock_client = _patched_client(resolve_sha_map={("actions/checkout", "v4"): sha}, provenance_result="unverified")
 
         # Act
-        with patch("pin_actions.core.GitHubClient", return_value=mock_client), caplog.at_level("WARNING"):
+        with patch("pinref.core.GitHubClient", return_value=mock_client), caplog.at_level("WARNING"):
             modified = await run(settings)
 
         # Assert
@@ -96,7 +96,7 @@ class TestProvenanceStrict:
 
         # Act / Assert
         with (
-            patch("pin_actions.core.GitHubClient", return_value=mock_client),
+            patch("pinref.core.GitHubClient", return_value=mock_client),
             pytest.raises(ExceptionGroup) as exc_info,
         ):
             await run(settings)
@@ -117,7 +117,7 @@ class TestProvenanceStrict:
         mock_client = _patched_client(resolve_sha_map={("actions/checkout", "v4"): sha}, provenance_result="verified")
 
         # Act
-        with patch("pin_actions.core.GitHubClient", return_value=mock_client):
+        with patch("pinref.core.GitHubClient", return_value=mock_client):
             modified = await run(settings)
 
         # Assert

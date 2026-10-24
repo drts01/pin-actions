@@ -9,7 +9,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
     from pathlib import Path
 
-    from pin_actions.client import GitHubClient
+    from pinref.client import GitHubClient
 
 logger = logging.getLogger("scan_corpus")
 

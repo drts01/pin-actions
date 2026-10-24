@@ -7,11 +7,11 @@ from typing import Any, Literal
 
 from pydantic import Field
 
-from pin_actions._util import git_url_to_repo
-from pin_actions.client import GitHubClient
-from pin_actions.config import Settings
-from pin_actions.core import UpdateOptions, _pin_doc, build_update_options, configure_logging
-from pin_actions.errors import PinActionsError
+from pinref._util import git_url_to_repo
+from pinref.client import GitHubClient
+from pinref.config import Settings
+from pinref.core import UpdateOptions, _pin_doc, build_update_options, configure_logging
+from pinref.errors import PinActionsError
 
 
 class PrecommitSettings(Settings):
@@ -124,7 +124,7 @@ async def _run(settings: PrecommitSettings, files: list[Path]) -> list[Path]:
 def main() -> None:
     """Run the ``pin-precommit`` CLI."""
     if "--version" in sys.argv:
-        from pin_actions import __version__  # noqa: PLC0415 -- deferred to avoid import cost when unused
+        from pinref import __version__  # noqa: PLC0415 -- deferred to avoid import cost when unused
 
         print(f"pin-precommit {__version__}")
         return

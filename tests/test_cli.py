@@ -4,10 +4,10 @@ from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import pytest
-from pin_actions import __version__
-from pin_actions.config import Settings
-from pin_actions.core import main
-from pin_actions.errors import InvalidRefError, YAMLParseError
+from pinref import __version__
+from pinref.config import Settings
+from pinref.core import main
+from pinref.errors import InvalidRefError, YAMLParseError
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -25,7 +25,7 @@ class TestMainSuccess:
         workflow.write_text("name: Test\njobs:\n  test:\n    steps:\n      - uses: actions/checkout@v4\n")
 
         # Mock sys.argv for CLI parsing
-        test_args = ["pin-actions", "--paths", str(workflows_dir), "--dry-run"]
+        test_args = ["pinref", "--paths", str(workflows_dir), "--dry-run"]
 
         async def mock_run(_settings) -> list[Path]:
             return [workflow]
@@ -33,7 +33,7 @@ class TestMainSuccess:
         # Act
         with (
             patch("sys.argv", test_args),
-            patch("pin_actions.core.run", side_effect=mock_run),
+            patch("pinref.core.run", side_effect=mock_run),
         ):
             main()
 
@@ -45,7 +45,7 @@ class TestMainSuccess:
     def test_prints_no_files_modified(self, capsys: pytest.CaptureFixture) -> None:
         """Print 'No files modified' when nothing changed."""
         # Arrange
-        test_args = ["pin-actions"]
+        test_args = ["pinref"]
 
         async def mock_run(_settings) -> list[Path]:
             return []
@@ -53,7 +53,7 @@ class TestMainSuccess:
         # Act
         with (
             patch("sys.argv", test_args),
-            patch("pin_actions.core.run", side_effect=mock_run),
+            patch("pinref.core.run", side_effect=mock_run),
         ):
             main()
 
@@ -65,10 +65,10 @@ class TestMainSuccess:
 class TestMainErrors:
     """Test main() error handling and exit codes."""
 
-    def test_pin_actions_error_exit_1(self, capsys: pytest.CaptureFixture) -> None:
+    def test_pinref_error_exit_1(self, capsys: pytest.CaptureFixture) -> None:
         """Exit with code 1 on PinActionsError."""
         # Arrange
-        test_args = ["pin-actions"]
+        test_args = ["pinref"]
         error = InvalidRefError("owner/repo", "nonexistent")
 
         async def mock_run(_settings) -> list[Path]:
@@ -77,7 +77,7 @@ class TestMainErrors:
         # Act
         with (
             patch("sys.argv", test_args),
-            patch("pin_actions.core.run", side_effect=mock_run),
+            patch("pinref.core.run", side_effect=mock_run),
             pytest.raises(SystemExit) as exc_info,
         ):
             main()
@@ -90,7 +90,7 @@ class TestMainErrors:
     def test_exception_group_exit_1(self, capsys: pytest.CaptureFixture) -> None:
         """Exit with code 1 on ExceptionGroup."""
         # Arrange
-        test_args = ["pin-actions"]
+        test_args = ["pinref"]
         error = YAMLParseError("/path/to/file.yml", "invalid syntax")
         exc_group = ExceptionGroup("1 file(s) failed to process", [error])
 
@@ -100,7 +100,7 @@ class TestMainErrors:
         # Act
         with (
             patch("sys.argv", test_args),
-            patch("pin_actions.core.run", side_effect=mock_run),
+            patch("pinref.core.run", side_effect=mock_run),
             pytest.raises(SystemExit) as exc_info,
         ):
             main()
@@ -113,7 +113,7 @@ class TestMainErrors:
     def test_missing_paths_skipped_silently(self, capsys: pytest.CaptureFixture) -> None:
         """Missing paths are skipped silently, no error raised."""
         # Arrange
-        test_args = ["pin-actions", "--paths", "/nonexistent/path"]
+        test_args = ["pinref", "--paths", "/nonexistent/path"]
 
         async def mock_run(_settings) -> list[Path]:
             return []
@@ -121,7 +121,7 @@ class TestMainErrors:
         # Act
         with (
             patch("sys.argv", test_args),
-            patch("pin_actions.core.run", side_effect=mock_run),
+            patch("pinref.core.run", side_effect=mock_run),
         ):
             main()
 
@@ -139,7 +139,7 @@ class TestMainVerbosity:
         workflows_dir = tmp_path / ".github" / "workflows"
         workflows_dir.mkdir(parents=True)
 
-        test_args = ["pin-actions", "--paths", str(workflows_dir), "-v", "2"]
+        test_args = ["pinref", "--paths", str(workflows_dir), "-v", "2"]
 
         async def mock_run(settings) -> list[Path]:
             assert settings.verbose == 2
@@ -148,7 +148,7 @@ class TestMainVerbosity:
         # Act
         with (
             patch("sys.argv", test_args),
-            patch("pin_actions.core.run", side_effect=mock_run),
+            patch("pinref.core.run", side_effect=mock_run),
         ):
             main()
 
@@ -158,7 +158,7 @@ class TestMainVerbosity:
         workflows_dir = tmp_path / ".github" / "workflows"
         workflows_dir.mkdir(parents=True)
 
-        test_args = ["pin-actions", "--paths", str(workflows_dir), "--verbose", "1"]
+        test_args = ["pinref", "--paths", str(workflows_dir), "--verbose", "1"]
 
         async def mock_run(settings) -> list[Path]:
             assert settings.verbose == 1
@@ -167,7 +167,7 @@ class TestMainVerbosity:
         # Act
         with (
             patch("sys.argv", test_args),
-            patch("pin_actions.core.run", side_effect=mock_run),
+            patch("pinref.core.run", side_effect=mock_run),
         ):
             main()
 
@@ -181,7 +181,7 @@ class TestMainDryRun:
         workflows_dir = tmp_path / ".github" / "workflows"
         workflows_dir.mkdir(parents=True)
 
-        test_args = ["pin-actions", "--paths", str(workflows_dir), "--dry-run"]
+        test_args = ["pinref", "--paths", str(workflows_dir), "--dry-run"]
 
         async def mock_run(settings) -> list[Path]:
             assert settings.dry_run is True
@@ -190,7 +190,7 @@ class TestMainDryRun:
         # Act
         with (
             patch("sys.argv", test_args),
-            patch("pin_actions.core.run", side_effect=mock_run),
+            patch("pinref.core.run", side_effect=mock_run),
         ):
             main()
 
@@ -204,7 +204,7 @@ class TestMainUpdateFlag:
         workflows_dir = tmp_path / ".github" / "workflows"
         workflows_dir.mkdir(parents=True)
 
-        test_args = ["pin-actions", "--paths", str(workflows_dir), "--update", "major"]
+        test_args = ["pinref", "--paths", str(workflows_dir), "--update", "major"]
 
         async def mock_run(settings) -> list[Path]:
             assert settings.update == "major"
@@ -213,7 +213,7 @@ class TestMainUpdateFlag:
         # Act
         with (
             patch("sys.argv", test_args),
-            patch("pin_actions.core.run", side_effect=mock_run),
+            patch("pinref.core.run", side_effect=mock_run),
         ):
             main()
 
@@ -223,7 +223,7 @@ class TestMainUpdateFlag:
         workflows_dir = tmp_path / ".github" / "workflows"
         workflows_dir.mkdir(parents=True)
 
-        test_args = ["pin-actions", "--paths", str(workflows_dir), "--update", "minor"]
+        test_args = ["pinref", "--paths", str(workflows_dir), "--update", "minor"]
 
         async def mock_run(settings) -> list[Path]:
             assert settings.update == "minor"
@@ -232,7 +232,7 @@ class TestMainUpdateFlag:
         # Act
         with (
             patch("sys.argv", test_args),
-            patch("pin_actions.core.run", side_effect=mock_run),
+            patch("pinref.core.run", side_effect=mock_run),
         ):
             main()
 
@@ -242,7 +242,7 @@ class TestMainUpdateFlag:
         workflows_dir = tmp_path / ".github" / "workflows"
         workflows_dir.mkdir(parents=True)
 
-        test_args = ["pin-actions", "--paths", str(workflows_dir), "--update", "patch"]
+        test_args = ["pinref", "--paths", str(workflows_dir), "--update", "patch"]
 
         async def mock_run(settings) -> list[Path]:
             assert settings.update == "patch"
@@ -251,7 +251,7 @@ class TestMainUpdateFlag:
         # Act
         with (
             patch("sys.argv", test_args),
-            patch("pin_actions.core.run", side_effect=mock_run),
+            patch("pinref.core.run", side_effect=mock_run),
         ):
             main()
 
@@ -260,9 +260,9 @@ class TestMainVersion:
     """Test --version flag."""
 
     def test_version_prints_and_returns(self, capsys: pytest.CaptureFixture) -> None:
-        """--version prints 'pin-actions <version>' and does not error."""
+        """--version prints 'pinref <version>' and does not error."""
         # Arrange
-        test_args = ["pin-actions", "--version"]
+        test_args = ["pinref", "--version"]
 
         # Act
         with patch("sys.argv", test_args):
@@ -270,7 +270,7 @@ class TestMainVersion:
 
         # Assert
         captured = capsys.readouterr()
-        assert captured.out.strip() == f"pin-actions {__version__}"
+        assert captured.out.strip() == f"pinref {__version__}"
 
 
 class TestMainDiffFlag:
@@ -285,7 +285,7 @@ class TestMainDiffFlag:
         original = "name: Test\njobs:\n  test:\n    steps:\n      - uses: actions/checkout@v4\n"
         workflow.write_text(original)
 
-        test_args = ["pin-actions", "--paths", str(workflows_dir), "--diff"]
+        test_args = ["pinref", "--paths", str(workflows_dir), "--diff"]
 
         async def mock_run(settings) -> list[Path]:
             assert settings.dry_run is True
@@ -295,7 +295,7 @@ class TestMainDiffFlag:
         # Act
         with (
             patch("sys.argv", test_args),
-            patch("pin_actions.core.run", side_effect=mock_run),
+            patch("pinref.core.run", side_effect=mock_run),
         ):
             main()
 
@@ -309,7 +309,7 @@ class TestHelpFlagDrift:
     def test_help_lists_every_settings_flag(self, capsys: pytest.CaptureFixture) -> None:
         """Every Settings field's primary kebab-case flag appears in --help output."""
         # Arrange
-        test_args = ["pin-actions", "--help"]
+        test_args = ["pinref", "--help"]
 
         # Act
         with patch("sys.argv", test_args), pytest.raises(SystemExit):

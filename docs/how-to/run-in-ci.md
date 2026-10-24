@@ -1,6 +1,6 @@
 # Run in CI
 
-Schedule pin-actions to keep pins up-to-date automatically via a GitHub Actions workflow.
+Schedule pinref to keep pins up-to-date automatically via a GitHub Actions workflow.
 
 Pass the token through `env:` rather than on the command line,
 so it does not appear in the runner's process list or in `set -x` output.
@@ -32,17 +32,17 @@ jobs:
         with:
           python-version: '3.14'
 
-      - name: Run pin-actions
+      - name: Run pinref
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: uv run pin-actions
+        run: uv run pinref
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676 # v7
         with:
           commit-message: 'ci: update pinned actions'
           title: Update pinned GitHub Actions
-          branch: pin-actions-update
+          branch: pinref-update
 ```
 
 ## Preview Changes in a PR Check
@@ -70,7 +70,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          uv run pin-actions
+          uv run pinref
           git diff --exit-code
 ```
 
@@ -81,7 +81,7 @@ or merged pull request commit on the named repository.
 Add it to either workflow above to gate fork-network commits at write time:
 
 ```yaml
-run: uv run pin-actions --provenance strict
+run: uv run pinref --provenance strict
 ```
 
 ## See Also

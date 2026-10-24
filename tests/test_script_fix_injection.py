@@ -12,14 +12,14 @@ import yamlrocks
 sys.path.insert(0, str(Path(__file__).parent))
 from scripts.fix_injection import InjectionSettings, fix_injection_file
 
-from pin_actions.errors import YAMLParseError
+from pinref.errors import YAMLParseError
 
 
 class TestInjectionDefaults:
     """Test InjectionSettings defaults."""
 
     def test_default_paths(self) -> None:
-        """Default paths match pin-actions' workflow/action discovery."""
+        """Default paths match pinref' workflow/action discovery."""
         assert InjectionSettings().paths == [
             Path(".github/workflows"),
             Path("**/action.yml"),

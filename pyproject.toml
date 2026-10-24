@@ -3,8 +3,8 @@ build-backend = "uv_build"
 requires = [ "uv-build~=0.12.5" ]
 
 [project]
-name = "pin-actions"
-version = "0.1.0"
+name = "pinref"
+version = "0.2.0"
 description = "Pin mutable CI references to immutable commit SHAs and content digests"
 readme = "README.md"
 keywords = [
@@ -39,12 +39,12 @@ dependencies = [
   "pydantic-settings~=2.0",
   "yamlrocks~=0.6.1",
 ]
-urls.Homepage = "https://github.com/drts01/pin-actions"
-urls.Issues = "https://github.com/drts01/pin-actions/issues"
-urls.Repository = "https://github.com/drts01/pin-actions"
+urls.Homepage = "https://github.com/drts01/pinref"
+urls.Issues = "https://github.com/drts01/pinref/issues"
+urls.Repository = "https://github.com/drts01/pinref"
 scripts.fix_injection = "scripts.fix_injection:main"
-scripts.pin-actions = "pin_actions.core:main"
-scripts.pin-precommit = "pin_actions.precommit:main"
+scripts.pin-precommit = "pinref.precommit:main"
+scripts.pinref = "pinref.core:main"
 
 [dependency-groups]
 test = [
@@ -198,7 +198,7 @@ markers = [
 testpaths = [ "scripts", "src", "tests" ]
 
 [tool.coverage]
-run.source_pkgs = [ "pin_actions", "scripts" ]
+run.source_pkgs = [ "pinref", "scripts" ]
 run.omit = [ "**/__pycache__/*", "tests/*" ]
 report.exclude_lines = [
   "def __repr__",

@@ -11,14 +11,14 @@ from typing import Any, Literal
 
 import yamlrocks
 
-from pin_actions._duration import parse_exclude_newer
-from pin_actions._util import is_full_sha
-from pin_actions._yaml_artifacts import strip_blank_line_artifacts
-from pin_actions.client import GitHubClient
-from pin_actions.config import Settings
-from pin_actions.errors import PinActionsError, UnsupportedRegistryError, UnverifiedProvenanceError, YAMLParseError
-from pin_actions.registry import ContainerRegistryClient, is_image_digest, parse_image_ref
-from pin_actions.versioning import parse_tag_version, select_latest_tags
+from pinref._duration import parse_exclude_newer
+from pinref._util import is_full_sha
+from pinref._yaml_artifacts import strip_blank_line_artifacts
+from pinref.client import GitHubClient
+from pinref.config import Settings
+from pinref.errors import PinActionsError, UnsupportedRegistryError, UnverifiedProvenanceError, YAMLParseError
+from pinref.registry import ContainerRegistryClient, is_image_digest, parse_image_ref
+from pinref.versioning import parse_tag_version, select_latest_tags
 
 logger = logging.getLogger(__name__)
 
@@ -601,7 +601,7 @@ def build_update_options(settings: Settings) -> UpdateOptions | None:
         ValueError: If ``settings.exclude_newer`` is set but not a valid duration/timestamp.
 
     Example:
-        >>> from pin_actions.config import Settings
+        >>> from pinref.config import Settings
         >>> build_update_options(Settings(update=None)) is None
         True
         >>> opts = build_update_options(Settings(update="minor", full_version=True))
@@ -737,16 +737,16 @@ async def _process_files(
 """Verbosity count → per-namespace logging level mapping.
 
 Maps verbosity levels (0-3+) to logging level dicts for core libraries:
-- 0 (default): pin_actions=WARNING, httpx2/httpcore=WARNING
-- 1 (-v):      pin_actions=INFO, httpx2/httpcore=WARNING
-- 2 (-vv):     pin_actions=DEBUG, httpx2/httpcore=INFO
-- 3+ (-vvv):   pin_actions=DEBUG, httpx2/httpcore=DEBUG
+- 0 (default): pinref=WARNING, httpx2/httpcore=WARNING
+- 1 (-v):      pinref=INFO, httpx2/httpcore=WARNING
+- 2 (-vv):     pinref=DEBUG, httpx2/httpcore=INFO
+- 3+ (-vvv):   pinref=DEBUG, httpx2/httpcore=DEBUG
 """
 LEVELS_BY_VERBOSITY: list[dict[str, int]] = [
-    {"pin_actions": logging.WARNING, "httpx2": logging.WARNING, "httpcore": logging.WARNING},
-    {"pin_actions": logging.INFO, "httpx2": logging.WARNING, "httpcore": logging.WARNING},
-    {"pin_actions": logging.DEBUG, "httpx2": logging.INFO, "httpcore": logging.INFO},
-    {"pin_actions": logging.DEBUG, "httpx2": logging.DEBUG, "httpcore": logging.DEBUG},
+    {"pinref": logging.WARNING, "httpx2": logging.WARNING, "httpcore": logging.WARNING},
+    {"pinref": logging.INFO, "httpx2": logging.WARNING, "httpcore": logging.WARNING},
+    {"pinref": logging.DEBUG, "httpx2": logging.INFO, "httpcore": logging.INFO},
+    {"pinref": logging.DEBUG, "httpx2": logging.DEBUG, "httpcore": logging.DEBUG},
 ]
 
 
@@ -773,9 +773,9 @@ def main() -> None:
     pin operation, and reports results. Exits with status 1 on any error.
     """
     if "--version" in sys.argv:
-        from pin_actions import __version__  # noqa: PLC0415 -- deferred to avoid import cost when unused
+        from pinref import __version__  # noqa: PLC0415 -- deferred to avoid import cost when unused
 
-        print(f"pin-actions {__version__}")
+        print(f"pinref {__version__}")
         return
 
     try:
@@ -783,7 +783,7 @@ def main() -> None:
             _cli_parse_args=True,
             _cli_kebab_case=True,
             _cli_implicit_flags=True,
-            _cli_prog_name="pin-actions",
+            _cli_prog_name="pinref",
         )
         configure_logging(settings.verbose)
         modified = asyncio.run(run(settings))

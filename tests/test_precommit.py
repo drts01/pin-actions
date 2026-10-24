@@ -5,10 +5,10 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from pin_actions import pin_precommit_file as exported_pin_precommit_file
-from pin_actions.client import GitHubClient
-from pin_actions.errors import YAMLParseError
-from pin_actions.precommit import PrecommitSettings, pin_precommit_file
+from pinref import pin_precommit_file as exported_pin_precommit_file
+from pinref.client import GitHubClient
+from pinref.errors import YAMLParseError
+from pinref.precommit import PrecommitSettings, pin_precommit_file
 
 
 class TestPrecommitDefaults:

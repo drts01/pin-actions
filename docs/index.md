@@ -1,4 +1,4 @@
-# Pin Actions
+# pinref
 
 --8<-- "README.md:overview"
 
@@ -9,9 +9,9 @@
 - **[Reference](reference/cli.md)** — Full API and CLI documentation
 - **[Explanation](explanation/architecture.md)** — Design, architecture, and rationale
 - **[Threat Model](explanation/threat-model.md)** — The supply-chain attack model this tool defends against
-- **[Comparison with Similar Tools](explanation/comparison.md)** — How `pin-actions` stacks up against ratchet,
+- **[Comparison with Similar Tools](explanation/comparison.md)** — How `pinref` stacks up against ratchet,
     pinact, Updatecli, pin-github-action, and zizmor
 
 ## License
 
-[Apache 2.0](LICENSE)
+[Apache 2.0](license.md)

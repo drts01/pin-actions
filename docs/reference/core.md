@@ -2,7 +2,7 @@
 
 Main orchestration functions for file scanning and pinning.
 
-::: pin_actions.core
+::: pinref.core
 
 ## See Also
 

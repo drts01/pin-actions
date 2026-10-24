@@ -2,8 +2,8 @@
 
 Pin GitHub-hosted `.pre-commit-config.yaml` `repos[].rev` entries to immutable commit SHAs.
 
-Install `pin-actions` and run the `pin-precommit` command.
-Library callers can use `pin_actions.pin_precommit_file()` with an existing `GitHubClient`.
+Install `pinref` and run the `pin-precommit` command.
+Library callers can use `pinref.pin_precommit_file()` with an existing `GitHubClient`.
 
 ## Preview, Then Apply
 
@@ -30,7 +30,7 @@ Override it for monorepos with multiple configs:
 uv run pin-precommit --paths "**/.pre-commit-config.yaml"
 ```
 
-Every other `pin-actions` flag applies unchanged — `--update`, `--full-version`, `--exclude-newer`, `--concurrency`,
+Every other `pinref` flag applies unchanged — `--update`, `--full-version`, `--exclude-newer`, `--concurrency`,
 `--host`, `--provenance`.
 See the [CLI reference](../reference/cli.md#pin-precommit).
 
@@ -41,5 +41,5 @@ are skipped.
 
 ## See Also
 
-- [Update Pinned Tags](./update-pinned-tags.md) — version constraint recipes shared with `pin-actions`
+- [Update Pinned Tags](./update-pinned-tags.md) — version constraint recipes shared with `pinref`
 - [Verify SHA Provenance](./verify-provenance.md) — reject SHAs that do not belong to the named repository

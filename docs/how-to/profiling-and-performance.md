@@ -1,6 +1,6 @@
 # Profile and Performance-Test
 
-Find where `pin-actions` spends time, measure how it scales, and catch regressions before they merge.
+Find where `pinref` spends time, measure how it scales, and catch regressions before they merge.
 Every recipe drives a synthetic workload against a mocked GitHub API, so results need no network access or token.
 
 ## Generate a Synthetic Workload
@@ -112,9 +112,9 @@ that single-flight deduplication still collapses concurrent fetches for one key.
 
 ## Run Profiling in CI
 
-[`.github/workflows/profile.yml`](https://github.com/drts01/pin-actions/blob/trunk/.github/workflows/profile.yml)
-already runs the `profile`, `flamegraph`, and Tachyon environments on pushes to `trunk` and on `workflow_dispatch`, then
-uploads the artifacts.
+[`.github/workflows/profile.yml`](https://github.com/drts01/pinref/blob/trunk/.github/workflows/profile.yml) already
+runs the `profile`, `flamegraph`, and Tachyon environments on pushes to `trunk` and on `workflow_dispatch`, then uploads
+the artifacts.
 
 ## Where Time Goes
 
@@ -127,4 +127,4 @@ uploads the artifacts.
 - [Reference: CLI](../reference/cli.md) — full flag list
 - [Architecture Overview](../explanation/architecture.md) — pipeline stages and concurrency model
 - [Caching](../explanation/caching.md) — cache layers and deduplication behavior
-- [How-to: Run in CI](./run-in-ci.md) — wiring `pin-actions` into a workflow
+- [How-to: Run in CI](./run-in-ci.md) — wiring `pinref` into a workflow

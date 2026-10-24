@@ -1,19 +1,19 @@
 # CLI reference
 
-`pin-actions` parses command-line flags via pydantic-settings,
+`pinref` parses command-line flags via pydantic-settings,
 deriving them directly from the [`Settings`](config.md) fields below (kebab-case, e.g. `dry_run` → `--dry-run`).
-Run `pin-actions --help` for the live, authoritative flag list.
+Run `pinref --help` for the live, authoritative flag list.
 
 **Breaking change**: `--path` is now `--paths` and accepts multiple file/directory arguments (glob patterns supported).
 Default scans `.github/workflows/` (all workflows) plus `**/action.yml` and `**/action.yaml`
 (composite actions in any path).
 
-::: pin_actions.config.Settings
+::: pinref.config.Settings
 
 ## `pin-precommit`
 
 Pins GitHub-hosted `.pre-commit-config.yaml` `repos[].rev` entries to immutable commit SHAs.
-The installed command accepts the same flags as `pin-actions` via `PrecommitSettings(Settings)`, with these differences:
+The installed command accepts the same flags as `pinref` via `PrecommitSettings(Settings)`, with these differences:
 
 - `--host` — matches against `repos[].repo` clone URLs (default `github.com`)
 - Default `--paths` is `[.pre-commit-config.yaml]` instead of the main default
@@ -22,7 +22,7 @@ Run `pin-precommit --help` for the live flag list.
 
 ## Container image pinning (`--image-pin`)
 
-By default, `pin-actions` also pins container image references to `sha256:` content digests:
+By default, `pinref` also pins container image references to `sha256:` content digests:
 
 - `uses: docker://image:tag` (step-level docker actions)
 - `jobs.<job>.container.image`
@@ -51,7 +51,7 @@ because forks share the same underlying object pool.
 Pinning that SHA alone doesn't prove it came from the upstream repo.
 
 `--provenance` checks whether every newly-resolved/re-verified SHA is a branch head, tag,
-or merged pull request head or merge commit on the *named* repository before pin-actions writes it.
+or merged pull request head or merge commit on the *named* repository before pinref writes it.
 Open pull requests do not count, because anyone can open one
 (see [Verify SHA Provenance](../how-to/verify-provenance.md#what-verified-means)):
 
@@ -71,10 +71,10 @@ still verifies.
 
 ```bash
 # Warn on unverifiable SHAs but keep pinning
-pin-actions --provenance warn --github-token $GITHUB_TOKEN
+pinref --provenance warn --github-token $GITHUB_TOKEN
 
 # Fail the run on any unverifiable SHA
-pin-actions --provenance strict --github-token $GITHUB_TOKEN
+pinref --provenance strict --github-token $GITHUB_TOKEN
 ```
 
 ## `--update` flag matrix
@@ -101,9 +101,9 @@ With `--full-version`, the full resolved tag version is always recorded (e.g. `v
 ## Environment variables
 
 - `GITHUB_TOKEN` — GitHub API token
-- `PIN_ACTIONS_TOKEN` — Alternative name for the GitHub token
-- `PIN_ACTIONS_*` — Any other field can be set via its `PIN_ACTIONS_`-prefixed env var name
-    (e.g. `PIN_ACTIONS_CONCURRENCY`)
+- `PINREF_TOKEN` — Alternative name for the GitHub token
+- `PINREF_*` — Any other field can be set via its `PINREF_`-prefixed env var name
+    (e.g. `PINREF_CONCURRENCY`)
 
 ## Config file
 
@@ -113,35 +113,35 @@ See [Config file](config.md#config-file) for TOML config file locations and prec
 
 ```bash
 # Dry-run to preview changes
-pin-actions --dry-run --github-token $GITHUB_TOKEN
+pinref --dry-run --github-token $GITHUB_TOKEN
 
 # Print a unified diff instead of a file list (implies --dry-run)
-pin-actions --diff --github-token $GITHUB_TOKEN
+pinref --diff --github-token $GITHUB_TOKEN
 
 # Pin workflows with custom concurrency (single path)
-pin-actions --paths .workflows --concurrency 10 --github-token $GITHUB_TOKEN
+pinref --paths .workflows --concurrency 10 --github-token $GITHUB_TOKEN
 
 # Pin specific action file (not default scan)
-pin-actions --paths action.yml --github-token $GITHUB_TOKEN
+pinref --paths action.yml --github-token $GITHUB_TOKEN
 
 # Move pins to latest version within same major
-pin-actions --update minor --github-token $GITHUB_TOKEN
+pinref --update minor --github-token $GITHUB_TOKEN
 
 # Verbose output (also --verbose)
-pin-actions -v 2 --github-token $GITHUB_TOKEN
+pinref -v 2 --github-token $GITHUB_TOKEN
 
 
 # Use with GitHub Enterprise Server
-pin-actions --host github.example.com --github-token $GITHUB_TOKEN
+pinref --host github.example.com --github-token $GITHUB_TOKEN
 
 # Skip tags newer than a cool-off window (supply-chain safety)
-pin-actions --update minor --exclude-newer "7 days" --github-token $GITHUB_TOKEN
+pinref --update minor --exclude-newer "7 days" --github-token $GITHUB_TOKEN
 
 # Increase retry attempts on 429/403 responses
-pin-actions --max-retries 10 --github-token $GITHUB_TOKEN
+pinref --max-retries 10 --github-token $GITHUB_TOKEN
 
 # Print installed version
-pin-actions --version
+pinref --version
 
 
 # Pin pre-commit hook revs instead of GitHub Actions

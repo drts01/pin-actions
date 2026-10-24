@@ -5,7 +5,7 @@ SHAs.
 
 This research tool supports the SCaLE 24x talk documented in [`../scale-24x-talk.md`](../scale-24x-talk.md).
 
-It is not part of the published `pin-actions` package.
+It is not part of the published `pinref` package.
 
 ## Methodology
 
@@ -16,7 +16,7 @@ Run four resumable stages:
 3. `scan` classifies each clone into one CSV row.
 4. `report` aggregates the CSV into Markdown headline figures.
 
-The scanner intentionally imports private collectors from `pin_actions`
+The scanner intentionally imports private collectors from `pinref`
 so classification matches the implementation under study.
 If yamlrocks rejects valid corpus YAML, scanning falls back to PyYAML's read-only BaseLoader;
 this parser is scoped to the `corpus` dependency group and is never used for editing files.

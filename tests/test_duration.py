@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 
 from hypothesis import given
 from hypothesis import strategies as st
-from pin_actions._duration import parse_exclude_newer
+from pinref._duration import parse_exclude_newer
 
 _FIXED_NOW = datetime(2024, 1, 1, tzinfo=UTC)
 

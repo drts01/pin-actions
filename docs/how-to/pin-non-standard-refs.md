@@ -5,22 +5,22 @@ cases beyond a plain `uses:` in a workflow job.
 
 ## Composite Actions
 
-`pin-actions` applies the same scan and the same `uses:` resolution to composite `action.yml`/`action.yaml` files,
+`pinref` applies the same scan and the same `uses:` resolution to composite `action.yml`/`action.yaml` files,
 because `jobs.<id>.steps` and `runs.steps` are structurally identical `steps:` lists.
 The default `--paths` already includes `**/action.yml` and `**/action.yaml`.
 
 Point `--paths` at your repo root to pin workflows and composite actions in one pass:
 
 ```bash
-pin-actions --paths . --github-token $GITHUB_TOKEN
+pinref --paths . --github-token $GITHUB_TOKEN
 ```
 
 Local composite steps (`uses: ./path/to/action`) are always skipped — there is no remote SHA to resolve.
 
 ## Checking Out Another Repo
 
-When a step uses `actions/checkout` with `with.repository`, `pin-actions` also pins its `with.ref` —
-written as a bare SHA, since `with.ref` takes no `repo@` prefix.
+When a step uses `actions/checkout` with `with.repository`, `pinref` also pins its `with.ref` — written as a bare SHA,
+since `with.ref` takes no `repo@` prefix.
 
 Before:
 

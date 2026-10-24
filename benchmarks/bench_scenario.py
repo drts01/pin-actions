@@ -5,9 +5,9 @@ import tempfile
 from pathlib import Path
 
 import httpx2
-from pin_actions.client import GitHubClient
-from pin_actions.config import Settings
-from pin_actions.core import run
+from pinref.client import GitHubClient
+from pinref.config import Settings
+from pinref.core import run
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -144,7 +144,7 @@ async def run_benchmark(settings: BenchSettings) -> None:
         print(f"Generating {settings.files} workflow files...")
         generate_workflow_files(tmppath, settings.files, already_pinned_ratio=settings.already_pinned_ratio)
 
-        # Build pin-actions settings
+        # Build pinref settings
         pin_settings = Settings(
             paths=[tmppath],
             github_token=None,

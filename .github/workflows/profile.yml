@@ -5,7 +5,7 @@ on:
   push:
     branches: [trunk]
     paths:
-      - src/pin_actions/**
+      - src/pinref/**
       - benchmarks/**
       - pyproject.toml
       - tox.toml
