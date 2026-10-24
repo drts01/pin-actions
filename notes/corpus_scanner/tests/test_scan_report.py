@@ -6,7 +6,7 @@ from dataclasses import asdict
 from typing import TYPE_CHECKING
 
 import pytest
-from notes.corpus_scanner.report import report, wilson
+from notes.corpus_scanner.report import CorpusSummary, report, summarize, wilson
 from notes.corpus_scanner.scan import RepoStats, scan_corpus, scan_repo
 
 if TYPE_CHECKING:
@@ -252,6 +252,44 @@ def test_report_sizes_the_full_run_from_the_precommit_eligible_rate(tmp_path: Pa
     assert "`p_pin`, fully pinned share of scanned repositories: **100.0%**" in text
     assert "`p_precommit`, pre-commit-eligible share of `N`: **10.0%**" in text
     assert "Repositories to clone for a `Z` denominator of 1,000: **10,000**" in text
+
+
+def test_summarize_counts_every_statistic_against_its_own_denominator(tmp_path: Path) -> None:
+    """Expose the counts behind the report so slides and the report cannot drift."""
+    csv_path = tmp_path / "corpus.csv"
+    _write_corpus(
+        csv_path,
+        [
+            _stats("owner/image", image_total=2, image_mutable=1, image_dynamic=1, parse_errors=1),
+            _stats("owner/withref", withref_total=2, withref_mutable=1, withref_dynamic=1, uses_local=2),
+            _stats("owner/precommit", precommit_in_ci=True, precommit_total=1, precommit_mutable=1),
+            _stats("owner/precommit-pinned", precommit_in_ci=True, precommit_total=1),
+            _stats("owner/precommit-not-in-ci", precommit_total=1, precommit_mutable=1),
+            _stats("owner/dynamic", uses_dynamic=1, image_total=1, image_mutable=1),
+            _stats("owner/unpinned", uses_pinned=0, fully_pinned=False, image_total=1, image_mutable=1),
+            _stats("owner/no-workflows", workflow_files=0, uses_total=0, uses_pinned=0, fully_pinned=False),
+        ],
+    )
+
+    summary = summarize(csv_path, exclude_dynamic=True)
+
+    assert summary == CorpusSummary(
+        scanned=8,
+        with_workflows=7,
+        in_scope=6,
+        pinned=5,
+        any_gap=3,
+        image_gap=1,
+        withref_gap=1,
+        precommit_eligible=2,
+        precommit_gap=1,
+        excluded_dynamic=1,
+        withref_dynamic=1,
+        image_dynamic=1,
+        uses_local=2,
+        parse_errors=1,
+    )
+    assert summarize(csv_path, exclude_dynamic=False).pinned == 6  # noqa: PLR2004
 
 
 @pytest.mark.parametrize(

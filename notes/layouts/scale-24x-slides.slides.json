@@ -1,0 +1,147 @@
+{
+  "type": "slides",
+  "data": {
+    "deck": {
+      "transition": "none"
+    },
+    "cells": [
+      {
+        "type": "skip"
+      },
+      {
+        "type": "skip"
+      },
+      {
+        "type": "skip"
+      },
+      {
+        "type": "slide",
+        "speakerNotes": "0:00. No title slide. Read the question and let the room count. Do not name any tool yet."
+      },
+      {
+        "type": "slide",
+        "speakerNotes": "Reveal: four. Container image, service image, cross-repo checkout ref, pre-commit rev. If someone says five, they found runs-on: ubuntu-latest, which is also mutable and which no tool pins. Credit them."
+      },
+      {
+        "type": "slide",
+        "speakerNotes": "The second question is what Part 2 answers. Leave it hanging."
+      },
+      {
+        "type": "slide",
+        "speakerNotes": "0:03. Fifteen seconds. Name, one line on the rollout experience that led here."
+      },
+      {
+        "type": "slide",
+        "speakerNotes": "Thirty seconds. The room already agrees. Do not belabor it."
+      },
+      {
+        "type": "slide",
+        "speakerNotes": "One incident, one slide, primary sources only. If task 9 is not done, cut this slide."
+      },
+      {
+        "type": "slide",
+        "speakerNotes": "Scope the claim exactly as written on the slide. One in eight in-scope repositories is fully pinned. Keep this figure apart from the one-in-seven figure that comes next."
+      },
+      {
+        "type": "slide",
+        "speakerNotes": "Re-verify the preview status in March 2027. Say 'adopt it when you can' out loud. Naming the platform answer early earns the next ten minutes."
+      },
+      {
+        "type": "slide",
+        "speakerNotes": "0:07. Coverage boundary. The usual advice and the lockfile stop at uses:."
+      },
+      {
+        "type": "slide",
+        "speakerNotes": "Forty-five seconds total, not per row. Point at the right-hand column."
+      },
+      {
+        "type": "slide",
+        "speakerNotes": "Methodology before the number, so nobody has to ask. Mention the 100-star floor here and again on the deflating slide."
+      },
+      {
+        "type": "slide",
+        "speakerNotes": "The centerpiece. Pause after the number."
+      },
+      {
+        "type": "slide",
+        "speakerNotes": "The container image is the largest single component. Call out the separate pre-commit denominator before anyone else does."
+      },
+      {
+        "type": "slide",
+        "speakerNotes": "Volunteer the inverse before a hostile questioner computes it. Do not call the rest clean."
+      },
+      {
+        "type": "slide",
+        "speakerNotes": "Twenty seconds. Self-implicating detail; it buys credibility for the tool table that follows."
+      },
+      {
+        "type": "slide",
+        "speakerNotes": "Neutral framing. ratchet is near-complete on GitHub Actions; say so. The disclosure is on the slide; read it."
+      },
+      {
+        "type": "slide",
+        "speakerNotes": "0:17. Frame it as: here is concretely why GitHub put a run-time identity check in the lockfile."
+      },
+      {
+        "type": "slide",
+        "speakerNotes": "Quote GitHub's own docs; this is documented behavior, not a discovery. The contribution is showing what the one sentence means in practice."
+      },
+      {
+        "type": "slide",
+        "speakerNotes": "Live only if the network cooperates; cut to the recording without apologizing. Prefer the pre-commit variant: one demo carries both halves of the talk."
+      },
+      {
+        "type": "slide",
+        "speakerNotes": "Ask the room what they would have caught. Nobody catches it; that is the point."
+      },
+      {
+        "type": "slide",
+        "speakerNotes": "Claim only behavior observed in task 7. Keep the qualified wording: 'tools I reviewed'."
+      },
+      {
+        "type": "slide",
+        "speakerNotes": "Say the limitation out loud. Honesty here is what separates this from a product pitch."
+      },
+      {
+        "type": "slide",
+        "speakerNotes": "0:23. Shift from what is exposed to what it costs to fix."
+      },
+      {
+        "type": "slide",
+        "speakerNotes": "Replace <digest> only with a digest resolved during rehearsal; never invent one."
+      },
+      {
+        "type": "slide",
+        "speakerNotes": "Anticipates the 'digest pins miss security patches' question. The answer is pin plus automated updates, with a deliberate cooldown."
+      },
+      {
+        "type": "slide",
+        "speakerNotes": "Fill from the public-corpus dry run only. If task 17 is not done, cut this slide and give the time to Q&A."
+      },
+      {
+        "type": "slide",
+        "speakerNotes": "Complementary layers, not competitors."
+      },
+      {
+        "type": "slide",
+        "speakerNotes": "0:33. The slide people photograph. Leave it up for a beat."
+      },
+      {
+        "type": "slide",
+        "speakerNotes": "Twenty seconds. One URL matters: the published scanner and data."
+      },
+      {
+        "type": "slide",
+        "speakerNotes": "0:35. Ten minutes of questions. Backup slides follow."
+      },
+      {
+        "type": "slide",
+        "speakerNotes": "Backup for 'Is this only GitHub?'. GitLab findings come from source review; say 'the source says'."
+      },
+      {
+        "type": "slide",
+        "speakerNotes": "Backup for 'Your pre-commit number has a small denominator'."
+      }
+    ]
+  }
+}

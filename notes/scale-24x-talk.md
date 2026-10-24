@@ -1,4 +1,4 @@
-# SCaLE 24x Talk Notes — "Lockfiles Fixed Half Your Workflow. Here's the Other Half."
+# SCaLE 24x Talk Notes — "You Pinned Your Actions. You're Still Not Pinned."
 
 Working notes for a SCaLE 24x proposal and presentation.
 Not part of the published documentation site.
@@ -21,25 +21,28 @@ A submission framed as "here is a measurement nobody has published, and here is 
 
 ## The One-Sentence Thesis
 
-GitHub is replacing "pin your actions" with a lockfile that pins and verifies `uses:` references for you —
-and that lockfile does not touch the other five mutable, executable reference types a workflow carries,
-which is a surface nobody has measured.
+Pinning advice focuses on `uses:`, yet a workflow executes code from at least six kinds of mutable reference;
+most repositories do not pin even `uses:`, one in seven of those that do still carry other mutable references,
+and a pinned SHA does not prove which repository it came from.
 
-Two rounds of evidence produced this framing.
+Three rounds of evidence produced this framing.
 The pilot scan ruled out the original "pinning is deeply incomplete" thesis (see [Pilot Results](#pilot-results)).
 A primary-source review then ruled out the provenance-only thesis that briefly replaced it
 (see [Primary-Source Review](#primary-source-review)).
+The lockfile-centered framing that followed was dropped on 2026-10-23: lockfiles are in public preview,
+most of the audience cannot adopt them, and a title built on a preview feature expires if the feature changes.
+Lockfiles remain in the talk as one control among several, not as the premise.
 
 ## Why This Talk Is Novel
 
 Three claims, in descending order of strength.
 
-1. **The residual surface is unmeasured, and the platform's own fix does not close it.**
-   Lockfiles cover action and reusable-workflow references.
-   They do not cover `container.image`, `services[*].image`, `docker://` steps, cross-repo `with.ref`,
-   pre-commit revisions, or `runs-on:`.
-   The corpus measurement is the only published number for what is left,
-   and it is the one claim that gets *stronger* as lockfiles roll out, not weaker.
+1. **The pinning surface is wider than the advice, and the gap is unmeasured.**
+   Guidance and most tools target `uses:`.
+   `container.image`, `services[*].image`, `docker://` steps, cross-repo `with.ref`, pre-commit revisions,
+   and `runs-on:` are also mutable, and GitHub's preview lockfile does not cover them either.
+   The corpus measurement is the only published number for both the pin rate and what is left after pinning,
+   and it holds regardless of which platform features ship.
 2. **Provenance is not pinning, and the distinction is demonstrable on stage.**
    GitHub serves fork commits from the upstream repository's API namespace,
    so `actions/checkout@<sha-that-only-exists-in-my-fork>` resolves, runs, and reads as legitimate in review.
@@ -55,57 +58,33 @@ Three claims, in descending order of strength.
 Ranked.
 Prefer plain language over puns; SCaLE abstracts are scanned quickly.
 
-1. **Lockfiles Fixed Half Your Workflow.
-   Here's the Other Half.**
-2. The Other Half of Your Workflow: Mutable Refs No Lockfile Covers
-3. A SHA Is Not a Promise: Provenance Gaps in CI Supply-Chain Hardening
-4. You Pinned Your Actions.
-   You're Still Not Pinned.
+1. **You Pinned Your Actions.
+   You're Still Not Pinned.**
+2. Every Mutable Reference in Your CI Workflow, Measured
+3. A SHA Is Not a Promise: Immutable References in CI Workflows
+4. Lockfiles Fixed Half Your Workflow.
+   Here's the Other Half.
 
-Candidates 3 and 4 were each briefly ranked first and each lost to evidence.
-Keep them listed so the reasoning is not relitigated.
+Candidate 1 was ranked first, lost to the lockfile framing, and returned when that framing was dropped:
+it depends only on the measurement.
+Candidate 4 depends on a preview feature and is retained only for the record.
+Keep all of them listed so the reasoning is not relitigated.
 
 ## Draft Abstract (submittable)
 
-> "Pin your GitHub Actions to a commit SHA" has been the single most repeated piece of CI supply-chain advice
-> for years — and GitHub is now replacing it.
-> Workflow dependency lockfiles pin every action you depend on, including transitive dependencies,
-> and verify at run time that the commit really came from the repository it names.
-> If you can adopt one, you should.
->
-> Then comes the part the lockfile leaves to you.
-> A lockfile covers `uses:`.
-> A workflow has at least five other ways to execute code from somewhere else:
-> job containers, service containers, `docker://` steps, cross-repository checkout refs,
-> and pre-commit hook revisions.
-> Every one of them is mutable.
-> None of them is in the lockfile.
-> Good tools already exist for some of them — `ratchet` pins container images across six CI systems —
-> but cross-repository checkout refs and pre-commit revisions are outside most pinning tools,
-> and a tool only helps in the repositories that run it.
->
-> So I measured what is actually left.
-> I scanned 4,008 public repositories that had already pinned every single `uses:` to a commit SHA,
-> and counted what was still mutable underneath.
-> One in seven still had something mutable.
-> I will publish the scanner, sampling inputs and seed, raw counts, and instructions to reproduce and extend
-> the measurement alongside the talk and slides.
->
-> Along the way I will show you live why the lockfile's run-time identity check exists:
-> GitHub serves commits from a repository's entire fork network under the upstream repository's API namespace,
-> so a SHA that exists only in an attacker's fork resolves cleanly, passes review, and executes.
-> Most pinning tools I reviewed do not check whether that SHA came from the named repository;
-> I will show which ones do.
->
-> Finally, the operational part: a public-corpus dry run showing what remediation changes,
-> where it fails, and what review and maintenance cost.
->
-> You will leave able to audit your own pinning surface and with a concrete checklist to close it.
+The submittable text lives in [`scale-24x-proposal.md`](scale-24x-proposal.md); edit it there.
 
-`N` is 4,008, from the 2026-10-21 full run over 49,984 repositories; see [Full-Run Results](#full-run-results).
-The abstract no longer claims the answer is "uncomfortable,"
-and it no longer claims the fork-network behavior is unknown.
+Figures come from the 2026-10-21 full run over 49,984 repositories; see [Full-Run Results](#full-run-results).
+The abstract does not claim the answer is "uncomfortable," and it does not claim the fork-network behavior is unknown.
 Both claims were checked and neither survived.
+
+Revised 2026-10-23 to drop the lockfile premise:
+
+- Led with the general advice and the 87.8% pin-rate gap instead of the lockfile.
+- Named lockfiles once, as a preview feature, among the available controls.
+  Omitting them reads as ignorance to reviewers with current docs open.
+- Kept the measurement scoped to GitHub Actions; other platforms appear only in Q&A,
+  from documentation and source review.
 
 Revised 2026-10-20 for `ratchet`, which pins `docker://`, `container.image`, and `services[*].image` on GitHub Actions
 (see [`docs/explanation/comparison.md`](../docs/explanation/comparison.md)):
@@ -156,8 +135,8 @@ The advice is near-universal and compliance is not.
 Scope the claim on the slide: active, non-archived, non-fork repositories above 100 stars, with at least one non-local,
 non-expression `uses:` (28,855 of 32,863; 95% CI 87.4%–88.2%).
 
-Then the slide that keeps the talk current — **workflow dependency lockfiles**.
-State it plainly and without hedging:
+Then one slide on **workflow dependency lockfiles**, the platform control on the way.
+State it plainly, as one control among several rather than the premise:
 
 - `.github/workflows/actions.lock`, generated by `gh actions-lock`.
 - Records `ref`, resolved `commit`, and the `owner_id`/`repo_id` of the source repository.
@@ -166,15 +145,14 @@ State it plainly and without hedging:
 - GitHub's position: this supersedes SHA pinning for repositories that adopt it.
 - Public preview as of this writing; **re-verify status before the conference.**
 
-Say "adopt it" out loud.
-Giving the audience the platform answer first is what earns permission to spend the next ten minutes on what the
-platform answer does not cover.
+Say "adopt it when you can" out loud, and say that most of the room cannot yet.
+Naming the platform answer early earns permission to spend the next ten minutes on what it does not cover.
 A talk that hides this gets caught in Q&A and deserves to be.
 
 ### 0:07–0:17 — Part 1: The surface no lockfile covers
 
-Open with the coverage boundary, as a single slide: the lockfile closes `uses:` and reusable workflow refs,
-and stops there.
+Open with the coverage boundary, as a single slide: the usual advice, and the preview lockfile,
+address `uses:` and reusable workflow refs, and stop there.
 
 Then the six mutable reference types, one slide each, 45 seconds each, with a one-line "what an attacker gets" for each.
 
@@ -188,12 +166,12 @@ Then the six mutable reference types, one slide each, 45 seconds each, with a on
 | `services[*].image`               | Network-reachable service the job trusts, on the job's network         |
 
 Then the data slide.
-This is the centerpiece again, and the lockfile framing makes it land harder than it did on its own:
+This is the centerpiece:
 
 > Of 4,008 repositories where every `uses:` is already pinned to a commit SHA,
 > **one in seven** (14.8%) still reference at least one mutable container image, cross-repo checkout ref,
 > or pre-commit revision —
-> and not one of those reference types is covered by a lockfile.
+> reference types the usual advice does not mention.
 
 Break it down on the same slide: 8.9% have a mutable container image (`X`)
 and 2.8% have an unpinned cross-repo `with.ref` (`Y`).
@@ -202,7 +180,7 @@ Report the pre-commit share separately because it has its own denominator.
 Say the inverse out loud before anyone else does: about 85% of pinned repositories show none of these three.
 Do not call them clean; the scanner has known undercounts (see the methodology notes).
 The finding is that a residual surface exists at all, that no guide tells you to look for it,
-and that the platform's new fix does not reach it.
+and that even the platform's preview fix does not reach it.
 Volunteering the deflating reading is what makes the rest of the numbers trustworthy.
 
 Second data slide: tool coverage.
@@ -212,6 +190,11 @@ Present it neutrally and include `pinref` in the same table as everyone else.
 Neutral framing here buys credibility for Part 2.
 
 ### 0:17–0:27 — Part 2: A SHA is not a promise (live demo)
+
+Target 6 minutes in the proposal's session plan, and hand the remainder to Part 3.
+If task 12 reproduces, run the demo with a pre-commit `rev:` instead of an action: pre-commit fetches by SHA,
+is one of Part 1's measured surfaces, and lies outside every lockfile, so one demo carries both halves of the thesis.
+The action-based sequence below is the fallback.
 
 The emotional center of the talk, and — after the primary-source review —
 the *explanation* for the lockfile rather than a scoop.
@@ -261,6 +244,8 @@ Use a throwaway org, a fork you control, and a workflow with `permissions: {}` a
 Use a public-corpus dry run to show how many files and refs change, what fails, and the review cost.
 Show representative, reproducible examples of parse failures, unresolvable refs,
 version comments that preserve reviewability, and the tradeoff between a release cooldown and staleness.
+Give image staleness its own slide: a digest pin stops receiving the publisher's security patches,
+so pair it with Renovate or Dependabot digest updates and state the patch latency the cooldown adds.
 Do not claim a fleet rollout or its observed failure rates on the basis of this dry run.
 
 Internal campaign data (`output.csv`, `repos.txt`, `prs.txt`, `uhc-consumer/*`) is optional.
@@ -271,11 +256,9 @@ no fleet data or clearance is needed to submit or deliver the public-corpus vers
 
 The checklist slide, which is what people photograph:
 
-1. Adopt a workflow dependency lockfile if you can.
-   It covers `uses:` and verifies provenance for you.
-2. Verify any new SHA is reachable on the repository it claims to come from if you cannot.
-3. Grep your workflows for `image:` — not just `uses:`.
-   No lockfile covers it.
+1. Pin every `uses:` to a commit SHA with a version comment, or adopt a lockfile once it is available to you.
+2. Verify any new SHA is reachable on the repository it claims to come from.
+3. Grep your workflows for `image:` — not just `uses:` — and pin images to `sha256:` digests.
 4. Grep for `ref:` under `with:`.
 5. Check `.pre-commit-config.yaml` revisions.
 6. Refuse releases younger than your cooldown window.
@@ -286,26 +269,32 @@ Tool slide last, 20 seconds, one URL.
 ## Pre-CFP Work — the critical path
 
 Ordered by what blocks the abstract.
-Reprioritized after the full scan: verify lockfile coverage before submission;
-the impostor demo and empirical tool comparison are talk-preparation work, not abstract blockers.
+Reprioritized after the full scan and the 2026-10-23 reframing: lockfiles are no longer the premise,
+so task 5 is talk preparation, not an abstract blocker.
+The impostor demo and empirical tool comparison are talk-preparation work too.
 The full scan finished on 2026-10-21.
 
-| #   | Task                                                                                        | Blocks         | Status                                                                                                                         |
-| --- | ------------------------------------------------------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| 1   | Build the corpus scanner; sample public repos with workflow files                           | Abstract `N`   | **Done** — `notes/corpus_scanner/`                                                                                             |
-| 2   | Run the pilot; decide the framing from the measured rates                                   | Thesis         | **Done** — see [Pilot Results](#pilot-results)                                                                                 |
-| 3   | Fact-check the fork-network and pinning claims against GitHub's documentation               | Thesis         | **Done** — see [Primary-Source Review](#primary-source-review)                                                                 |
-| 4   | Run the full 50,000-repository scan; publish the artifacts                                  | Abstract `N`   | **Scan done** — see [Full-Run Results](#full-run-results); publish data, code, seed, and instructions with the talk and slides |
-| 5   | Test `gh actions-lock` here and verify uncovered refs on a disposable branch or test repo   | Part 0, Part 1 | Todo — installed `gh` (2.102.0) does not currently have the `actions-lock` command                                             |
-| 6   | Reproduce the fork/impostor demo end-to-end in a throwaway org                              | Part 2         | Todo                                                                                                                           |
-| 7   | Confirm each competing tool's behavior against the impostor SHA, empirically, not from docs | Part 2         | Todo                                                                                                                           |
-| 8   | Decide whether to widen the frame for `Z` or drop `Z`                                       | Part 1         | **Done** — use `Z` only as supporting evidence (163/204, 79.9%); do not widen the frame for the proposal                       |
-| 9   | Fact-check the incident timeline and CVE against primary sources                            | Part 0         | Todo                                                                                                                           |
-| 10  | Secure clearance to present anonymized fleet data                                           | Part 3         | Optional — public-corpus dry run is the default; no internal data in proposal or slides without clearance                      |
-| 11  | Write and submit the abstract                                                               | Nov 1          | Todo                                                                                                                           |
-| 12  | Reproduce a pre-commit impostor `rev:` end to end on repositories you own                   | Part 1, Part 2 | Todo                                                                                                                           |
-| 13  | Fix `verify_provenance` to reject open-PR-only SHAs; add a regression test                  | Part 2 demo    | **Done** — merged PR head or merge commit only                                                                                 |
-| 14  | Empirically test GitLab paths A and B (API, `git fetch`, `include:project`, component @SHA) | Q&A            | Partly answered from source; end-to-end plan in [`impostor-e2e-tests.md`](impostor-e2e-tests.md)                               |
+| #   | Task                                                                                        | Blocks       | Status                                                                                                                         |
+| --- | ------------------------------------------------------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | Build the corpus scanner; sample public repos with workflow files                           | Abstract `N` | **Done** — `notes/corpus_scanner/`                                                                                             |
+| 2   | Run the pilot; decide the framing from the measured rates                                   | Thesis       | **Done** — see [Pilot Results](#pilot-results)                                                                                 |
+| 3   | Fact-check the fork-network and pinning claims against GitHub's documentation               | Thesis       | **Done** — see [Primary-Source Review](#primary-source-review)                                                                 |
+| 4   | Run the full 50,000-repository scan; publish the artifacts                                  | Abstract `N` | **Scan done** — see [Full-Run Results](#full-run-results); publish data, code, seed, and instructions with the talk and slides |
+| 5   | Test `gh actions-lock` here and verify uncovered refs on a disposable branch or test repo   | Part 0 slide | Todo — installed `gh` (2.102.0) does not have `actions-lock`; no longer blocks the abstract                                    |
+| 6   | Reproduce the fork/impostor demo end-to-end in a throwaway org                              | Part 2       | Todo                                                                                                                           |
+| 7   | Confirm each competing tool's behavior against the impostor SHA, empirically, not from docs | Part 2       | Todo                                                                                                                           |
+| 8   | Decide whether to widen the frame for `Z` or drop `Z`                                       | Part 1       | **Done** — use `Z` only as supporting evidence (163/204, 79.9%); do not widen the frame for the proposal                       |
+| 9   | Fact-check the incident timeline and CVE against primary sources                            | Part 0       | Todo                                                                                                                           |
+| 10  | Secure clearance to present anonymized fleet data                                           | Part 3       | Optional — public-corpus dry run is the default; no internal data in proposal or slides without clearance                      |
+| 11  | Write and submit the abstract                                                               | Nov 1        | Todo                                                                                                                           |
+| 12  | Reproduce a pre-commit impostor `rev:` end to end on repositories you own                   | Part 2 demo  | Todo — preferred demo: ties Part 1's measured surface to Part 2's provenance gap                                               |
+| 13  | Fix `verify_provenance` to reject open-PR-only SHAs; add a regression test                  | Part 2 demo  | **Done** — merged PR head or merge commit only                                                                                 |
+| 14  | Empirically test GitLab paths A and B (API, `git fetch`, `include:project`, component @SHA) | Q&A          | Partly answered from source; end-to-end plan in [`impostor-e2e-tests.md`](impostor-e2e-tests.md)                               |
+| 15  | Split `X` into official and other images, and `Y` into same-owner and other-owner repos     | Part 1       | Todo — recompute from `corpus.csv` if it retains reference values; otherwise extend `scan`                                     |
+| 16  | Find a primary-source incident per reference type, or state that none is known              | Part 1       | Todo — same standard as task 9                                                                                                 |
+| 17  | Run the public-corpus remediation dry run                                                   | Part 3       | Todo — abstract no longer promises results; quote none until done                                                              |
+| 18  | Package the scanner so attendees can audit their own repositories                           | Close        | Todo                                                                                                                           |
+| 19  | Write the speaker bio and confirm SCaLE 24x CFP fields, word limits, and track names        | Nov 1        | Todo                                                                                                                           |
 
 The scan half of task 4 is done; publish its artifacts with the talk and slides in a dedicated repository.
 The measurement is the thesis again, so `N` belongs in the abstract.
@@ -313,7 +302,7 @@ Use this repository's already SHA-pinned workflows for the first task 5 test,
 then use a disposable branch or test repository with container images, cross-repository `with.ref`,
 and pre-commit revisions to check exclusions.
 The current `gh` installation does not recognize `actions-lock`; install or enable the feature before testing.
-Complete task 5 before stating the coverage boundary as an empirically verified fact in the final abstract.
+Complete task 5 before stating the lockfile coverage boundary as an empirically verified fact on a slide.
 For task 7, retain the qualified phrase "most pinning tools I reviewed" based on source review;
 do not claim empirical impostor behavior for untested tools.
 
@@ -673,11 +662,11 @@ Still-known undercounts to disclose on the methodology slide:
 
 Hard questions, with honest answers.
 
-**"Why not just use the lockfile and ignore all of this?"**
-For action references, do exactly that — the talk recommends it in Part 0.
-The lockfile does not cover container images, cross-repo `with.ref`, pre-commit revisions, or `runs-on:`,
-and it is in public preview, so a large share of the room cannot adopt it yet.
-Part 1 measures precisely the surface the lockfile leaves behind.
+**"Why not just use GitHub's lockfile and ignore all of this?"**
+For action references, once it is available to you, do exactly that — the talk recommends it.
+It is in public preview, so most of the room cannot adopt it yet, and it does not cover container images,
+cross-repo `with.ref`, pre-commit revisions, or `runs-on:`.
+Part 1 measures precisely that surface.
 
 **"Isn't the fork-network behavior already documented by GitHub?"**
 Yes, and the talk quotes both the behavior and the one-line warning from GitHub's own docs.
@@ -686,6 +675,7 @@ It is showing what that one line means in practice, comparing the tools actually
 and explaining why the platform built the check in.
 
 **"Isn't this just an ad for your tool?"**
+The proposal discloses that the speaker maintains `pinref`.
 Most of the talk is a measurement and a GitHub platform behavior.
 Both are tool-independent.
 The checklist opens by recommending GitHub's lockfile over any third-party tool, including the speaker's.
@@ -735,6 +725,11 @@ It is not an attestation and should not be sold as one.
 No, both understand SHA pins with version comments.
 The trailing `# v4` comment is what makes that work; do not strip it.
 
+**"Doesn't pinning images to a digest mean you miss security patches?"**
+Yes, unless something updates the pin.
+Pair digest pins with Renovate or Dependabot digest updates, and accept the patch latency the cooldown adds;
+Part 3 shows the tradeoff.
+
 **"What about pinning the runner image?"** Legitimate gap.
 `runs-on: ubuntu-latest` is mutable and not pinnable by any of these tools.
 Acknowledge it as future work rather than hand-waving.
@@ -769,11 +764,11 @@ Things that feel important and are not.
   **Fired, and worse than anticipated.**
   GitHub itself shipped it, in the platform, enforced at run time.
   Resolved by moving the thesis back to the residual surface; see [Primary-Source Review](#primary-source-review).
-- **Lockfiles reach general availability or expand scope before April 2027.**
-  The dangerous direction is expansion: if GitHub adds container-image or `with.ref` coverage,
-  Part 1 loses rows and the talk loses its thesis a second time.
+- **Lockfiles reach general availability, change, or expand scope before April 2027.**
+  Mitigated by the 2026-10-23 reframing: the thesis no longer depends on the feature.
+  Expansion to container-image or `with.ref` coverage would shrink the lockfile column on one slide,
+  not the measurement.
   Re-check the feature's documentation at submission, at acceptance, and in March 2027.
-  Treat the Part 1 coverage boundary as a perishable claim with a known expiry risk.
 - The impostor demo has not been reproduced end-to-end yet.
   No longer thesis-critical, but it is still the best segment in the talk.
 - `Z` cannot reach a 1,000-repository denominator at the current sampling frame.
