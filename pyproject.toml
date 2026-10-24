@@ -37,7 +37,7 @@ dependencies = [
   "httpx2>=0.28",
   "packaging>=24",
   "pydantic-settings~=2.0",
-  "yamlrocks~=0.6.1",
+  "yamlrocks~=0.7",
 ]
 urls.Homepage = "https://github.com/drts01/pinref"
 urls.Issues = "https://github.com/drts01/pinref/issues"
