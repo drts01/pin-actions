@@ -326,7 +326,7 @@ The full scan finished on 2026-10-21.
 | 16  | Find a primary-source incident per reference type, or state that none is known                  | Part 1       | Todo — same standard as task 9                                                                                                 |
 | 17  | Run the public-corpus remediation dry run                                                       | Part 3       | Todo — abstract no longer promises results; quote none until done                                                              |
 | 18  | Package the scanner so attendees can audit their own repositories                               | Close        | Todo                                                                                                                           |
-| 19  | Write the speaker bio and confirm SCaLE 24x CFP fields, word limits, and track names            | Nov 1        | Todo                                                                                                                           |
+| 19  | Review the speaker bio and confirm SCaLE 24x CFP fields, word limits, and track names           | Nov 1        | Bio drafted from speaker notes; confirm SCaLE speaking/volunteer claims, CFP fields, and bio limit                             |
 | 20  | Supply motivation facts: month and year, trigger, rounded fleet size, and clearance to say them | Nov 1        | Done 2026-10-25 — no clearance; date from the public first commit, no employer, count, or trigger                              |
 | 21  | Verify `zizmor` coverage cells for `docker://` and service images against its audit docs        | Part 1       | Todo — `unpinned-images` documents `container.image` only; pre-commit cell corrected to ❌ on 2026-10-25                       |
 | 22  | Decide whether immutable-release attestations can verify an action pin                          | Part 2       | Todo — governs the "not cryptographic attestation" wording on the verification slide                                           |
@@ -354,9 +354,8 @@ As of 2026-10-25; the CFP closes 2026-11-01.
 
 **P0 — before submission (November 1).**
 
-- Task 19: fill the job title and speaking history in the bio draft in
-  [`scale-24x-proposal.md`](scale-24x-proposal.md#speaker-bio); keep the employer's name out;
-  confirm the CFP fields, word limits, and track names.
+- Task 19: confirm the speaking and SCaLE A/V claims in the bio in
+  [`scale-24x-proposal.md`](scale-24x-proposal.md#speaker-bio), then check the CFP fields, word limits, and track names.
 - Confirm whether the employer's outside-activity policy requires approval to speak at all, independent of content.
 - Re-check the lockfile's preview status and coverage against GitHub's documentation.
 - Task 11: submit.

@@ -11,21 +11,20 @@ What's Still Mutable?
 
 ## Abstract
 
-"Pin your GitHub Actions to a commit SHA" is the most repeated piece of CI supply-chain advice.
-Most repositories do not follow it, and those that do are often pinned only where the advice points.
-Workflows also run container images, cross-repository checkouts, and pre-commit hooks,
-and each of them can be a mutable tag or branch.
+Pin every `uses:` in a GitHub Actions workflow to a full commit SHA.
+The job can still run code from mutable container images, cross-repository checkouts, and pre-commit hooks.
 
 I scanned 49,984 public GitHub repositories.
-87.8% of those using actions from other repositories do not pin all of them to a commit SHA.
-Of the 4,008 that do, one in seven still carry a mutable container image, checkout ref, or pre-commit revision.
+Of the 32,863 using actions from other repositories, 87.8% do not pin all of them to commit SHAs.
+Even among the 4,008 that do, one in seven (14.8%) still have a mutable container image, cross-repository checkout ref,
+or pre-commit revision.
 
-Pinning has a second limit: a commit SHA fixes content, not origin.
+A commit SHA fixes content, not origin.
 GitHub documents that fork commits can be reachable through the upstream repository,
 so a pinned SHA can name code the upstream maintainers never published.
 
-You will learn how to audit the mutable references beyond `uses:`, which controls close each one,
-and what pinning costs in review effort and patch latency.
+You will learn how to audit references beyond `uses:`, compare what tools and platform controls cover,
+and weigh the review effort and patch latency that come with maintaining pins.
 
 ## Audience takeaways
 
@@ -81,20 +80,21 @@ There is no employer clearance: do not name the employer, its repositories, the 
 
 ## Speaker Bio
 
-Draft; fill the two bracketed fields before submitting (task 19).
-Use a generic job title without the employer's name.
+Adapted from [`scale-24x-speaker-bios.md`](scale-24x-speaker-bios.md); confirm accuracy and the CFP's bio limit.
+Do not add the employer's name or internal rollout details without clearance.
 
-> Carlos Meza is a [generic job title] and the author of `pinref`.
-> In August 2026 he needed to pin every GitHub Actions reference across many repositories.
-> The tools he knew, `actionlint` and `zizmor`, validate workflows and report problems;
-> he needed a fixer that ran across every repository and opened the pull requests, so he wrote one.
-> Writing it showed how much the usual pinning advice leaves out, and this talk measures that gap.
-> [First SCaLE talk, or prior speaking.]
+> Carlos Meza is a software engineer and longtime SCaLE volunteer.
+> He found his way into tech through Linux user groups and local meetups,
+> has spoken at SCaLE about DNSSEC, CI/CD, and Python,
+> and now leads a team on the conference's A/V crew.
+> He maintains `pinref`, an open-source tool for pinning mutable CI references to immutable commits and digests.
+> Building it for a bulk pinning task led him to investigate what common GitHub Actions pinning advice overlooks.
 
 ## Submission checks (not part of the CFP text)
 
 - Confirm the SCaLE 24x CFP fields, word limits, and track names, and map the sections above onto them.
-- Fill the two bracketed fields in the speaker bio; keep the employer's name out of it.
+- Confirm the speaker bio's volunteer and speaking-history claims, accuracy, and CFP word limit;
+  keep the employer's name out without clearance.
 - Confirm whether the employer's outside-activity policy requires approval to speak at all, independent of content.
 - Re-check the lockfile feature's status and coverage against GitHub's documentation before submission.
 - Reproduce the fork-only-commit demonstration, preferably with pre-commit, before promising it live;
