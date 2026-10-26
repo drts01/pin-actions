@@ -6,6 +6,22 @@ and the reason this page exists is that pinning `uses:` is **necessary and insuf
 This page compares `pinref` against five notable alternatives so you can make an informed choice,
 and is explicit about where `pinref` is *not* the right answer.
 
+## Why pinref Exists
+
+`pinref` started as a bulk-remediation tool:
+pin every action reference across many repositories and land each change as a reviewable pull request.
+The tools its author knew at the time validate and detect.
+`actionlint` checks workflow syntax and types, and `zizmor` reports unpinned references among many other findings.
+The rollout needed a fixer that ran across every repository and opened the pull requests.
+
+Dedicated fixers already existed — `ratchet`, `pinact`, and `pin-github-action` — and this page compares them.
+Writing a fixer anyway required listing every place a workflow pulls code by name,
+and that list was longer than the usual advice: container images, cross-repository checkouts, pre-commit revisions,
+and the question of whether a pinned SHA belongs to the repository it names.
+`pinref` continued for those gaps, and for fleet rollout through `scripts/update_repos.py`
+(see [Multi-Repo Automation](../how-to/multi-repo-automation.md)).
+Where another tool fits better, this page says so.
+
 ## TL;DR
 
 | Tool                                                                      | Category                                  | Language | Best fit                                                                                                                                                 |
@@ -15,7 +31,7 @@ and is explicit about where `pinref` is *not* the right answer.
 | **[pinact](https://github.com/suzuki-shunsuke/pinact)**                   | Pin + update + verify (fixer)             | Go       | Teams standardizing on Go/aqua-ecosystem CLI tooling who also want a dedicated `-verify` CI-gate mode and a built-in minimum-release-age cooldown        |
 | **[Updatecli](https://github.com/updatecli/updatecli)**                   | Declarative update policy engine (fixer)  | Go       | Teams wanting one policy-driven tool to update Actions, container images, package versions, and other values, then open pull requests                    |
 | **[mheap/pin-github-action](https://github.com/mheap/pin-github-action)** | Pin only (fixer)                          | Node.js  | Simple, minimal pinning needs in a Node-based toolchain; the historical baseline whose re-resolution behavior `pinref` and others mirror                 |
-| **[zizmor](https://github.com/zizmorcore/zizmor)**                        | Static analysis (detector), with auto-fix | Rust     | Primarily a linter for CI/CD vulnerability classes; its `unpinned-uses` audit also ships a stable `--fix` mode that can hash-pin actions itself          |
+| **[zizmor](https://github.com/zizmorcore/zizmor)**                        | Static analysis (detector), with auto-fix | Rust     | Primarily a linter for CI/CD vulnerability classes; its `unpinned-uses` audit also has an unsafe-tier fix (`--fix=all`) that hash-pins actions itself    |
 
 **Key distinction — dedicated fixer vs. general updater vs. detector:** `pinref`, `ratchet`, `pinact`,
 and `pin-github-action` are purpose-built fixers that rewrite workflow files to add SHA pins as their primary job.
@@ -24,12 +40,13 @@ and `pin-github-action` are purpose-built fixers that rewrite workflow files to 
 comparable SHA and container-digest pinning inside a broader declarative dependency-update engine.
 `zizmor` is primarily a detector (it reports far more vulnerability classes than just unpinned actions —
 template injection, credential leakage, excessive permissions, impostor commits, and more) —
-but it is **not fix-mode-free**: its `unpinned-uses` audit supports a stable,
-non-experimental `zizmor --fix` mode that hash-pins actions directly,
-in the same spirit as the dedicated pinning tools. zizmor's own docs even recommend `pinact`
+but it is **not fix-mode-free**: its `unpinned-uses` audit has an auto-fix that hash-pins actions directly,
+in the same spirit as the dedicated pinning tools.
+`zizmor` classes that fix as unsafe,
+so it runs only under `--fix=all` or `--fix=unsafe-only`. zizmor's own docs even recommend `pinact`
 as a complementary/alternative pinning tool for users who want a dedicated pinning CLI.
 Run a detector for broad CI/CD vulnerability coverage; run a dedicated fixer, a general updater such as Updatecli,
-or zizmor's own `--fix` to remediate pinning.
+or zizmor's own `--fix=all` to remediate pinning.
 Treat them as complementary layers, not strict competitors —
 this project deliberately dogfoods `zizmor` and `actionlint` in its own `.pre-commit-config.yaml` and CI
 (see [Threat Model §6](threat-model.md#6-how-pinref-addresses-this-threat-model)).
@@ -46,8 +63,10 @@ One table says most of it. ✅ pins or gates · ⚠️ reports only, no fix · �
 | Step container image               | `uses: docker://alpine:3`            |   ✅   |   ✅    |   ❌   |    ✅     |        ❌         |   ⚠️   |
 | Job container image                | `jobs.<id>.container.image`          |   ✅   |   ✅    |   ❌   |    ✅     |        ❌         |   ⚠️   |
 | Service container image            | `jobs.<id>.services.<name>.image`    |   ✅   |   ✅    |   ❌   |    ❌     |        ❌         |   ⚠️   |
-| Pre-commit hook revision           | `rev: v1.2.3`                        |   ✅   |   ❌    |   ❌   |    ❌     |        ❌         |   ⚠️   |
+| Pre-commit hook revision           | `rev: v1.2.3`                        |   ✅   |   ❌    |   ❌   |    ❌     |        ❌         |   ❌   |
 | **Provenance of the resolved SHA** | does this commit belong to the repo? |   ✅   |   ❌    |   ❌   |    ❌     |        ❌         |   ⚠️   |
+
+`zizmor`'s `impostor-commit` audit also reads pre-commit revisions; it does not flag a mutable `rev:`.
 
 !!! important "Before choosing any tool: check whether you can use a lockfile"
 

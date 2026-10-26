@@ -12,6 +12,8 @@ with dedicated commands for GitHub workflow/action files and pre-commit configur
 
 SHA-pinning `uses:` is a solved problem; several good tools do it.
 `pinref` exists because pinning `uses:` is **necessary and insufficient**.
+It started as a bulk fixer for a fleet rollout;
+[Why pinref Exists](https://drts01.github.io/pinref/explanation/comparison/#why-pinref-exists) tells the rest.
 
 ✅ pins or gates · ⚠️ reports only, no fix · ❌ not covered.
 
@@ -23,7 +25,7 @@ SHA-pinning `uses:` is a solved problem; several good tools do it.
 | Step container image               | `uses: docker://alpine:3`            |   ✅   |   ✅    |   ❌   |    ✅     |        ❌         |   ⚠️   |
 | Job container image                | `jobs.<id>.container.image`          |   ✅   |   ✅    |   ❌   |    ✅     |        ❌         |   ⚠️   |
 | Service container image            | `jobs.<id>.services.<name>.image`    |   ✅   |   ✅    |   ❌   |    ❌     |        ❌         |   ⚠️   |
-| Pre-commit hook revision           | `rev: v1.2.3`                        |   ✅   |   ❌    |   ❌   |    ❌     |        ❌         |   ⚠️   |
+| Pre-commit hook revision           | `rev: v1.2.3`                        |   ✅   |   ❌    |   ❌   |    ❌     |        ❌         |   ❌   |
 | **Provenance of the resolved SHA** | does this commit belong to the repo? |   ✅   |   ❌    |   ❌   |    ❌     |        ❌         |   ⚠️   |
 
 Full detail, including where `pinref` is the wrong choice,

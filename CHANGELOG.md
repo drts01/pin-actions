@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Updated docs: `configure-caching.md` now covers in-memory cache only
 
 ### Added
+- `docs/explanation/comparison.md`: "Why pinref Exists" section on the project's origin as a bulk fixer,
+  the prior art it found later, and the coverage gaps that kept it going; linked from `README.md`
 - `docs/explanation/mutable-references-across-platforms.md` ("Beyond GitHub Actions"): an introductory-level
   survey of mutable references on GitLab CI, CircleCI, Azure Pipelines, Jenkins, Buildkite, Tekton, Drone, and
   Bitbucket Pipelines,
@@ -65,6 +67,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Documented CI scope decision to keep Trivy, Checkov, and Semgrep out of the default pipeline because Ruff security rules + Zizmor + Actionlint + CodeQL already cover this repository's risk profile and there is no product IaC/container pipeline
 
 ### Fixed
+- `README.md` and `docs/explanation/comparison.md`: `zizmor` does not flag mutable pre-commit revisions, so its
+  pre-commit cell is now ❌; its `unpinned-uses` fix is unsafe-tier (`--fix=all`), not a stable default `--fix`
 - **Security:** `--provenance warn/strict` no longer counts a SHA as verified because it appears in an open pull request,
   or as a non-head commit of a merged pull request. `GET /commits/{sha}/pulls` returns open pull requests for
   commits not on the default branch, and anyone can open one from a fork, so an attacker could verify their own
