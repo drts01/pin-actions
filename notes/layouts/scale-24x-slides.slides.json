@@ -28,11 +28,7 @@
       },
       {
         "type": "slide",
-        "speakerNotes": "0:03. Fifteen seconds. Name only; the motivation is the next slide."
-      },
-      {
-        "type": "slide",
-        "speakerNotes": "Forty-five seconds. Date the story: zizmor now ships an unsafe-tier --fix for unpinned-uses, so say 'the tools I knew in August 2026'. The date comes from the project's public first commit. Do not name the employer, the repository count, or the trigger; none is cleared. Credit ratchet and pinact by name; the point is the list, not the tool. Do not name pinref here."
+        "speakerNotes": "0:03. Fifteen seconds. Name only; the motivation follows the 87.8% data slide."
       },
       {
         "type": "slide",
@@ -44,15 +40,15 @@
       },
       {
         "type": "slide",
-        "speakerNotes": "Scope the claim exactly as written on the slide. One in eight in-scope repositories is fully pinned. Keep this figure apart from the one-in-seven figure that comes next."
+        "speakerNotes": "Scope the claim exactly as written on the slide. One in eight in-scope repositories is fully pinned. Keep this figure apart from the one-in-seven figure that comes next. Bridge: 'Most of you have not done step one. This talk is about what remains after step one.'"
       },
       {
         "type": "slide",
-        "speakerNotes": "Re-verify the preview status in March 2027. Say 'adopt it when you can' out loud. Naming the platform answer early earns the next ten minutes."
+        "speakerNotes": "Forty-five seconds. Date the story: zizmor now ships an unsafe-tier --fix for unpinned-uses, so say 'the tools I knew in August 2026'. The date comes from the project's public first commit. Do not name the employer, the repository count, or the trigger; none is cleared. Credit ratchet and pinact by name; the point is the list, not the tool. Do not name pinref here. This leads into the reference inventory."
       },
       {
         "type": "slide",
-        "speakerNotes": "0:07. Coverage boundary. The usual advice and the lockfile stop at uses:."
+        "speakerNotes": "0:07. Coverage boundary: the usual pinning advice focuses on uses:. Other references still execute code. Save the platform controls for Part 3."
       },
       {
         "type": "slide",
@@ -88,7 +84,7 @@
       },
       {
         "type": "slide",
-        "speakerNotes": "0:17. Frame it as: here is concretely why GitHub put a run-time identity check in the lockfile."
+        "speakerNotes": "0:17. A fixed SHA answers 'which content?', not 'whose commit?'. The lockfile is one available answer for actions, not the premise of this section."
       },
       {
         "type": "slide",
@@ -108,7 +104,7 @@
       },
       {
         "type": "slide",
-        "speakerNotes": "Say the limitation out loud. Honesty here is what separates this from a product pitch."
+        "speakerNotes": "Say the limitation out loud. A lockfile can verify action origin at run time, but it does not cover pre-commit revs or cross-repo checkout refs. Audit those separately. This brings the provenance demo back to the measured surface without implying that no other provenance checker exists."
       },
       {
         "type": "slide",
@@ -116,7 +112,7 @@
       },
       {
         "type": "slide",
-        "speakerNotes": "One minute. Recommend all three before any third-party tool. Immutable releases are a publisher control: you cannot require them of the actions you consume. Re-verify all three in March 2027."
+        "speakerNotes": "One minute. Recommend all three before any third-party tool. Explain that the preview lockfile covers transitive action dependencies, not image bases, pre-commit hooks, or checkout refs. Immutable releases are a publisher control: you cannot require them of the actions you consume. Re-verify all three in March 2027."
       },
       {
         "type": "slide",
@@ -128,11 +124,11 @@
       },
       {
         "type": "slide",
-        "speakerNotes": "Fill from the public-corpus dry run only. If task 17 is not done, cut this slide and give the time to Q&A."
+        "speakerNotes": "Fill from the public-corpus dry run only. If task 17 is not done, cut this slide; use the time for the review-diff beat in Part 2. Do not imply internal rollout results."
       },
       {
         "type": "slide",
-        "speakerNotes": "Complementary layers, not competitors."
+        "speakerNotes": "Callback to the motivation: the detectors I knew could report the problem, but the task needed a bulk fixer. These are complementary layers, not competitors."
       },
       {
         "type": "slide",

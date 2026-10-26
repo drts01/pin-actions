@@ -1,7 +1,9 @@
 # SCaLE 24x Talk Proposal
 
-**Title:** You Pinned Your Actions.
+**Title:** You Pinned Your GitHub Actions.
 You're Still Not Pinned.
+
+**Optional subtitle (if the CFP form supports one):** Mutable references in a 50,000-repository sample
 
 **Track:** Security / Open Source Supply Chain (confirm against the SCaLE 24x CFP form)
 
@@ -36,16 +38,18 @@ and what pinning costs in review effort and patch latency.
 ## Session plan
 
 - **0–7 min:** Show a fully `uses:`-pinned workflow that still has mutable references;
-  explain how a bulk pinning rollout led to the measurement; present the 87.8% pin-rate gap.
+  present the 87.8% pin-rate gap, then explain how a bulk pinning task led to the measurement.
 - **7–17 min:** Present the corpus measurement, denominators, limitations,
   transitive references inside pinned actions,
   and a neutral coverage comparison of existing tools and platform features.
 - **17–23 min:** Explain the difference between a fixed SHA and verified repository identity,
   using a pre-commit hook pinned to a fork-only commit if that reproduces, or a GitHub Action otherwise.
   Use a recording or a documented walk-through if the live service is unavailable.
+  Show where an action lockfile verifies origin and where separate checks are still needed.
 - **23–33 min:** Controls and their costs: GitHub's SHA-pinning policy, immutable releases, and lockfiles;
   digest and SHA pinning, provenance checks, automated updates,
   the tradeoff between release cooldowns and stale image patches, review cost, and detectors.
+  Use only public-corpus remediation results if the dry run is complete.
 - **33–35 min:** Close with an audit checklist; reserve the remaining 10 minutes for questions.
 
 ## Notes for reviewers
