@@ -107,10 +107,10 @@ tables = {}
 md_in_html = {}
 
 [project.plugins.mkdocstrings]
-[project.plugins.mkdocstrings.config.handlers.python]
+[project.plugins.mkdocstrings.handlers.python]
 paths = [ "src" ]
 
-[project.plugins.mkdocstrings.config.handlers.python.options]
+[project.plugins.mkdocstrings.handlers.python.options]
 docstring_style = "google"
 show_source = true
 show_root_heading = true
