@@ -1,4 +1,4 @@
-# SCaLE 24x Talk Notes — "You Pinned Your GitHub Actions. You're Still Not Pinned."
+# SCaLE 24x Talk Notes — "You Pinned Your GitHub Actions. What's Still Mutable?"
 
 Working notes for a SCaLE 24x proposal and presentation.
 Not part of the published documentation site.
@@ -59,17 +59,18 @@ Ranked.
 Prefer plain language over puns; SCaLE abstracts are scanned quickly.
 
 1. **You Pinned Your GitHub Actions.
-   You're Still Not Pinned.**
+   What's Still Mutable?**
    Optional subtitle: "Mutable references in a 50,000-repository sample" (only if the CFP form supports one).
 2. Every Mutable Reference in Your CI Workflow, Measured
 3. A SHA Is Not a Promise: Immutable References in CI Workflows
-4. Lockfiles Fixed Half Your Workflow.
+4. You Pinned Your GitHub Actions.
+   You're Still Not Pinned.
+5. Lockfiles Fixed Half Your Workflow.
    Here's the Other Half.
 
-Candidate 1 adds "GitHub" for clarity in a conference program.
-It was ranked first, lost to the lockfile framing, and returned when that framing was dropped:
-it depends only on the measurement.
-Candidate 4 depends on a preview feature and is retained only for the record.
+Candidate 1 names the measured platform and asks the question the cold open answers.
+It does not imply that all pinned repositories have remaining mutable references (the scan finds about one in seven).
+Candidate 4 makes that claim too broadly; candidate 5 depends on a preview feature and is retained only for the record.
 Keep all of them listed so the reasoning is not relitigated.
 
 ## Draft Abstract (submittable)
@@ -169,7 +170,7 @@ Then the seven mutable reference types on one slide, 45 seconds total, with a on
 | `services[*].image`               | Network-reachable service the job trusts, on the job's network         |
 | Pre-commit hook `rev:`            | Arbitrary code wherever the hook runs, CI included                     |
 
-Then one slide on transitive references, the clearest form of the title:
+Then one slide on transitive references, another answer to the title's question:
 a composite action pinned by SHA that calls `other/helper@v2` inside,
 and a Docker action pinned by SHA whose `Dockerfile` starts `FROM node:20`.
 Briefly note that a lockfile covers the first; defer the platform-control explanation to Part 3.

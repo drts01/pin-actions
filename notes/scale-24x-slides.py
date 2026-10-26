@@ -22,7 +22,7 @@ import marimo
 __generated_with = "0.25.2"
 app = marimo.App(
     width="medium",
-    app_title="You Pinned Your GitHub Actions. You're Still Not Pinned.",
+    app_title="You Pinned Your GitHub Actions. What\u2019s Still Mutable?",
 )
 
 
@@ -199,7 +199,7 @@ def _(mo):
     mo.md(
         """
         # You Pinned Your GitHub Actions.
-        # You're Still Not Pinned.
+        # What\u2019s Still Mutable?
 
         ### Mutable references in a 50,000-repository sample
 

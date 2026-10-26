@@ -1,7 +1,7 @@
 # SCaLE 24x Talk Proposal
 
 **Title:** You Pinned Your GitHub Actions.
-You're Still Not Pinned.
+What's Still Mutable?
 
 **Optional subtitle (if the CFP form supports one):** Mutable references in a 50,000-repository sample
 
