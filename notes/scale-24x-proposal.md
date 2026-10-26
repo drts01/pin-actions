@@ -22,7 +22,7 @@ Pinning has a second limit: a commit SHA fixes content, not origin.
 GitHub documents that fork commits can be reachable through the upstream repository,
 so a pinned SHA can name code the upstream maintainers never published.
 
-You will learn how to audit every mutable reference in your workflows, which controls close each one,
+You will learn how to audit the mutable references beyond `uses:`, which controls close each one,
 and what pinning costs in review effort and patch latency.
 
 ## Audience takeaways
@@ -36,13 +36,15 @@ and what pinning costs in review effort and patch latency.
 ## Session plan
 
 - **0–7 min:** Show a fully `uses:`-pinned workflow that still has mutable references;
-  present the 87.8% pin-rate gap.
+  explain how a bulk pinning rollout led to the measurement; present the 87.8% pin-rate gap.
 - **7–17 min:** Present the corpus measurement, denominators, limitations,
+  transitive references inside pinned actions,
   and a neutral coverage comparison of existing tools and platform features.
 - **17–23 min:** Explain the difference between a fixed SHA and verified repository identity,
   using a pre-commit hook pinned to a fork-only commit if that reproduces, or a GitHub Action otherwise.
   Use a recording or a documented walk-through if the live service is unavailable.
-- **23–33 min:** Controls and their costs: digest and SHA pinning, provenance checks, automated updates,
+- **23–33 min:** Controls and their costs: GitHub's SHA-pinning policy, immutable releases, and lockfiles;
+  digest and SHA pinning, provenance checks, automated updates,
   the tradeoff between release cooldowns and stale image patches, review cost, and detectors.
 - **33–35 min:** Close with an audit checklist; reserve the remaining 10 minutes for questions.
 
@@ -51,7 +53,8 @@ and what pinning costs in review effort and patch latency.
 **Disclosure.**
 I maintain `pinref`, one of the pinning tools in the coverage comparison.
 The comparison treats every tool, including `pinref`, by the same criteria, and shows where others are stronger.
-The talk names `pinref` once, at the end.
+`pinref` appears only in the comparison tables, in one aside about a gap the measurement found in it,
+and on the resources slide.
 
 **Method.**
 The frame is active, non-archived, non-fork public repositories with at least 100 stars, pushed since 2026-04-01;
@@ -69,15 +72,28 @@ and does not count `runs-on:` runner images.
 GitHub's workflow dependency lockfiles, in public preview, pin and verify action references.
 The talk covers them as one control; they do not cover container images, checkout refs, or pre-commit revisions.
 
-**Speaker.**
-Todo: write a short bio emphasizing practitioner experience rolling out pinning across many repositories.
-Do not name internal fleet details without employer clearance.
+**Speaker.** See [Speaker Bio](#speaker-bio).
+There is no employer clearance: do not name the employer, its repositories, the repository count, or the trigger.
+
+## Speaker Bio
+
+Draft; fill the two bracketed fields before submitting (task 19).
+Use a generic job title without the employer's name.
+
+> Carlos Meza is a [generic job title] and the author of `pinref`.
+> In August 2026 he needed to pin every GitHub Actions reference across many repositories.
+> The tools he knew, `actionlint` and `zizmor`, validate workflows and report problems;
+> he needed a fixer that ran across every repository and opened the pull requests, so he wrote one.
+> Writing it showed how much the usual pinning advice leaves out, and this talk measures that gap.
+> [First SCaLE talk, or prior speaking.]
 
 ## Submission checks (not part of the CFP text)
 
 - Confirm the SCaLE 24x CFP fields, word limits, and track names, and map the sections above onto them.
+- Fill the two bracketed fields in the speaker bio; keep the employer's name out of it.
+- Confirm whether the employer's outside-activity policy requires approval to speak at all, independent of content.
 - Re-check the lockfile feature's status and coverage against GitHub's documentation before submission.
 - Reproduce the fork-only-commit demonstration, preferably with pre-commit, before promising it live;
   retain the prerecorded or slide-based fallback.
 - Do not quote remediation or rollout results until the public-corpus dry run is complete.
-  Do not present internal fleet data without clearance.
+  Do not present internal data; there is no employer clearance.

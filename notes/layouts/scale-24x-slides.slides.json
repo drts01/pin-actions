@@ -28,7 +28,11 @@
       },
       {
         "type": "slide",
-        "speakerNotes": "0:03. Fifteen seconds. Name, one line on the rollout experience that led here."
+        "speakerNotes": "0:03. Fifteen seconds. Name only; the motivation is the next slide."
+      },
+      {
+        "type": "slide",
+        "speakerNotes": "Forty-five seconds. Date the story: zizmor now ships an unsafe-tier --fix for unpinned-uses, so say 'the tools I knew in August 2026'. The date comes from the project's public first commit. Do not name the employer, the repository count, or the trigger; none is cleared. Credit ratchet and pinact by name; the point is the list, not the tool. Do not name pinref here."
       },
       {
         "type": "slide",
@@ -52,7 +56,11 @@
       },
       {
         "type": "slide",
-        "speakerNotes": "Forty-five seconds total, not per row. Point at the right-hand column."
+        "speakerNotes": "Forty-five seconds total, not per row. Point at the right-hand column. Pre-commit is the row the demo uses."
+      },
+      {
+        "type": "slide",
+        "speakerNotes": "Forty-five seconds. The title in one slide: pinned, and still not pinned. Do not quote a number; the scan did not measure transitive references."
       },
       {
         "type": "slide",
@@ -108,6 +116,10 @@
       },
       {
         "type": "slide",
+        "speakerNotes": "One minute. Recommend all three before any third-party tool. Immutable releases are a publisher control: you cannot require them of the actions you consume. Re-verify all three in March 2027."
+      },
+      {
+        "type": "slide",
         "speakerNotes": "Replace <digest> only with a digest resolved during rehearsal; never invent one."
       },
       {
@@ -121,6 +133,10 @@
       {
         "type": "slide",
         "speakerNotes": "Complementary layers, not competitors."
+      },
+      {
+        "type": "slide",
+        "speakerNotes": "Thirty seconds. Leave it up long enough to photograph. These commands were tested on a fixture on 2026-10-25; re-run them before the talk."
       },
       {
         "type": "slide",

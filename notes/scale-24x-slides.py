@@ -211,6 +211,25 @@ def _(mo):
 
 @app.cell(hide_code=True)
 def _(mo):
+    mo.md(
+        """
+        # Why I started measuring this
+
+        - **The task (August 2026):** pin every reference across many repositories,
+          one reviewable pull request each.
+        - **The tools I knew:** `actionlint` validates workflows; `zizmor` reports unpinned references.
+          I needed a fixer that ran across every repository and opened the pull requests.
+        - **So I wrote one.** Then I found `ratchet`, `pinact`, and `pin-github-action`.
+          They already pinned `uses:`.
+        - **Writing it anyway** meant listing every place a workflow pulls code by name.
+          The list was longer than the advice, so I measured it.
+        """
+    )
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
     mo.vstack(
         [
             mo.md("# Tags are pointers. Pointers move."),
@@ -321,7 +340,7 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md("""
-    # Six mutable references, and what controlling one gets an attacker
+    # Where a workflow pulls code by name, and what controlling it gets an attacker
 
     | Reference | Example | What an attacker who controls it gets |
     | --- | --- | --- |
@@ -331,10 +350,52 @@ def _(mo):
     | `docker://` step image | `uses: docker://alpine:3` | Arbitrary code in the job |
     | Job container image | `container: python:3.14-slim` | The environment every step runs inside |
     | Service container image | `services.redis.image: redis:7` | A trusted service on the job's network |
+    | Pre-commit hook revision | `rev: v0.17.0` | Arbitrary code wherever the hook runs, CI included |
 
-    Pre-commit `rev:` values that CI runs are mutable too.
-    So are `runs-on:` runner images, which no pinning tool covers.
+    `runs-on:` runner images are mutable too, and no pinning tool covers them.
     """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.hstack(
+        [
+            mo.md(
+                """
+                # Your pinned action is not pinned inside
+
+                ```yaml
+                # action.yml at some/action@<40-hex SHA>
+                runs:
+                  using: composite
+                  steps:
+                    - uses: other/helper@v2   # resolved by tag, at run time
+                ```
+
+                ```yaml
+                # action.yml at another/action@<40-hex SHA>
+                runs:
+                  using: docker
+                  image: Dockerfile           # FROM node:20, pulled at run time
+                ```
+                """
+            ),
+            mo.md(
+                """
+                Your SHA fixes the action's files.
+                It does not fix what those files fetch.
+
+                The lockfile covers transitive **actions**.
+                Nothing in your repository covers the base image.
+
+                The scan counts neither, so every number that follows is an undercount.
+                """
+            ),
+        ],
+        widths=[3, 2],
+        gap=2,
+    )
     return
 
 
@@ -364,7 +425,7 @@ def _(ci, mo, pct, s):
             mo.md(f"# Of {s.pinned:,} repositories that pinned every `uses:` to a commit SHA"),
             mo.stat(
                 value=pct(s.any_gap, s.pinned),
-                label="still run at least one mutable container image, checkout ref, or pre-commit revision",
+                label="still reference at least one mutable container image, checkout ref, or pre-commit revision",
                 caption=f"{s.any_gap:,} of {s.pinned:,} ({ci(s.any_gap, s.pinned)})",
                 bordered=True,
             ),
@@ -456,13 +517,14 @@ def _(mo):
     | `docker://` step image | ❌ | ✅ | ❌ | ✅ | ❌ | ⚠️ | ✅ |
     | Job container image | ❌ | ✅ | ❌ | ✅ | ❌ | ⚠️ | ✅ |
     | Service container image | ❌ | ✅ | ❌ | ❌ | ❌ | ⚠️ | ✅ |
-    | Pre-commit revision | ❌ | ❌ | ❌ | ❌ | ❌ | ⚠️ | ✅ |
+    | Pre-commit revision | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
     | Provenance of the SHA | ✅ run time | ❌ | ❌ | ❌ | ❌ | ⚠️ after commit | ✅ write time |
 
     ✅ pins or verifies &nbsp; ⚠️ reports only &nbsp; ❌ not covered
 
     Disclosure: I maintain pinref.
     `ratchet` also covers five other CI systems; pinref covers GitHub Actions only.
+    `zizmor`'s provenance check also reads pre-commit revisions; it does not flag a mutable `rev:`.
     Based on documentation and source review, October 2026.
     """)
     return
@@ -573,7 +635,7 @@ def _(mo):
     | GitHub lockfile (preview) | Run time | Repository ID, and the commit must be on a branch |
     | `zizmor` `impostor-commit` | After the SHA is committed | Static audit; detects, does not prevent |
     | `pinref --provenance strict` | Before the SHA is written | Refuses SHAs not reachable on the named repository |
-    | Other pinning tools reviewed | | Resolve and write the SHA without an origin check |
+    | Other pinning tools reviewed | Not checked | Resolve and write the SHA without an origin check |
 
     The last row comes from source review; confirm it empirically before claiming it (task 7).
     """)
@@ -609,6 +671,24 @@ def _(mo):
         Pinning is a policy you maintain, not a one-time fix.
         """
     ).center()
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md("""
+    # What the platform already gives you
+
+    | Control | Set by | Stops | Leaves |
+    | --- | --- | --- | --- |
+    | SHA-pinning policy | Org or enterprise admin | Unpinned `uses:` | Images, `with.ref`, pre-commit, impostors |
+    | Immutable releases | The action's publisher | Moving a released tag | Floating tags like `v4`; branches; images |
+    | Lockfile (preview) | The repository | Moved or impostor actions, transitive too | Images, `with.ref`, pre-commit |
+
+    Turn on what you can. None of them reaches the residual surface.
+
+    Sources: GitHub changelog, 2025-08-15; GitHub Docs, *Immutable releases*; *Workflow dependency lockfiles*.
+    """)
     return
 
 
@@ -669,7 +749,7 @@ def _(mo):
                     """
                     **Pending public-corpus dry run (task 17).**
                     Fill this slide from reproducible results only.
-                    Do not present internal fleet data without clearance.
+                    Do not present internal data; there is no employer clearance.
                     """
                 ),
                 kind="warn",
@@ -699,10 +779,37 @@ def _(mo):
 
 @app.cell(hide_code=True)
 def _(mo):
+    mo.md(r"""
+    # Audit your own repository in 60 seconds
+
+    ```sh
+    # uses: not pinned to a commit SHA or digest (local actions excluded)
+    rg -n 'uses:' .github/ | rg -v '@([0-9a-f]{40}|sha256:)|uses: *(\./|\$/)'
+
+    # images without a digest, including the container: shorthand
+    rg -n 'image:|container:|docker://' .github/ | rg -v '@sha256:'
+
+    # with.ref values that are not commit SHAs
+    rg -n '^\s+ref:' .github/ | rg -v 'ref: *[0-9a-f]{40}\b'
+
+    # pre-commit revisions that are not commit SHAs
+    rg -n '^\s+rev:' .pre-commit-config.yaml | rg -v 'rev: *[0-9a-f]{40}\b'
+    ```
+
+    Line matching, not parsing: expect some noise.
+    Expression-valued refs such as `${{ github.event.pull_request.head.sha }}` are a different problem.
+    Then run `zizmor` with a GitHub token so its online audits, including `impostor-commit`, run too.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
     mo.md("""
     # Checklist
 
-    1. Pin every `uses:` to a commit SHA with a version comment, or adopt a lockfile once you can.
+    1. Pin every `uses:` to a commit SHA with a version comment, enforce it with the SHA-pinning policy,
+       or adopt a lockfile once you can.
     2. Verify that any new SHA is reachable on the repository it claims to come from.
     3. Search for `image:` and `docker://`, not just `uses:`; pin images to `sha256:` digests.
     4. Search for `ref:` under `with:` on cross-repository checkouts.
@@ -722,6 +829,8 @@ def _(mo):
     - [GitHub: Secure use reference](https://docs.github.com/en/actions/reference/security/secure-use)
     - [GitHub: About forks](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/about-forks)
     - [GitHub: Workflow dependency lockfiles](https://docs.github.com/en/actions/concepts/security/workflow-dependency-lockfiles)
+    - [GitHub changelog: Actions policy supports blocking and SHA pinning](https://github.blog/changelog/2025-08-15-github-actions-policy-now-supports-blocking-and-sha-pinning-actions/)
+    - [GitHub: Immutable releases](https://docs.github.com/en/code-security/supply-chain-security/understanding-your-software-supply-chain/immutable-releases)
     - [zizmor](https://github.com/zizmorcore/zizmor) &nbsp; [ratchet](https://github.com/sethvargo/ratchet)
       &nbsp; [pinact](https://github.com/suzuki-shunsuke/pinact) &nbsp; [Updatecli](https://github.com/updatecli/updatecli)
     - [pinref](https://github.com/drts01/pinref) (disclosure: I maintain it)
