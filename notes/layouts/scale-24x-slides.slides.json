@@ -84,6 +84,10 @@
       },
       {
         "type": "slide",
+        "speakerNotes": "Forty-five seconds. The measurement is GitHub-only; this slide is from vendor documentation, so say 'the docs say', not 'I measured'. Point at the CircleCI line: the platform that solved the config layer still runs a mutable image. Impostor commits beyond GitHub are on a backup slide."
+      },
+      {
+        "type": "slide",
         "speakerNotes": "0:17. A fixed SHA answers 'which content?', not 'whose commit?'. The lockfile is one available answer for actions, not the premise of this section."
       },
       {
@@ -148,7 +152,7 @@
       },
       {
         "type": "slide",
-        "speakerNotes": "Backup for 'Is this only GitHub?'. GitLab findings come from source review; say 'the source says'."
+        "speakerNotes": "Backup for 'Can impostor commits happen outside GitHub?'. GitLab findings come from source review; say 'the source says'. The Bitbucket line is from Atlassian documentation."
       },
       {
         "type": "slide",

@@ -18,12 +18,14 @@ I scanned 49,984 public GitHub repositories.
 Of the 32,863 using actions from other repositories, 87.8% do not pin all of them to commit SHAs.
 Even among the 4,008 that do, one in seven (14.8%) still have a mutable container image, cross-repository checkout ref,
 or pre-commit revision.
+The same gaps apply to any CI system that pulls images, repositories, or hooks by tag or branch.
 
 A commit SHA fixes content, not origin.
 GitHub documents that fork commits can be reachable through the upstream repository,
 so a pinned SHA can name code the upstream maintainers never published.
 
-You will learn how to audit references beyond `uses:`, compare what tools and platform controls cover,
+You will learn how to audit references beyond `uses:` on GitHub and other CI systems,
+compare what tools and platform controls cover,
 and weigh the review effort and patch latency that come with maintaining pins.
 
 ## Audience takeaways
@@ -32,6 +34,7 @@ and weigh the review effort and patch latency that come with maintaining pins.
 - Understand why a commit SHA fixes content but does not establish repository identity.
 - Audit container images, cross-repository `actions/checkout` refs,
   and pre-commit revisions without treating expression-valued refs as ordinary tags.
+- Recognize the same gaps in GitLab CI, CircleCI, Jenkins, and Tekton configurations.
 - Choose complementary controls for pinning, provenance, updates, and detection, and weigh their costs.
 
 ## Session plan
@@ -40,7 +43,8 @@ and weigh the review effort and patch latency that come with maintaining pins.
   present the 87.8% pin-rate gap, then explain how a bulk pinning task led to the measurement.
 - **7–17 min:** Present the corpus measurement, denominators, limitations,
   transitive references inside pinned actions,
-  and a neutral coverage comparison of existing tools and platform features.
+  a neutral coverage comparison of existing tools and platform features,
+  and how the same gaps appear on other CI systems.
 - **17–23 min:** Explain the difference between a fixed SHA and verified repository identity,
   using a pre-commit hook pinned to a fork-only commit if that reproduces, or a GitHub Action otherwise.
   Use a recording or a documented walk-through if the live service is unavailable.
@@ -68,6 +72,7 @@ The scanner, sampling inputs, seed, raw counts, and reproduction instructions wi
 
 **Known limits.**
 Results cover GitHub Actions only and may differ below the 100-star floor.
+Other CI systems are covered from vendor documentation, not measured.
 The scan reads a default-branch snapshot, does not classify Docker container action definitions,
 and does not count `runs-on:` runner images.
 

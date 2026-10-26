@@ -89,6 +89,16 @@ Revised 2026-10-23 to drop the lockfile premise:
 - Kept the measurement scoped to GitHub Actions; other platforms appear only in Q&A,
   from documentation and source review.
 
+Revised 2026-10-26 to show scope beyond GitHub without renaming the talk:
+
+- Added one abstract sentence: the same gaps apply to any CI system that pulls images, repositories,
+  or hooks by tag or branch.
+- Added one Part 1 slide, "Not a GitHub problem", that maps the three measured gaps to GitLab CI, CircleCI, Jenkins,
+  Tekton, Drone, and Bitbucket from vendor documentation
+  (see [Cross-platform review](#cross-platform-review)).
+- Kept impostor commits beyond GitHub as a backup slide and Q&A answer; that material is source review, not tested.
+- Added "other CI systems are covered from vendor documentation, not measured" to the proposal's known limits.
+
 Revised 2026-10-20 for `ratchet`, which pins `docker://`, `container.image`, and `services[*].image` on GitHub Actions
 (see [`docs/explanation/comparison.md`](../docs/explanation/comparison.md)):
 
@@ -200,6 +210,12 @@ Which of the six each popular tool actually pins, **with a lockfile column**.
 Present it neutrally and include `pinref` in the same table as everyone else.
 `ratchet` is near-complete on GitHub Actions; show that honestly.
 Neutral framing here buys credibility for Part 2.
+
+Close Part 1 with one slide, 45 seconds: the same three gaps on other CI systems.
+The abstract promises it, so keep it in the main deck.
+Map container images, cross-repository refs, and pre-commit revisions to GitLab CI, CircleCI, Jenkins, Tekton, Drone,
+and Bitbucket, and end on the CircleCI orb executor that defaults to a mutable image tag.
+Label it as vendor documentation, not measurement.
 
 ### 0:17–0:23 — Part 2: A SHA is not a promise (live demo)
 
@@ -795,7 +811,8 @@ That rule also defeats the revert-then-squash variant, where the malicious commi
 On GitLab the same trick works against `include:project` pinned to a SHA, and keep-around refs may make it permanent.
 
 **"Is this only GitHub?"**
-Shared fork storage is GitHub-specific as far as anyone has documented.
+The "Not a GitHub problem" slide answers for images, cross-repository refs, and pre-commit revisions.
+For impostor commits: shared fork storage is GitHub-specific as far as anyone has documented.
 Merge request refs are not: GitLab includes and components resolve an MR-only commit by SHA
 (from source), and Azure's agent fetches GitHub commits by SHA.
 Bitbucket Cloud has no PR refs, and its shared-config imports cannot pin a SHA at all.
@@ -838,9 +855,11 @@ Things that feel important and are not.
 - Architecture, async internals, caching, benchmarks.
   Wrong conference, wrong talk.
 - Any slide about why Python was chosen.
-- If over time after task 23, cut in this order: the platform-controls slide (keep it as backup),
-  the gap-in-my-own-tool aside, the audit slide (move the commands to the published repository),
-  and the transitive slide last; it carries the title.
+- If over time after task 23, cut in this order: the platform-controls slide
+  (keep it as backup),
+  the gap-in-my-own-tool aside, the audit slide
+  (move the commands to the published repository), and the transitive slide last; it carries the title.
+  Do not cut the "Not a GitHub problem" slide; the abstract promises it.
 
 ## Open Risks
 

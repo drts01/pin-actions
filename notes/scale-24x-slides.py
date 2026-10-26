@@ -516,6 +516,33 @@ def _(mo):
 
 @app.cell(hide_code=True)
 def _(mo):
+    mo.md("""
+    # Not a GitHub problem
+
+    | Platform | Container image by tag | Shared code by branch or tag |
+    | --- | --- | --- |
+    | GitLab CI | `image:`, `services:` | `include:project` with `ref: main` |
+    | CircleCI | `docker:` executors, including inside orbs | `circleci/aws-cli@4`, `@volatile` |
+    | Jenkins | `agent { docker { image 'node:20' } }` | `@Library('lib@master')` |
+    | Tekton | `steps[].image` | `git` resolver, default `revision: main` |
+    | Drone | Every plugin is an image | Plugins are images |
+    | Bitbucket Pipelines | Pipes are images | `import:` accepts only a branch or tag |
+
+    Pre-commit `rev:` is the same file on every CI system; pre-commit fetches it itself.
+
+    Image tags are mutable on every OCI registry.
+    Registry tag immutability is a publisher setting; a consumer can neither observe nor require it.
+
+    CircleCI registry orbs are immutable, yet its own documentation defines an orb executor
+    as `cimg/ruby:<< parameters.tag >>` with a default tag of `'2.7'`.
+
+    Measured on GitHub only; other platforms from vendor documentation, October 2026.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
     mo.md(
         """
         # Part 2: A SHA is not a promise
@@ -843,15 +870,13 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md("""
-    # Backup: Is this only GitHub?
+    # Backup: Impostor commits beyond GitHub
 
-    - **Image tags are mutable on every registry** under the OCI Distribution Spec.
-      Docker Hub and Amazon ECR tag immutability is a publisher setting; consumers cannot observe or require it.
-    - **CircleCI** registry orbs are immutable by construction, yet its own orb documentation
-      defines an executor as `cimg/ruby:<< parameters.tag >>` with a default tag of `'2.7'`.
+    - **Shared fork storage** is documented on GitHub only.
     - **GitLab** `include:project` and CI components resolve a pinned SHA without a branch or tag check.
       A merge request copies the contributor's commit into the target project.
       From source review, not yet tested.
+    - **Bitbucket Cloud** shared-config imports accept only a branch or tag; a commit SHA cannot be pinned at all.
     """)
     return
 
