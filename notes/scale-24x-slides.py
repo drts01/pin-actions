@@ -12,7 +12,8 @@ Run from the repository root:
     uvx marimo edit --sandbox notes/scale-24x-slides.py
 
 Every number on a data slide is computed from ``notes/corpus/corpus.csv`` through
-``corpus_scanner.report.summarize``, the same aggregation that produced ``report-full.md``.
+``corpus_scanner.report.summarize``, the same aggregation that produced ``report-full.md``,
+or from ``notes/corpus/images-full.csv``, written by the scanner's ``images`` stage.
 Speaker notes and slide types live in ``notes/layouts/scale-24x-slides.slides.json``.
 The file-level ``noqa`` covers marimo's generated cell signatures, cell-local imports, and bare returns.
 """
@@ -29,15 +30,17 @@ app = marimo.App(
 @app.cell(hide_code=True)
 def _():
     import marimo as mo
+    from corpus_scanner.images import read_images, repos_per_image, repos_per_kind, repos_per_shape
     from corpus_scanner.report import summarize, wilson
 
-    return mo, summarize, wilson
+    return mo, read_images, repos_per_image, repos_per_kind, repos_per_shape, summarize, wilson
 
 
 @app.cell(hide_code=True)
-def _(mo, summarize):
+def _(mo, read_images, summarize):
     s = summarize(mo.notebook_dir() / "corpus" / "corpus.csv", exclude_dynamic=True)
-    return (s,)
+    images = read_images(mo.notebook_dir() / "corpus" / "images-full.csv")
+    return images, s
 
 
 @app.cell(hide_code=True)
@@ -446,6 +449,59 @@ def _(bar, mo, s):
 
 
 @app.cell(hide_code=True)
+def _(images, mo, repos_per_image, repos_per_kind, repos_per_shape, s):
+    _repos = len({image.repo for image in images})
+    _kind = repos_per_kind(images)
+    _shape = repos_per_shape(images)
+    _top = ", ".join(f"`{name}` {count}" for name, count in repos_per_image(images).most_common(6))
+    _kinds = "\n".join(
+        (
+            "| Where the mutable image is | Repositories |",
+            "| --- | --: |",
+            *(
+                f"| {label} | {_kind[key]:,} |"
+                for key, label in (
+                    ("container", "Job container: every step runs inside it"),
+                    ("service", "Service container: databases, caches"),
+                    ("step", "`docker://` step"),
+                )
+            ),
+        )
+    )
+    _shapes = "\n".join(
+        (
+            "| Tag shape | Example | Repositories |",
+            "| --- | --- | --: |",
+            *(
+                f"| {label} | `{example}` | {_shape[key]:,} |"
+                for key, label, example in (
+                    ("major", "Major version", "postgres:16"),
+                    ("latest", "`latest`, written or implied", "ubuntu"),
+                    ("minor", "Minor version", "python:3.14-slim"),
+                    ("named", "Named channel", "node:lts"),
+                    ("patch", "Full version", "nginx:1.27.3"),
+                )
+            ),
+        )
+    )
+    mo.vstack(
+        [
+            mo.md(f"# What actually floats: {_repos:,} of {s.pinned:,} fully pinned repositories"),
+            mo.hstack([mo.md(_kinds), mo.md(_shapes)], widths=[1, 1], gap=2),
+            mo.md(
+                f"""
+                Not just test databases: **{_kind["container"]:,}** have a mutable job container.
+                Most common: {_top}.
+                A repository can appear in several rows. Even a full version tag is a pointer the publisher can move.
+                """
+            ),
+        ],
+        gap=1,
+    )
+    return
+
+
+@app.cell(hide_code=True)
 def _(mo, pct, s):
     _none = s.pinned - s.any_gap
     mo.md(
@@ -538,6 +594,80 @@ def _(mo):
 
     Measured on GitHub only; other platforms from vendor documentation, October 2026.
     """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md("""
+    # GitLab CI: the same three gaps
+
+    ```yaml
+    image: node:20                       # job image by tag
+    services:
+      - postgres:16                      # service image by tag
+    include:
+      - project: example/ci-templates
+        ref: main                        # a branch; omitted, it is the project's HEAD
+        file: /templates/build.yml
+      - component: gitlab.com/example/components/lint@~latest   # newest catalog release
+    ```
+
+    Pinned forms GitLab documents: `node:20@sha256:<digest>`, `ref: <commit SHA>`, `lint@<commit SHA>`.
+
+    GitLab's component docs suggest partial versions so you "automatically receive minor or patch updates";
+    its security guidance says to "Pin CI/CD components to a specific commit SHA (preferred)".
+
+    Sources: GitLab Docs, *CI/CD YAML syntax reference* and *CI/CD components*, October 2026.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.hstack(
+        [
+            mo.md(
+                """
+                # Jenkins
+
+                ```groovy
+                @Library('my-shared-library@master') _
+                pipeline {
+                  agent {
+                    docker { image 'node:20' }
+                  }
+                  stages { /* ... */ }
+                }
+                ```
+
+                Library versions: "branches, tags, and commit hashes all work".
+                A *trusted* library runs outside the Groovy sandbox:
+                "anyone able to push commits to this SCM repository could obtain unlimited access to Jenkins."
+                """
+            ),
+            mo.md(
+                """
+                # CircleCI
+
+                ```yaml
+                orbs:
+                  aws-cli: circleci/aws-cli@4      # every 4.x.y release
+                  slack: circleci/slack@volatile   # last published version
+                jobs:
+                  test:
+                    docker:
+                      - image: cimg/ruby:2.7       # executor image by tag
+                ```
+
+                A full orb version is immutable.
+                The image inside it is not.
+                """
+            ),
+        ],
+        widths=[1, 1],
+        gap=2,
+    )
     return
 
 
@@ -639,6 +769,29 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md("""
+    # Check it by hand
+
+    ```sh
+    # Does the SHA match the tag in its version comment?
+    git ls-remote https://github.com/actions/checkout 'refs/tags/v7.0.1*'
+    # 3d3c42e5aac5ba805825da76410c181273ba90b1  refs/tags/v7.0.1
+    # (an annotated tag adds a ...^{} line: that one is the commit)
+
+    # Is the SHA on any branch or tag of the upstream repository?
+    git clone --quiet --bare https://github.com/actions/checkout.git
+    git -C checkout.git tag --contains <sha>
+    # error: no such commit <sha>   <- a fork-only commit is not in an upstream clone
+    ```
+
+    Use a full clone, not `--filter`: a partial clone fetches missing objects on demand.
+    A squash-merged pull request head is not on any branch; check the merge commit instead.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md("""
     # Who checks where the SHA came from
 
     | Control | When | How |
@@ -672,6 +825,24 @@ def _(mo):
 
     A workflow dependency lockfile (public preview) checks **action** origin at run time.
     It does not cover pre-commit hooks or cross-repository checkout refs; audit those separately.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md("""
+    # Impostor commits beyond GitHub
+
+    - **Shared fork storage** is documented on GitHub only.
+    - **GitLab** `include:project` and CI components resolve a pinned SHA without a branch or tag check.
+      A merge request copies the contributor's commit into the target project.
+      From source review, not yet tested.
+    - **Bitbucket Cloud** shared-config imports accept only a branch or tag; a commit SHA cannot be pinned at all.
+    - **pre-commit, pip `git+https`, and the Tekton `git` resolver** fetch the exact SHA,
+      so they inherit GitHub's behavior on any CI system.
+
+    Sources: vendor documentation and source code, October 2026.
     """)
     return
 
@@ -742,6 +913,62 @@ def _(mo):
 
     Pair digest pins with Renovate or Dependabot digest updates, and choose the cooldown deliberately.
     """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.hstack(
+        [
+            mo.md(
+                """
+                # Keep pins current
+
+                `renovate.json`
+
+                ```json
+                {
+                  "extends": [
+                    "config:recommended",
+                    "helpers:pinGitHubActionDigests",
+                    ":enablePreCommit"
+                  ],
+                  "pinDigests": true,
+                  "minimumReleaseAge": "7 days"
+                }
+                ```
+
+                Updates `uses:`, `container:`, `services:`, and `docker://` images.
+                The pre-commit manager is off by default.
+                """
+            ),
+            mo.md(
+                """
+                &nbsp;
+
+                `.github/dependabot.yml`
+
+                ```yaml
+                version: 2
+                updates:
+                  - package-ecosystem: github-actions
+                    directory: /
+                    schedule: {interval: weekly}
+                    cooldown: {default-days: 7}
+                  - package-ecosystem: pre-commit
+                    directory: /
+                    schedule: {interval: weekly}
+                    cooldown: {default-days: 7}
+                ```
+
+                Updates SHA pins and their version comments.
+                Does **not** update workflow `container:`, `services:`, or `docker://` images.
+                """
+            ),
+        ],
+        widths=[1, 1],
+        gap=2,
+    )
     return
 
 
@@ -837,6 +1064,25 @@ def _(mo):
 
 
 @app.cell(hide_code=True)
+def _(images, mo, repos_per_kind):
+    _kind = repos_per_kind(images)
+    _repos = len({image.repo for image in images})
+    mo.md(f"""
+    # Questions you were about to ask
+
+    | Question | Short answer |
+    | --- | --- |
+    | Why not just use `ratchet`? | Use it. It covers most of GitHub Actions, not `with.ref`, pre-commit, or origin. |
+    | Doesn't Dependabot handle this? | It updates pins; it does not create them or update workflow images. |
+    | Will lockfiles fix this? | For actions, including origin. Not images, `with.ref`, or pre-commit. |
+    | Isn't this just test databases? | No: {_kind["container"]:,} of {_repos:,} image gaps include a job container. |
+    | Isn't SHA-1 broken? | Git detects known collision attacks; a SHA-256 transition is in progress. |
+    | Do digest pins go stale? | Yes. That is the cost slide; automate updates. |
+    """)
+    return
+
+
+@app.cell(hide_code=True)
 def _(mo):
     mo.md("""
     # Resources
@@ -864,20 +1110,6 @@ def _(mo):
         Now go check everything else.
         """
     ).center()
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md("""
-    # Backup: Impostor commits beyond GitHub
-
-    - **Shared fork storage** is documented on GitHub only.
-    - **GitLab** `include:project` and CI components resolve a pinned SHA without a branch or tag check.
-      A merge request copies the contributor's commit into the target project.
-      From source review, not yet tested.
-    - **Bitbucket Cloud** shared-config imports accept only a branch or tag; a commit SHA cannot be pinned at all.
-    """)
     return
 
 

@@ -72,6 +72,10 @@
       },
       {
         "type": "slide",
+        "speakerNotes": "Ninety seconds. Every number comes from images-full.csv. Lead with the job-container count: the residual is not just test databases. Point at the full-version row: even 1.27.3 is a tag the publisher can re-push. If asked for an example, rhysd/actionlint appears as a docker:// step pulled by tag; say it as an observation, not a gotcha."
+      },
+      {
+        "type": "slide",
         "speakerNotes": "Volunteer the inverse before a hostile questioner computes it. Do not call the rest clean."
       },
       {
@@ -84,11 +88,19 @@
       },
       {
         "type": "slide",
-        "speakerNotes": "Forty-five seconds. The measurement is GitHub-only; this slide is from vendor documentation, so say 'the docs say', not 'I measured'. Point at the CircleCI line: the platform that solved the config layer still runs a mutable image. Impostor commits beyond GitHub are on a backup slide."
+        "speakerNotes": "Forty-five seconds. The measurement is GitHub-only; this slide is from vendor documentation, so say 'the docs say', not 'I measured'. Point at the CircleCI line: the platform that solved the config layer still runs a mutable image. The next two slides show the configuration on GitLab, Jenkins, and CircleCI."
       },
       {
         "type": "slide",
-        "speakerNotes": "0:17. A fixed SHA answers 'which content?', not 'whose commit?'. The lockfile is one available answer for actions, not the premise of this section."
+        "speakerNotes": "One minute. Vendor documentation, not measurement: say 'GitLab documents'. The ~latest form works only for published catalog components. GitLab impostor commits come up again at the end of Part 2."
+      },
+      {
+        "type": "slide",
+        "speakerNotes": "One minute. Jenkins: read the trusted-library quote; it is the strongest line on the slide. CircleCI: credit immutable orb versions before pointing at @volatile and the image tag. Vendor documentation, October 2026; re-verify in March 2027."
+      },
+      {
+        "type": "slide",
+        "speakerNotes": "0:21. A fixed SHA answers 'which content?', not 'whose commit?'. The lockfile is one available answer for actions, not the premise of this section."
       },
       {
         "type": "slide",
@@ -104,6 +116,10 @@
       },
       {
         "type": "slide",
+        "speakerNotes": "Ninety seconds. Tested 2026-10-26 against actions/checkout v7.0.1; re-run before the talk. ls-remote catches the review-diff example: the SHA does not match the tag in its comment. The bare clone catches a fork-only commit. The --filter warning is an inference from partial-clone behavior; confirm it with the task 6 commit before saying it on stage (task 27)."
+      },
+      {
+        "type": "slide",
         "speakerNotes": "Claim only behavior observed in task 7. Keep the qualified wording: 'tools I reviewed'."
       },
       {
@@ -112,7 +128,11 @@
       },
       {
         "type": "slide",
-        "speakerNotes": "0:23. Shift from what is exposed to what it costs to fix."
+        "speakerNotes": "One minute. Moved from backup on 2026-10-26. Say 'the source says' for GitLab; nothing here is tested end to end. The last bullet carries the point: the client that fetches the SHA, not the CI platform, decides exposure."
+      },
+      {
+        "type": "slide",
+        "speakerNotes": "0:30. Shift from what is exposed to what it costs to fix."
       },
       {
         "type": "slide",
@@ -128,6 +148,10 @@
       },
       {
         "type": "slide",
+        "speakerNotes": "Ninety seconds. Renovate covers the workflow image gap; Dependabot does not, per GitHub Docs in October 2026. Validate both configurations in a scratch repository before the talk (task 26). Seven days is an example, not a recommendation; tie it back to the cost table."
+      },
+      {
+        "type": "slide",
         "speakerNotes": "Fill from the public-corpus dry run only. If task 17 is not done, cut this slide; use the time for the review-diff beat in Part 2. Do not imply internal rollout results."
       },
       {
@@ -140,7 +164,11 @@
       },
       {
         "type": "slide",
-        "speakerNotes": "0:33. The slide people photograph. Leave it up for a beat."
+        "speakerNotes": "0:41. The slide people photograph. Leave it up for a beat."
+      },
+      {
+        "type": "slide",
+        "speakerNotes": "Ninety seconds; first to cut if over time. It covers the objections a five-minute Q&A cannot. Read the questions, then answer only the one the room reacts to."
       },
       {
         "type": "slide",
@@ -148,11 +176,7 @@
       },
       {
         "type": "slide",
-        "speakerNotes": "0:35. Ten minutes of questions. Backup slides follow."
-      },
-      {
-        "type": "slide",
-        "speakerNotes": "Backup for 'Can impostor commits happen outside GitHub?'. GitLab findings come from source review; say 'the source says'. The Bitbucket line is from Atlassian documentation."
+        "speakerNotes": "0:45 in the full draft; trim to 0:40 for five minutes of questions. One backup slide follows."
       },
       {
         "type": "slide",
