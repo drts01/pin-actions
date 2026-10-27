@@ -98,6 +98,32 @@ class CorpusSummary:
     parse_errors: int
 
 
+def read_corpus(csv_path: Path) -> list[dict[str, str]]:
+    """Read every row of a corpus CSV."""
+    with csv_path.open(encoding="utf-8", newline="") as handle:
+        return list(csv.DictReader(handle))
+
+
+def in_scope_rows(rows: list[dict[str, str]], *, exclude_dynamic: bool) -> list[dict[str, str]]:
+    """Select the pin-rate denominator: repositories with at least one in-scope ``uses:``.
+
+    Repositories whose only ``uses:`` refs are local or expression-valued can never enter the
+    numerator, so they must not sit in the pin-rate denominator either.
+    """
+    return [
+        row
+        for row in rows
+        if int(row["workflow_files"]) > 0
+        and int(row["uses_total"]) > 0
+        and not (exclude_dynamic and int(row["uses_dynamic"]) > 0)
+    ]
+
+
+def pinned_rows(rows: list[dict[str, str]], *, exclude_dynamic: bool) -> list[dict[str, str]]:
+    """Select denominator ``N``: in-scope repositories whose every ``uses:`` is a commit SHA."""
+    return [row for row in in_scope_rows(rows, exclude_dynamic=exclude_dynamic) if int(row["fully_pinned"])]
+
+
 def summarize(csv_path: Path, *, exclude_dynamic: bool) -> CorpusSummary:
     """Count the repositories behind every Part 1 statistic.
 
@@ -109,17 +135,9 @@ def summarize(csv_path: Path, *, exclude_dynamic: bool) -> CorpusSummary:
     Returns:
         Aggregate counts; percentages and intervals are left to the caller.
     """
-    with csv_path.open(encoding="utf-8", newline="") as handle:
-        rows = list(csv.DictReader(handle))
+    rows = read_corpus(csv_path)
     with_workflows = [row for row in rows if int(row["workflow_files"]) > 0]
-
-    # Repositories whose only `uses:` refs are local or expression-valued can never enter the
-    # numerator, so they must not sit in the pin-rate denominator either.
-    in_scope = [
-        row
-        for row in with_workflows
-        if int(row["uses_total"]) > 0 and not (exclude_dynamic and int(row["uses_dynamic"]) > 0)
-    ]
+    in_scope = in_scope_rows(rows, exclude_dynamic=exclude_dynamic)
     pinned = [row for row in in_scope if int(row["fully_pinned"])]
 
     def _has_precommit_gap(row: dict[str, str]) -> bool:

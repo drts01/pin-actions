@@ -16,9 +16,10 @@ from pydantic_settings import BaseSettings, CliApp, CliSubCommand, SettingsConfi
 
 from .fetch import fetch_corpus, select_sample
 from .frame import build_frame
+from .images import write_images
 from .io import read_jsonl
 from .report import report
-from .scan import scan_corpus
+from .scan import list_mutable_images, scan_corpus
 
 logger = logging.getLogger("scan_corpus")
 
@@ -151,6 +152,24 @@ class ReportStage(BaseSettings):
             print(f"report -> {self.out}")
 
 
+class ImagesStage(BaseSettings):
+    """List every mutable image reference in fully pinned repositories with an image gap."""
+
+    csv_path: Path = Field(
+        default=Path("notes/corpus/corpus.csv"),
+        validation_alias=AliasChoices("csv", "csv_path"),
+        description="Corpus CSV that selects the repositories",
+    )
+    cache: Path = Field(default=Path("notes/corpus/repos"), description="Root directory holding the clones")
+    out: Path = Field(default=Path("notes/corpus/images.csv"), description="Destination CSV")
+
+    def cli_cmd(self) -> None:
+        """Run the images stage."""
+        images = list_mutable_images(self.csv_path, self.cache)
+        write_images(images, self.out)
+        print(f"images: {len(images)} references in {len({image.repo for image in images})} repositories -> {self.out}")
+
+
 class ScanCorpusSettings(BaseSettings):
     """Configure the SCaLE 24x corpus scanner CLI."""
 
@@ -176,6 +195,7 @@ class ScanCorpusSettings(BaseSettings):
     fetch: CliSubCommand[FetchStage]
     scan: CliSubCommand[ScanStage]
     report: CliSubCommand[ReportStage]
+    images: CliSubCommand[ImagesStage]
 
     def cli_cmd(self) -> None:
         """Configure logging and dispatch to the selected stage."""

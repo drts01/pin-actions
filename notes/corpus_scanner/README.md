@@ -48,6 +48,7 @@ uv run --group corpus python -m notes.corpus_scanner frame --min-stars 100 --pus
 uv run --group corpus python -m notes.corpus_scanner fetch --frame notes/corpus/frame.jsonl --cache notes/corpus/repos --sample 50000 --seed 20260401 --concurrency 10
 uv run --group corpus python -m notes.corpus_scanner scan --cache notes/corpus/repos --out notes/corpus/corpus.csv
 uv run --group corpus python -m notes.corpus_scanner report --csv notes/corpus/corpus.csv --exclude-dynamic
+uv run --group corpus python -m notes.corpus_scanner images --csv notes/corpus/corpus.csv --out notes/corpus/images-full.csv
 ```
 
 ## Sampling
@@ -87,6 +88,19 @@ Every proportion is reported with a 95% Wilson score interval.
 The Wilson interval is used rather than the normal approximation because `Z` has a small denominator,
 where the normal interval can extend past zero or one.
 
+## Image Breakdown
+
+`corpus.csv` stores counts only.
+The `images` stage re-reads the clones of `N` repositories that have a mutable image and writes one row per static,
+non-digest image reference: repository, file, kind, image, tag, and tag shape.
+It requires the clones; run it before deleting `repos/`.
+
+- **Kind:** `container` (job container, either form), `service` (`services.<name>.image`), or `step` (`docker://`).
+- **Shape:** `latest` (explicit or omitted), `major` (`20`), `minor` (`3.14`), `patch` (`1.27.3`), or `named` (`lts`).
+  The version is read before the first `-`, so `16-alpine` is `major`.
+
+The row count must equal the sum of `image_mutable` over the same repositories in `corpus.csv`.
+
 ## Tests
 
 Run the isolated test suite from the repository root:
@@ -106,5 +120,6 @@ The default paths remain under `notes/corpus/`:
 - `sample.jsonl`: the repositories selected for fetching, written whenever `--sample` is used.
 - `repos/`: sparse clones and `manifest.jsonl` fetch outcomes.
 - `corpus.csv`: per-repository classification data.
+- `images-full.csv`: one row per mutable image reference in `N`, written by the `images` stage.
 
 Do not commit credentials or place tokens in these artifacts.

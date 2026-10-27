@@ -15,7 +15,9 @@ from pinref.core import _collect_image_refs, _collect_refs, _is_local_action
 from pinref.precommit import _collect_precommit_refs
 from pinref.registry import is_image_digest
 
+from .images import MutableImage, image_kind, tag_shape
 from .io import read_jsonl
+from .report import pinned_rows, read_corpus
 
 _YAML_SUFFIXES = frozenset({".yml", ".yaml"})
 _PRECOMMIT_NAMES = (".pre-commit-config.yaml", ".pre-commit-config.yml")
@@ -221,6 +223,41 @@ def scan_repo(repo: str, head_sha: str, root: Path) -> RepoStats:
         precommit_total=counts.precommit_total,
         precommit_mutable=counts.precommit_mutable,
     )
+
+
+def list_mutable_images(corpus_csv: Path, cache: Path) -> list[MutableImage]:
+    """Collect every static, non-digest image reference in ``N`` repositories with an image gap.
+
+    Args:
+        corpus_csv: CSV produced by the scan stage.
+        cache: Root directory holding the clones the CSV was scanned from.
+
+    Returns:
+        One entry per image reference, in corpus and file order.
+    """
+    images: list[MutableImage] = []
+    for row in pinned_rows(read_corpus(corpus_csv), exclude_dynamic=True):
+        if not int(row["image_mutable"]):
+            continue
+        root = cache / row["repo"]
+        for path in _workflow_paths(root):
+            doc = _load_doc(path)
+            if doc is None:
+                continue
+            for item_path, name, tag in _collect_image_refs(doc):
+                if _is_dynamic(name) or _is_dynamic(tag) or is_image_digest(tag):
+                    continue
+                images.append(
+                    MutableImage(
+                        repo=row["repo"],
+                        path=path.relative_to(root).as_posix(),
+                        kind=image_kind(item_path),
+                        image=name.removeprefix("library/"),
+                        tag=tag,
+                        shape=tag_shape(tag),
+                    )
+                )
+    return images
 
 
 def scan_corpus(manifest: Path, cache: Path, out: Path, *, limit: int | None = None) -> int:
