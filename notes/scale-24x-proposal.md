@@ -3,8 +3,6 @@
 **Title:** You Pinned Your GitHub Actions.
 What's Still Mutable?
 
-The CFP form has no subtitle field; the former subtitle is folded into the short abstract.
-
 **Track:** Security (fallback: Developers, Platform Engineering & DevEx)
 
 **Level:** Intermediate (confirm the level options in the CFP form)
@@ -17,10 +15,10 @@ Field mapping in the CFP tool: **Short Abstract** (print), **Long Abstract** (on
 ## Short Abstract
 
 Pinning GitHub Actions to commit SHAs is standard advice,
-yet 87.8% of 32,863 public repositories using actions from other repositories do not,
+yet nearly 9 in 10 of about 33,000 public repositories using actions from other repositories do not,
 and one in seven that do still run mutable container images, checkout refs, or pre-commit hooks.
-Learn what pinning misses, why a SHA proves content but not origin, and how to audit GitHub, GitLab, Jenkins,
-and CircleCI pipelines.
+Learn what pinning misses, why a SHA proves content but not origin, and how to find the same gaps in GitLab CI, Jenkins,
+and CircleCI.
 
 ## Abstract
 
@@ -35,7 +33,8 @@ Even among the 4,008 that do, one in seven (14.8%) still have a mutable containe
 or pre-commit revision.
 More than half of the repositories with a mutable image float the job container itself,
 the environment every step runs inside.
-The same gaps apply to any CI system that pulls images, repositories, or hooks by tag or branch.
+The same gaps apply to GitLab CI, Jenkins, and CircleCI, or any CI system that pulls images, repositories,
+or hooks by tag or branch.
 
 A commit SHA fixes content, not origin.
 GitHub documents that fork commits can be reachable through the upstream repository,
@@ -51,7 +50,7 @@ and weigh the review effort and patch latency that come with maintaining pins.
 - Understand why a commit SHA fixes content but does not establish repository identity.
 - Audit container images, cross-repository `actions/checkout` refs,
   and pre-commit revisions without treating expression-valued refs as ordinary tags.
-- Recognize the same gaps in GitLab CI, CircleCI, Jenkins, and Tekton configurations.
+- Recognize the same gaps in GitLab CI, Jenkins, and CircleCI configurations.
 - Choose complementary controls for pinning, provenance, updates, and detection, and weigh their costs.
 
 ## Session plan
