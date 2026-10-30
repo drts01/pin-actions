@@ -138,8 +138,11 @@ repos:
     rev: 7f9d0819ca1c008ade73f4b41fa9d258d48f605b  # frozen: v1.51.1
     hooks:
       - id: typos
+      - id: typos
+        name: typos fix
+        alias: typos-fix
         args: [--write-changes]
-
+        stages: [manual]
   - repo: https://github.com/owenlamont/ryl-pre-commit
     rev: 149d45ca24aef319951c0c99435124f3551390d2  # frozen: v0.24.0
     hooks:
