@@ -59,6 +59,8 @@ Three claims, in descending order of strength.
    But see the novelty caveat in [Primary-Source Review](#primary-source-review): GitHub documents the behavior,
    warns about it in one line, and is now shipping the fix.
    Present this as *motivation for why the lockfile exists*, not as an unknown.
+   Credit Chainguard's 2023 imposter-commit research and `zizmor`'s `impostor-commit` audit by name;
+   the proposal's reviewer message already does (see [Citations](#citations)).
 3. **A public-corpus remediation dry run, including the failures, if task 17 is completed.**
    Credibility payload, not the thesis; do not use internal rollout data.
 
@@ -131,7 +133,38 @@ Revised 2026-10-20 for `ratchet`, which pins `docker://`, `container.image`, and
   The qualified claim rests on source review of `ratchet`, `pinact`, Updatecli, and `pin-github-action`;
   task 7 must still be completed before presenting any empirical tool comparison or demo.
 
-## Outline — 45-minute draft, trimmed to 40 in rehearsal
+Revised 2026-10-29 after a mock CFP review:
+
+- Rewrote the short abstract around the scan's denominators and opened the long abstract with a scenario.
+- Added the `tj-actions/changed-files` compromise (CVE-2025-30066), verified against GHSA-mrrh-fwg8-r2c3.
+- Added a prior-work paragraph to the reviewer message: GitHub's documentation, Chainguard (2023),
+  and `zizmor`'s `impostor-commit` audit.
+- Added the 149,570-repository frame, the 592/4,008 and 203/358 counts, and a March 2027 re-scan commitment.
+- Disclosed that pre-commit revisions count only when CI runs pre-commit,
+  that cross-repository checkout refs count whether or not the job executes them,
+  and that transitive references make every figure an undercount.
+- Narrowed the cross-CI claim to "the same patterns apply" and cut it to one slide.
+- Moved the tool-coverage table from Part 1 to Part 3 and named every compared tool.
+- Replaced the conditional demo wording with one committed demo and a recorded fallback.
+- Moved every note-to-self and the employer-clearance line into the proposal's Submission Checks.
+
+Revised again 2026-10-29 for the deadline:
+
+- Changed "Demonstrate" to "Walk through" in the 17–27 minute segment.
+  The recording is the plan, not the fallback, so the proposal needs no internet and task 6 no longer blocks submission.
+- Dropped The Walt Disney Studios from the bio; added DevOpsDays LA and SoCal Code Camp to the speaking record.
+- Sourced the `tj-actions/changed-files` incident to StepSecurity, CISA, and the upstream issue.
+  Dropped the "SHA-pinned consumers were unaffected" claim:
+  issue #2463 reports SHA pins updated to the malicious commit.
+- Replaced the abstract's `tj-actions` sentence with the March 2026 Trivy compromise (CVE-2026-33634):
+  it is newer and exercises three of the talk's claims at once — action tags, image tags vs. digests,
+  and a transitive tag inside a SHA-pinned action.
+  `tj-actions` and `reviewdog` (CVE-2025-30154) stay in the deck on Part 0's timeline slide.
+
+## Outline — 40 minutes plus 5 of questions
+
+Timings match the proposal's session plan as of 2026-10-29: 7, 10, 10, 9, and 4 minutes, then 5 of questions.
+The slide draft still follows the earlier 45-minute order; reorder it (task 32) and cut it to 40 (task 23).
 
 ### 0:00–0:03 — Cold open, no title slide
 
@@ -152,13 +185,52 @@ Do not say the tool name yet.
 Title slide, fifteen seconds; save the motivation until after the 87.8% figure.
 
 One slide on tag mutability.
-One slide on the tag-hijacking incident class.
+One timeline slide on the tag-hijacking incident class, three rows, one lesson each:
 
-> **Fact-check before use.** Verify the tj-actions/changed-files timeline, the CVE identifier,
-> and the claim that SHA-pinned consumers were unaffected, against primary sources.
-> Do not present incident details from memory.
+| Date                 | Incident                                     | Lesson for this talk                                  |
+| -------------------- | -------------------------------------------- | ----------------------------------------------------- |
+| 2025-03-11           | `reviewdog/action-setup@v1` (CVE-2025-30154) | Embedded tags bypass your own pins                    |
+| 2025-03-14 to 15     | `tj-actions/changed-files` (CVE-2025-30066)  | A SHA pin helps only if the update chose a good SHA   |
+| 2026-03-19 and 03-22 | Trivy (CVE-2026-33634)                       | Action tags, image tags, and a transitive tag at once |
+
+Row 1, `reviewdog`:
+
+> **Verified 2026-10-29** against the [CVE-2025-30154 record][cve-reviewdog], [Wiz][wiz-reviewdog],
+> [Hunters][hunters], and [CISA][cisa]:
+> `reviewdog/action-setup@v1` was compromised on 2025-03-11 from 18:42 to 20:31 UTC and dumped secrets to workflow logs.
+> The CVE lists `action-shellcheck`, `action-composite-template`, `action-staticcheck`, `action-ast-grep`,
+> and `action-typos` as affected "regardless of version or pinning method", because they embed `action-setup@v1`.
+> Say "Wiz suspects" a link to the `tj-actions` compromise; do not state it as established.
+
+Row 2, `tj-actions/changed-files`:
+
+> **Verified 2026-10-29** against [StepSecurity][stepsec], [CISA][cisa], [tj-actions/changed-files#2463][tj-2463],
+> and [GHSA-mrrh-fwg8-r2c3][ghsa]: CVE-2025-30066, the March 14–15, 2025 window,
+> version tags retroactively repointed to malicious commit `0e58ed8671d6b60d0890c21b07f8835ace038e67`,
+> and CI secrets printed to workflow logs.
+> Do not say SHA-pinned consumers were unaffected.
+> Issue #2463 reports repositories that ran the malicious commit by SHA after an automated Renovate update.
+> Say instead: a pin to a known-good SHA resists later tag movement;
+> it does not help if the update that wrote the pin selected the malicious SHA.
+> That second half sets up Part 3's cooldown and review-cost slides.
+
+Row 3, Trivy:
+
+> **Verified 2026-10-29** against [GHSA-69fq-xp46-6x23][ghsa-trivy], [Aqua's disclosure][aqua-trivy],
+> and [StepSecurity][stepsec-trivy]: on 2026-03-19, 76 of 77 `trivy-action` tags and all seven `setup-trivy` tags
+> were replaced and Trivy v0.69.4 was released with malicious code; on 2026-03-22, Docker Hub images v0.69.5 and
+> v0.69.6 were compromised.
+> Safe versions: `trivy-action@0.35.0` and `setup-trivy@0.2.6`.
+> Images referenced by digest were unaffected.
+> SHA pins to `trivy-action` commits from after 2025-04-09 were unaffected;
+> older pinned commits still fetched `setup-trivy` by tag and ran the compromised version.
+> Do not say "SHA-pinned users were safe"; say which SHAs.
+> StepSecurity's write-up is independent reporting; Aqua's discussion and the GHSA are the vendor's disclosure.
+> Re-check the GHSA before each use; it was still being revised in 2026.
 
 Land the point in 30 seconds: tags are pointers, pointers move, SHAs do not.
+The timeline slide gets 60 seconds total; read one lesson per row, not the incident details.
+Trivy's transitive-tag row foreshadows Part 1's undercount, so say "we will come back to this."
 The room already agrees.
 Do not belabor it.
 
@@ -181,7 +253,10 @@ so "the tools I knew" must carry a month and year: August 2026, the date of `pin
 There is no employer clearance, so omit the employer, the repository count, and the trigger (task 20).
 This slide now leads directly into Part 1's inventory; do not return to the lockfile until Part 3.
 
-### 0:07–0:21 — Part 1: The surface no lockfile covers
+### 0:07–0:17 — Part 1: The surface no lockfile covers
+
+Target ten minutes: the reference inventory, transitive references, the measurement, what floats,
+and one cross-CI slide.
 
 Open with the coverage boundary: the usual advice targets `uses:` and reusable workflow refs.
 Introduce the preview lockfile later, as one of Part 3's platform controls.
@@ -230,28 +305,28 @@ The finding is that a residual surface exists at all, that no guide tells you to
 and that even the platform's preview fix does not reach it.
 Volunteering the deflating reading is what makes the rest of the numbers trustworthy.
 
-Second data slide: tool coverage.
-Which of the six each popular tool actually pins, **with a lockfile column**.
-Present it neutrally and include `pinref` in the same table as everyone else.
-`ratchet` is near-complete on GitHub Actions; show that honestly.
-Neutral framing here buys credibility for Part 2.
+The tool-coverage table moved to Part 3 on 2026-10-29; Part 1 stays on the measurement.
 
-Close Part 1 with three slides, about three minutes: the same three gaps on other CI systems.
-The abstract promises it, so keep them in the main deck.
-The first maps container images, cross-repository refs, and pre-commit revisions to GitLab CI, CircleCI, Jenkins,
-Tekton, Drone, and Bitbucket, and ends on the CircleCI orb executor that defaults to a mutable image tag.
-The second shows a GitLab CI file with a tagged job image, a tagged service, `include:project` at `ref: main`,
-and a component at `@~latest`.
-The third shows a Jenkins `@Library('...@master')` with a Docker agent image,
-and CircleCI orbs at a major version and `@volatile` beside a tagged executor image.
-Label all three as vendor documentation, not measurement.
+Close Part 1 with one slide, about one minute: "Not a GitHub problem".
+The proposal promises one slide, so keep it in the main deck.
+It maps container images, cross-repository refs, and pre-commit revisions to GitLab CI, CircleCI, Jenkins, Tekton,
+Drone, and Bitbucket, and ends on the CircleCI orb executor that defaults to a mutable image tag.
+Label it as vendor documentation, not measurement.
+
+Move the two configuration slides to backup for Q&A: a GitLab CI file with a tagged job image, a tagged service,
+`include:project` at `ref: main`, and a component at `@~latest`;
+and a Jenkins `@Library('...@master')` with a Docker agent image,
+beside CircleCI orbs at a major version and `@volatile` with a tagged executor image.
 The Jenkins and CircleCI syntax and quotes were verified against vendor documentation on 2026-10-26.
 
-### 0:21–0:30 — Part 2: A SHA is not a promise (live demo)
+### 0:17–0:27 — Part 2: A SHA is not a promise (recorded walk-through)
 
-Target nine minutes: the demo, the review-diff beat, a hand check, and impostor exposure beyond GitHub.
-If task 12 reproduces, run the demo with a pre-commit `rev:` instead of an action: pre-commit fetches by SHA,
-is one of Part 1's measured surfaces, and lies outside every lockfile, so one demo carries both halves of the thesis.
+Target ten minutes: the walk-through, the review-diff beat, a hand check, and impostor exposure beyond GitHub.
+The proposal says "Walk through", so present Part 2 from a recording; a live run is optional, not promised.
+Task 6 produces the recording; it no longer blocks submission.
+If task 12 reproduces, record the pre-commit `rev:` variant instead of an action: pre-commit fetches by SHA,
+is one of Part 1's measured surfaces, and lies outside every lockfile,
+so one walk-through carries both halves of the thesis.
 The action-based sequence below is the fallback.
 
 The emotional center of the talk, and — after the primary-source review —
@@ -260,6 +335,9 @@ Frame it that way in the first sentence: "Here is concretely why GitHub put a ru
 
 1. Slide: GitHub's fork network stores all fork commits in one object store,
    and the API serves them under the upstream path.
+   Credit prior work on the same slide: GitHub's *About forks* page, Chainguard's "What the fork?" post (2023-03-08),
+   and `zizmor`'s `impostor-commit` audit.
+   Add Truffle Security's FOR research only after task 31 verifies it.
 2. Demo step 1: fork a well-known action, push a commit that writes a marker to the job log.
 3. Demo step 2: `curl` the **upstream** repository's commits API with that SHA.
    It returns 200.
@@ -298,18 +376,27 @@ With the extra time this segment gains over the original plan, add:
   The warning against `--filter` (a partial clone fetches missing objects on demand) is an inference; see task 27.
 - "Impostor commits beyond GitHub" after the verification slide, one minute, promoted from backup.
   Its last bullet carries the point: the client that fetches the SHA decides exposure, not the CI platform.
+- Optional 20-second aside on the verification slide:
+  StepSecurity reports that the malicious Trivy v0.69.4 release workflow pinned `actions/checkout` to an impostor commit
+  SHA.
+  Confirm the SHA and that it was fork-only against [StepSecurity][stepsec-trivy] before using it (task 33).
 - If time allows, run both demo variants: pre-commit first, then the action.
 
 Honesty about the limitation is what separates this from a product pitch.
 The committee and the audience will both reward it.
 
 **Demo safety.**
-Pre-record the entire sequence as a fallback video.
+The recording is the primary path; the proposal tells reviewers no internet is required.
 Conference wifi plus live GitHub API calls plus a live Actions run is three failure modes stacked.
-Run the live version if the network cooperates; cut to video without apologizing if it does not.
+Run live only if it reproduced reliably in rehearsal and the network cooperates;
+otherwise play the recording without apologizing.
+If task 6 never reproduces end to end, present Part 2 from annotated screenshots and slides.
 Use a throwaway org, a fork you control, and a workflow with `permissions: {}` and no secrets.
 
-### 0:30–0:41 — Part 3: What rolling this out actually costs
+### 0:27–0:36 — Part 3: Controls and what they cost
+
+Target nine minutes, two fewer than the earlier draft, with the coverage table added.
+If rehearsal runs long, cut the remediation slide first; the proposal no longer promises it.
 
 Open with one slide on the platform controls, before any tool: the organization or enterprise SHA-pinning policy
 (GitHub changelog, 2025-08-15),
@@ -320,7 +407,14 @@ but not image bases, pre-commit revisions, or cross-repository checkout refs.
 Recommend all three where available, then show that none of them reaches the residual surface.
 Re-verify the lockfile's preview status and coverage before the conference.
 
-Use a public-corpus dry run to show how many files and refs change, what fails, and the review cost.
+Then the tool-coverage table, moved from Part 1 on 2026-10-29.
+Show which reference types `ratchet`, `pinact`, Updatecli, `pin-github-action`, `zizmor`, and `pinref` pin or detect,
+**with a lockfile column**; the proposal names all six.
+Present it neutrally and include `pinref` in the same table as everyone else.
+`ratchet` is near-complete on GitHub Actions; show that honestly.
+Settle the `zizmor` image cells first (task 21).
+
+If task 17 is done, use a public-corpus dry run to show how many files and refs change, what fails, and the review cost.
 Show representative, reproducible examples of parse failures, unresolvable refs,
 version comments that preserve reviewability, and the tradeoff between a release cooldown and staleness.
 Give image staleness its own slide: a digest pin stops receiving the publisher's security patches,
@@ -338,7 +432,7 @@ Give the recovered time to the review-diff beat in Part 2.
 Internal campaign data is out of scope: there is no employer clearance, so do not use it in any form.
 The public-corpus version of this talk needs no internal data.
 
-### 0:41–0:45 — Close
+### 0:36–0:40 — Close
 
 The checklist slide, which is what people photograph:
 
@@ -362,44 +456,55 @@ It covers objections that a five-minute Q&A cannot; it is the first slide to cut
 
 Tool slide last, 20 seconds, one URL.
 
+### 0:40–0:45 — Questions
+
+Five minutes on the handheld audience mic.
+Answers are in [Q&A Preparation](#qa-preparation); the backup slides cover GitLab CI, Jenkins, and CircleCI.
+
 ## Pre-CFP Work — the critical path
 
 Ordered by what blocks the abstract.
 Reprioritized after the full scan and the 2026-10-23 reframing: lockfiles are no longer the premise,
 so task 5 is talk preparation, not an abstract blocker.
 The impostor demo and empirical tool comparison are talk-preparation work too.
+Since 2026-10-29 the proposal promises a recorded walk-through, so task 6 no longer blocks submission.
 The full scan finished on 2026-10-21.
 
-| #   | Task                                                                                            | Blocks       | Status                                                                                                                                             |
-| --- | ----------------------------------------------------------------------------------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | Build the corpus scanner; sample public repos with workflow files                               | Abstract `N` | **Done** — `notes/corpus_scanner/`                                                                                                                 |
-| 2   | Run the pilot; decide the framing from the measured rates                                       | Thesis       | **Done** — see [Pilot Results](#pilot-results)                                                                                                     |
-| 3   | Fact-check the fork-network and pinning claims against GitHub's documentation                   | Thesis       | **Done** — see [Primary-Source Review](#primary-source-review)                                                                                     |
-| 4   | Run the full 50,000-repository scan; publish the artifacts                                      | Abstract `N` | **Scan done** — see [Full-Run Results](#full-run-results); publish data, code, seed, and instructions with the talk and slides                     |
-| 5   | Test `gh actions-lock` here and verify uncovered refs on a disposable branch or test repo       | Part 0 slide | Todo — installed `gh` (2.102.0) does not have `actions-lock`; no longer blocks the abstract                                                        |
-| 6   | Reproduce the fork/impostor demo end-to-end in a throwaway org                                  | Part 2       | Todo                                                                                                                                               |
-| 7   | Confirm each competing tool's behavior against the impostor SHA, empirically, not from docs     | Part 2       | Todo                                                                                                                                               |
-| 8   | Decide whether to widen the frame for `Z` or drop `Z`                                           | Part 1       | **Done** — use `Z` only as supporting evidence (163/204, 79.9%); do not widen the frame for the proposal                                           |
-| 9   | Fact-check the incident timeline and CVE against primary sources                                | Part 0       | Todo                                                                                                                                               |
-| 10  | Secure clearance to present anonymized fleet data                                               | Part 3       | Dropped 2026-10-25 — no employer clearance; use the public-corpus dry run only                                                                     |
-| 11  | Write and submit the abstract                                                                   | Nov 1        | Todo                                                                                                                                               |
-| 12  | Reproduce a pre-commit impostor `rev:` end to end on repositories you own                       | Part 2 demo  | Todo — preferred demo: ties Part 1's measured surface to Part 2's provenance gap                                                                   |
-| 13  | Fix `verify_provenance` to reject open-PR-only SHAs; add a regression test                      | Part 2 demo  | **Done** — merged PR head or merge commit only                                                                                                     |
-| 14  | Empirically test GitLab paths A and B (API, `git fetch`, `include:project`, component @SHA)     | Q&A          | Partly answered from source; end-to-end plan in [`impostor-e2e-tests.md`](impostor-e2e-tests.md)                                                   |
-| 15  | Split `X` into official and other images, and `Y` into same-owner and other-owner repos         | Part 1       | `X` partly done 2026-10-26: `images-full.csv` gives kind, tag shape, and image name; official images have no `/` in the name. `Y` split still todo |
-| 16  | Find a primary-source incident per reference type, or state that none is known                  | Part 1       | Todo — same standard as task 9                                                                                                                     |
-| 17  | Run the public-corpus remediation dry run                                                       | Part 3       | Todo — abstract no longer promises results; quote none until done                                                                                  |
-| 18  | Package the scanner so attendees can audit their own repositories                               | Close        | Todo                                                                                                                                               |
-| 19  | Review the speaker bio and confirm SCaLE 24x CFP fields, word limits, and track names           | Nov 1        | CFP fields, tracks, and the 1,000-character bio limit confirmed 2026-10-26; confirm the bio's claims and the Level options                         |
-| 20  | Supply motivation facts: month and year, trigger, rounded fleet size, and clearance to say them | Nov 1        | Done 2026-10-25 — no clearance; date from the public first commit, no employer, count, or trigger                                                  |
-| 21  | Verify `zizmor` coverage cells for `docker://` and service images against its audit docs        | Part 1       | Todo — `unpinned-images` documents `container.image` only; pre-commit cell corrected to ❌ on 2026-10-25                                           |
-| 22  | Decide whether immutable-release attestations can verify an action pin                          | Part 2       | Todo — governs the "not cryptographic attestation" wording on the verification slide                                                               |
-| 23  | Time a full rehearsal of the 45-minute draft; cut to 40 minutes using the Cut List              | Talk         | Todo — six slides added 2026-10-26, about eight minutes                                                                                            |
-| 24  | Verify the cold-open SHAs match their version comments                                          | Part 0       | **Done** 2026-10-25 — `actions/checkout` v7.0.1 and `astral-sh/setup-uv` v10.0.1 tags resolve to the SHAs shown                                    |
-| 25  | Verify GitHub's SHA-pinning policy and immutable releases against primary sources               | Part 3       | **Done** 2026-10-25 — changelog 2025-08-15 and the *Immutable releases* docs page; re-check in March 2027                                          |
-| 26  | Validate the Renovate and Dependabot configurations on the "Keep pins current" slide            | Part 3       | Todo — options verified in vendor docs 2026-10-26; confirm the `pre-commit` ecosystem key and `:enablePreCommit` in a scratch repo                 |
-| 27  | Confirm that a `--filter` partial clone fetches a fork-only commit on demand                    | Part 2       | Todo — inference from partial-clone behavior; test with the task 6 commit, or drop the warning from the hand-check slide                           |
-| 28  | Decide whether to also submit to SunSecCon                                                      | Nov 1        | Todo — separate CFP tool; check its deadline and dual-submission policy                                                                            |
+| #   | Task                                                                                            | Blocks       | Status                                                                                                                             |
+| --- | ----------------------------------------------------------------------------------------------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Build the corpus scanner; sample public repos with workflow files                               | Abstract `N` | **Done** — `notes/corpus_scanner/`                                                                                                 |
+| 2   | Run the pilot; decide the framing from the measured rates                                       | Thesis       | **Done** — see [Pilot Results](#pilot-results)                                                                                     |
+| 3   | Fact-check the fork-network and pinning claims against GitHub's documentation                   | Thesis       | **Done** — see [Primary-Source Review](#primary-source-review)                                                                     |
+| 4   | Run the full 50,000-repository scan; publish the artifacts                                      | Abstract `N` | **Scan done** — see [Full-Run Results](#full-run-results); publish data, code, seed, and instructions with the talk and slides     |
+| 5   | Test `gh actions-lock` here and verify uncovered refs on a disposable branch or test repo       | Part 0 slide | Todo — installed `gh` (2.102.0) does not have `actions-lock`; no longer blocks the abstract                                        |
+| 6   | Reproduce the fork/impostor demo end-to-end in a throwaway org                                  | Part 2       | Todo — record the walk-through once it reproduces; no longer blocks submission                                                     |
+| 7   | Confirm each competing tool's behavior against the impostor SHA, empirically, not from docs     | Part 2       | Todo                                                                                                                               |
+| 8   | Decide whether to widen the frame for `Z` or drop `Z`                                           | Part 1       | **Done** — use `Z` only as supporting evidence (163/204, 79.9%); do not widen the frame for the proposal                           |
+| 9   | Fact-check the incident timeline and CVE against primary sources                                | Part 0       | **Done** 2026-10-29 — `tj-actions`, `reviewdog`, and Trivy checked against CVE, GHSA, and vendor sources                           |
+| 10  | Secure clearance to present anonymized fleet data                                               | Part 3       | Dropped 2026-10-25 — no employer clearance; use the public-corpus dry run only                                                     |
+| 11  | Write and submit the abstract                                                                   | Nov 1        | Text final 2026-10-29 in `scale-24x-proposal.md`; submit after the P0 checks                                                       |
+| 12  | Reproduce a pre-commit impostor `rev:` end to end on repositories you own                       | Part 2 demo  | Todo — preferred demo: ties Part 1's measured surface to Part 2's provenance gap                                                   |
+| 13  | Fix `verify_provenance` to reject open-PR-only SHAs; add a regression test                      | Part 2 demo  | **Done** — merged PR head or merge commit only                                                                                     |
+| 14  | Empirically test GitLab paths A and B (API, `git fetch`, `include:project`, component @SHA)     | Q&A          | Partly answered from source; end-to-end plan in [`impostor-e2e-tests.md`](impostor-e2e-tests.md)                                   |
+| 15  | Split `X` into official and other images, and `Y` into same-owner and other-owner repos         | Part 1       | `X` partly done 2026-10-26 via `images-full.csv`; split `Y` by owner and by whether the job executes the checkout                  |
+| 16  | Find a primary-source incident per reference type, or state that none is known                  | Part 1       | Partly done 2026-10-29 — action tags, image tags, transitive tags sourced; checkout `ref:` and pre-commit `rev:` open              |
+| 17  | Run the public-corpus remediation dry run                                                       | Part 3       | Todo — abstract no longer promises results; quote none until done                                                                  |
+| 18  | Package the scanner so attendees can audit their own repositories                               | Close        | Todo                                                                                                                               |
+| 19  | Review the speaker bio and confirm SCaLE 24x CFP fields, word limits, and track names           | Nov 1        | CFP fields, tracks, and the 1,000-character bio limit confirmed 2026-10-26; confirm the bio's claims and the Level options         |
+| 20  | Supply motivation facts: month and year, trigger, rounded fleet size, and clearance to say them | Nov 1        | Done 2026-10-25 — no clearance; date from the public first commit, no employer, count, or trigger                                  |
+| 21  | Verify `zizmor` coverage cells for `docker://` and service images against its audit docs        | Part 3       | Docs re-read 2026-10-29: `unpinned-images` covers `container.image` only; test service and `docker://` cells                       |
+| 22  | Decide whether immutable-release attestations can verify an action pin                          | Part 2       | Todo — governs the "not cryptographic attestation" wording on the verification slide                                               |
+| 23  | Time a full rehearsal of the 45-minute draft; cut to 40 minutes using the Cut List              | Talk         | Todo — outline budgets 40 minutes plus 5 of questions since 2026-10-29; the deck still runs about 45                               |
+| 24  | Verify the cold-open SHAs match their version comments                                          | Part 0       | **Done** 2026-10-25 — `actions/checkout` v7.0.1 and `astral-sh/setup-uv` v10.0.1 tags resolve to the SHAs shown                    |
+| 25  | Verify GitHub's SHA-pinning policy and immutable releases against primary sources               | Part 3       | **Done** 2026-10-25 — changelog 2025-08-15 and the *Immutable releases* docs page; re-check in March 2027                          |
+| 26  | Validate the Renovate and Dependabot configurations on the "Keep pins current" slide            | Part 3       | Todo — options verified in vendor docs 2026-10-26; confirm the `pre-commit` ecosystem key and `:enablePreCommit` in a scratch repo |
+| 27  | Confirm that a `--filter` partial clone fetches a fork-only commit on demand                    | Part 2       | Todo — inference from partial-clone behavior; test with the task 6 commit, or drop the warning from the hand-check slide           |
+| 28  | Decide whether to also submit to SunSecCon                                                      | Nov 1        | Todo — separate CFP tool; check its deadline and dual-submission policy                                                            |
+| 29  | Rerun the scan in March 2027 and update every figure in the deck and abstract                   | Talk         | Todo — promised in the reviewer message; choose the method first (see Open Questions)                                              |
+| 30  | Confirm that naming The Walt Disney Studios, a former employer, is acceptable in the CFP bio    | Nov 1        | **Done** 2026-10-29 — omitted from the bio; the community speaking record fits better                                              |
+| 31  | Read Truffle Security's 2024 Cross Fork Object Reference (FOR) post at the source               | Part 2       | Todo — page unreachable 2026-10-29; cite it only after reading it, or drop it                                                      |
+| 32  | Reorder `scale-24x-slides.py` to match the 2026-10-29 outline                                   | Talk         | Todo — coverage table to Part 3; GitLab, Jenkins, and CircleCI configuration slides to backup                                      |
+| 33  | Confirm the impostor `actions/checkout` SHA in the malicious Trivy v0.69.4 release workflow     | Part 2       | Todo — optional Part 2 aside; verify the SHA is fork-only before citing StepSecurity's claim                                       |
 
 The scan half of task 4 is done; publish its artifacts with the talk and slides in a dedicated repository.
 The measurement is the thesis again, so `N` belongs in the abstract.
@@ -411,42 +516,53 @@ Complete task 5 before stating the lockfile coverage boundary as an empirically 
 For task 7, retain the qualified phrase "most pinning tools I reviewed" based on source review;
 do not claim empirical impostor behavior for untested tools.
 
-Task 6 is no longer abstract-blocking, but it is still the best ten minutes of the talk.
-If it does not reproduce, Part 2 becomes a slide-only explanation of why lockfiles verify identity,
+Task 6 no longer blocks the thesis or the submission, and it is still the best ten minutes of the talk.
+Record it once it reproduces; that recording is what Part 2 presents.
+If it never reproduces, Part 2 becomes a slide-only explanation of why lockfiles verify identity,
 and the talk survives — which is precisely the resilience the previous framing lacked.
 
 ### Open Work by Priority
 
-As of 2026-10-26; the CFP closes 2026-11-01.
+As of 2026-10-29; the CFP closes 2026-11-01.
 
 **P0 — before submission (November 1).**
 
-- Task 19: confirm the speaking and SCaLE A/V claims in the bio in
-  [`scale-24x-proposal.md`](scale-24x-proposal.md#speaker-bio), the Level options, and any short-abstract limit.
+- Task 19: confirm the bio's claims (five SCaLE talks, DevOpsDays LA talk and chair role, two Code Camp talks),
+  plus the Level options and any short-abstract limit (see [Open Questions](#open-questions)).
 - Confirm whether the employer's outside-activity policy requires approval to speak at all, independent of content.
 - Re-check the lockfile's preview status and coverage against GitHub's documentation.
+- Re-check the abstract's Trivy figures against GHSA-69fq-xp46-6x23; the advisory was revised after disclosure.
 - Task 28: decide on a SunSecCon submission.
-- Task 11: submit.
+- Task 11: paste the proposal into the CFP form, following its Submission Checks, and submit.
 
 **P1 — before the slides are final (target February 2027).**
 
-- Tasks 6, 7, and 12: reproduce the impostor demo, preferably with pre-commit, and test each tool against it.
+- Task 32: reorder the deck to the 2026-10-29 outline.
+- Task 23: time a rehearsal and cut to 40 minutes using the Cut List.
+- Task 6: reproduce the impostor walk-through and record it; decide on a live run only after it reproduces reliably.
+- Tasks 7 and 12: test each tool against the impostor SHA, and try the pre-commit variant of the demo.
   Until then, the demo, review-diff, and provenance-table slides keep their warning callouts.
-- Task 9: fact-check one incident, or cut its slide.
+- Task 31: verify the Truffle Security FOR post, or leave it off the prior-work slide.
 - Task 17: run the public-corpus dry run, or cut the remediation slide and extend the Part 2 review-diff beat.
 - Task 4: publish the scanner, inputs, seed, and raw counts; fill the resources-slide URL.
 - Task 5: test `gh actions-lock` before calling the lockfile boundary empirically verified.
 - Tasks 21 and 22: settle the `zizmor` coverage cells and the attestation wording.
 - Tasks 26 and 27: validate the update configurations and the partial-clone warning.
-- Task 23: time a rehearsal of the 45-minute draft and cut to 40 minutes.
+
+**March 2027 — before the conference.**
+
+- Task 29: rerun the scan and update every figure; the proposal's reviewer message promises it.
+- Re-verify the lockfile, the SHA-pinning policy, immutable releases, fork-network API behavior,
+  the cross-CI slides, and the Renovate and Dependabot options.
 
 **P2 — strengthens the talk; safe to drop.**
 
-- Tasks 15, 16, and 18: split `Y`, find per-type incidents, and package the scanner.
+- Tasks 15, 16, and 18: split `Y`, source checkout-ref and pre-commit incidents, and package the scanner.
+- Task 33: confirm the Trivy impostor `actions/checkout` SHA, or drop the Part 2 aside.
 - Task 14: test the GitLab paths end to end, or keep "the source says" wording.
 - Add a 20-second primer slide on `uses:`, `container:`, and `services:` if rehearsal shows the room needs it.
-- March 2027: re-verify the lockfile, the SHA-pinning policy, immutable releases, fork-network API behavior,
-  the GitLab, Jenkins, and CircleCI slides, and the Renovate and Dependabot options.
+- Measure transitive references (composite-action `uses:` and Docker action base images),
+  or keep them as a disclosed undercount.
 
 ## Full-Run Results
 
@@ -842,9 +958,15 @@ Part 1 measures precisely that surface.
 
 **"Isn't the fork-network behavior already documented by GitHub?"**
 Yes, and the talk quotes both the behavior and the one-line warning from GitHub's own docs.
+Chainguard published the same finding as "imposter commits" on 2023-03-08, and the talk credits it.
 The contribution is not the disclosure.
 It is showing what that one line means in practice, comparing the tools actually reviewed or tested,
 and explaining why the platform built the check in.
+
+**"How is this different from `zizmor`?"** `zizmor` is a detector, and the close recommends running it.
+Its `impostor-commit` audit flags a fork-only SHA after it is committed,
+and its `unpinned-images` audit covers `container.image`.
+The talk's contribution is the measurement of what remains after pinning, not a competing detector.
 
 **"Isn't this just an ad for your tool?"**
 The proposal discloses that the speaker maintains `pinref`.
@@ -942,20 +1064,21 @@ Things that feel important and are not.
 - Arguing that the residual surface is enormous.
   It is one in seven; say so and move on.
 - The full tool feature matrix.
-  One coverage table in Part 1, with a lockfile column; link the rest.
+  One coverage table in Part 3, with a lockfile column; link the rest.
 - A deep dive on lockfile mechanics.
   Six bullets in Part 0 and the coverage boundary in Part 1; GitHub's docs cover the rest.
 - Architecture, async internals, caching, benchmarks.
   Wrong conference, wrong talk.
 - Any slide about why Python was chosen.
-- If over time after task 23, cut from the 45-minute draft to 40 in this order: "Questions you were about to ask"
+- If over time after task 23, cut to 40 minutes in this order: "Questions you were about to ask"
   (about 90 seconds; its answers stay in Q&A preparation),
-  the second demo variant in Part 2, the Jenkins and CircleCI slide
-  (keep the GitLab slide and the "Not a GitHub problem" table),
+  the remediation slide (the proposal no longer promises it), the second demo variant in Part 2,
   the platform-controls slide (keep it as backup), the gap-in-my-own-tool aside, the audit slide
   (move the commands to the published repository), and the transitive slide last; it carries the title.
-  Do not cut the "Not a GitHub problem" slide; the abstract promises it.
+  The GitLab, Jenkins, and CircleCI configuration slides are already backup.
+  Do not cut the "Not a GitHub problem" slide; the proposal promises it.
   Do not cut "What actually floats"; the abstract's job-container sentence depends on it.
+  Do not cut the coverage table; the proposal names every tool in it.
 
 ## Open Risks
 
@@ -971,14 +1094,14 @@ Things that feel important and are not.
   Expansion to container-image or `with.ref` coverage would shrink the lockfile column on one slide,
   not the measurement.
   Re-check the feature's documentation at submission, at acceptance, and in March 2027.
-- The impostor demo has not been reproduced end-to-end yet.
-  No longer thesis-critical, but it is still the best segment in the talk.
+- The impostor walk-through has not been reproduced end-to-end yet.
+  No longer thesis-critical or submission-critical, but it is still the best segment in the talk.
 - `Z` cannot reach a 1,000-repository denominator at the current sampling frame.
   The full run gives 79.9% (163/204, 95% CI 73.9%–84.8%): usable as a supporting figure with its denominator shown,
   not as a headline.
   Widen the frame below 100 stars only if `Z` must carry more weight.
-- Live demo depends on GitHub Actions executing on conference wifi timing.
-  Pre-record.
+- A live run would depend on GitHub Actions executing on conference wifi timing.
+  The proposal promises a recording, so this risk applies only if you choose to run live.
 - There is no employer clearance.
   Use only public-corpus data; do not name the employer, its repositories, or internal counts in the talk or Q&A.
   If asked where the story happened, answer "at work, on many repositories" and move on.
@@ -997,3 +1120,97 @@ Things that feel important and are not.
 - The motivation story can read as a claim that no fixer existed.
   Date it, credit `ratchet` and `pinact` on the same slide,
   and note that `zizmor` now has an unsafe-tier `--fix=all` for `unpinned-uses`.
+- The proposal commits to a recorded walk-through and a March 2027 re-scan.
+  If task 6 never reproduces, present Part 2 from slides; if the re-scan moves the figures, update the deck,
+  and tell the audience the abstract quoted the 2026-10-21 run.
+- Part 3 lost two minutes and gained the coverage table.
+  Rehearse it first; it is the segment most likely to overrun.
+
+## Open Questions
+
+Decide each by the date in brackets.
+
+1. **Level [Nov 1].**
+   Which Level options does the CFP form offer?
+   The proposal says Intermediate.
+2. **Short Abstract limit [Nov 1].**
+   Does the print field have a length limit?
+   The current text is about 330 characters.
+3. ~~**Former employer in the bio [Nov 1].**~~
+   **Resolved 2026-10-29:** the bio omits The Walt Disney Studios; the community speaking record fits this CFP better.
+   Revisit only for a variant that needs a professional credential (task 30).
+4. **Outside-activity policy [Nov 1].**
+   Does the current employer require approval to speak at all?
+5. **SunSecCon [Nov 1].**
+   What is its deadline, and does it allow dual submission?
+   See task 28.
+6. **Walk-through variant [February 2027].** Action or pre-commit?
+   The proposal's "a workflow running a fork-only commit" fits both; pre-commit ties Part 1 to Part 2.
+7. **Live run [March 2027].**
+   Run Part 2 live at the venue, or play the recording only?
+   Decide after task 6 reproduces in rehearsal; the proposal promises only the recording.
+8. **Re-scan method [March 2027].**
+   Re-draw the frame with a new `--pushed-since`, or rescan the same 49,984 repositories at their current HEADs?
+   The same sample keeps the figures comparable; a new frame keeps "active" accurate.
+   State the choice on the methodology slide (task 29).
+9. **`Y` scope [February 2027].**
+   Restrict cross-repository checkout refs to code the job executes?
+   The proposal discloses that `Y` counts both (task 15).
+10. **Transitive references [February 2027].**
+    Measure composite-action `uses:` and Docker action base images, or keep them as a disclosed undercount?
+
+## Citations
+
+Every claim in the proposal or on a slide needs a primary source.
+Status as of 2026-10-29.
+
+### Verified
+
+| Claim                                                                                         | Source                                                                      | Checked    | Used in          |
+| --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | ---------- | ---------------- |
+| Fork commits are reachable from the upstream repository                                       | [GitHub: About forks][gh-forks]                                             | 2026-10-20 | Proposal; Part 2 |
+| Verify a SHA comes from the action's repository, not a fork                                   | [GitHub: Secure use reference][gh-secure]                                   | 2026-10-20 | Part 2           |
+| Lockfiles verify source-repository identity; public preview                                   | [GitHub: Workflow dependency lockfiles][gh-lock]                            | 2026-10-20 | Proposal; Part 3 |
+| Organization and enterprise SHA-pinning policy                                                | GitHub changelog, 2025-08-15                                                | 2026-10-25 | Part 3           |
+| Immutable releases                                                                            | GitHub Docs, *Immutable releases*                                           | 2026-10-25 | Part 3           |
+| `tj-actions/changed-files`: CVE-2025-30066, repointed tags, secrets in logs, 2025-03-14 to 15 | [GHSA][ghsa], [StepSecurity][stepsec], [CISA][cisa], [#2463][tj-2463]       | 2026-10-29 | Part 0           |
+| Some SHA-pinned consumers ran the malicious commit after Renovate updates                     | [tj-actions/changed-files#2463][tj-2463]                                    | 2026-10-29 | Part 0           |
+| `reviewdog/action-setup@v1`: CVE-2025-30154, 2025-03-11, embedding actions affected           | [CVE record][cve-reviewdog], [Wiz][wiz-reviewdog], [Hunters][hunters]       | 2026-10-29 | Part 0           |
+| Trivy: CVE-2026-33634, 76 of 77 action tags, compromised images, older-SHA caveat             | [GHSA][ghsa-trivy], [Aqua][aqua-trivy], [StepSecurity][stepsec-trivy]       | 2026-10-29 | Proposal; Part 0 |
+| Imposter commits: disclosed to GitHub 2022-09-08, published 2023-03-08                        | [Chainguard, "What the fork?"][chainguard]                                  | 2026-10-29 | Proposal; Part 2 |
+| `impostor-commit` covers workflows, actions, and pre-commit                                   | [`zizmor` audit rules][zizmor]                                              | 2026-10-29 | Proposal; Q&A    |
+| `unpinned-images` covers `container.image` only, with no auto-fix                             | [`zizmor` audit rules][zizmor]                                              | 2026-10-29 | Part 3 table     |
+| Renovate and Dependabot image, pre-commit, and cooldown support                               | Vendor documentation                                                        | 2026-10-26 | Part 3           |
+| GitLab CI, Jenkins, and CircleCI syntax                                                       | Vendor documentation                                                        | 2026-10-26 | Part 1; backup   |
+| Corpus figures, frame size, and image breakdown                                               | `corpus/report-full.md`, `corpus/images-full.csv`, `corpus/frame.meta.json` | 2026-10-26 | Proposal; Part 1 |
+
+### Needed
+
+| Claim                                                          | Gap                                              | Task |
+| -------------------------------------------------------------- | ------------------------------------------------ | ---- |
+| Truffle Security FOR research (2024)                           | Page unreachable 2026-10-29                      | 31   |
+| One incident per reference type                                | Checkout `ref:` and pre-commit `rev:` unsourced  | 16   |
+| Trivy release workflow used an impostor `actions/checkout` SHA | StepSecurity only; SHA not independently checked | 33   |
+| `zizmor` coverage of service images and `docker://` steps      | Docs name `container.image` only                 | 21   |
+| Immutable-release attestations can verify an action pin        | Unresolved                                       | 22   |
+| A partial clone fetches a fork-only commit on demand           | Inference from partial-clone behavior            | 27   |
+| GitLab keep-around refs and Azure fetch-by-SHA                 | Source reading, not tests                        | 14   |
+| Lockfile coverage boundary                                     | Documentation only; `gh actions-lock` untested   | 5    |
+| Renovate and Dependabot configurations work as shown           | Documentation only                               | 26   |
+| Published scanner repository URL                               | Not yet published                                | 4    |
+
+[gh-forks]: https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/about-forks
+[gh-secure]: https://docs.github.com/en/actions/reference/security/secure-use
+[gh-lock]: https://docs.github.com/en/actions/concepts/security/workflow-dependency-lockfiles
+[ghsa]: https://github.com/advisories/GHSA-mrrh-fwg8-r2c3
+[stepsec]: https://www.stepsecurity.io/blog/harden-runner-detection-tj-actions-changed-files-action-is-compromised
+[cisa]: https://www.cisa.gov/news-events/alerts/2025/03/18/supply-chain-compromise-third-party-tj-actionschanged-files-cve-2025-30066-and-reviewdogaction
+[tj-2463]: https://github.com/tj-actions/changed-files/issues/2463
+[cve-reviewdog]: https://www.cve.org/CVERecord?id=CVE-2025-30154
+[wiz-reviewdog]: https://www.wiz.io/blog/new-github-action-supply-chain-attack-reviewdog-action-setup
+[hunters]: https://www.hunters.security/en/blog/github-actions-supply-chain-attack
+[ghsa-trivy]: https://github.com/advisories/GHSA-69fq-xp46-6x23
+[aqua-trivy]: https://github.com/aquasecurity/trivy/discussions/10425
+[stepsec-trivy]: https://www.stepsecurity.io/blog/trivy-compromised-a-second-time---malicious-v0-69-4-release
+[chainguard]: https://www.chainguard.dev/unchained/what-the-fork-imposter-commits-in-github-actions-and-ci-cd
+[zizmor]: https://docs.zizmor.sh/audits/

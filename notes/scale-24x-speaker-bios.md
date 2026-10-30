@@ -140,7 +140,7 @@ Confirm or remove each item.
 | DNSSEC-to-pinning through-line                       | Pinning hook     | Matches the SCaLE 14x DNSSEC abstract; reword if the framing does not fit                                 |
 | Wrote a pinning tool for a rollout                   | Pinning hook     | [`scale-24x-proposal.md`](scale-24x-proposal.md#speaker-bio); omits fleet size pending employer clearance |
 | Public dotfiles repository since 2019                | Dotfiles hook    | First commit in [`drts01/dotfiles`](https://github.com/drts01/dotfiles) is dated 2019-04-22               |
-| 49,984-repository scan                               | Optional lines   | [`scale-24x-proposal.md`](scale-24x-proposal.md#abstract); update if the final count changes              |
+| 49,984-repository scan                               | Optional lines   | [`scale-24x-proposal.md`](scale-24x-proposal.md#long-abstract); update if the final count changes         |
 | LFCS certification                                   | Optional lines   | Confirm it is current; otherwise write "earned the LFCS"                                                  |
 
 Additional checks:
