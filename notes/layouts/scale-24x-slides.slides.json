@@ -36,7 +36,7 @@
       },
       {
         "type": "slide",
-        "speakerNotes": "One incident, one slide, primary sources only. If task 9 is not done, cut this slide."
+        "speakerNotes": "Sixty seconds, one lesson per row; skip incident details. reviewdog: actions that embedded action-setup@v1 were affected regardless of how you pinned them; Wiz suspects a link to tj-actions, so say 'suspected'. tj-actions: tags moved to 0e58ed86; issue #2463 shows Renovate updated some SHA pins to the malicious commit, so do not say SHA-pinned consumers were safe. Trivy: 76 of 77 trivy-action tags and all setup-trivy tags replaced on 2026-03-19; Docker Hub images 0.69.5 and 0.69.6 on 2026-03-22; digest-pinned images and trivy-action SHAs after 2025-04-09 were unaffected. Say 'we will come back to this' on the transitive tag; Part 1 counts it as an undercount. Re-check GHSA-69fq-xp46-6x23 before the talk."
       },
       {
         "type": "slide",
@@ -52,11 +52,11 @@
       },
       {
         "type": "slide",
-        "speakerNotes": "Forty-five seconds total, not per row. Point at the right-hand column. Pre-commit is the row the demo uses."
+        "speakerNotes": "Forty-five seconds total, not per row. Point at the right-hand column. Pre-commit is the row the walk-through uses."
       },
       {
         "type": "slide",
-        "speakerNotes": "Forty-five seconds. The title in one slide: pinned, and still not pinned. Do not quote a number; the scan did not measure transitive references."
+        "speakerNotes": "Forty-five seconds. The title in one slide: pinned, and still not pinned. Read the Trivy line as the callback to the timeline slide: a real SHA-pinned action that fetched a compromised dependency by tag. Do not quote a number; the scan did not measure transitive references."
       },
       {
         "type": "slide",
@@ -76,39 +76,27 @@
       },
       {
         "type": "slide",
-        "speakerNotes": "Volunteer the inverse before a hostile questioner computes it. Do not call the rest clean."
+        "speakerNotes": "Volunteer the inverse before a hostile questioner computes it. Do not call the rest clean. Transitive references are the first undercount; the Trivy line two slides back is why it matters."
       },
       {
         "type": "slide",
-        "speakerNotes": "Twenty seconds. Self-implicating detail; it buys credibility for the tool table that follows."
+        "speakerNotes": "Twenty seconds. Self-implicating detail; it buys credibility for the Part 3 coverage table."
       },
       {
         "type": "slide",
-        "speakerNotes": "Neutral framing. ratchet is near-complete on GitHub Actions; say so. The disclosure is on the slide; read it."
+        "speakerNotes": "About one minute; the only cross-CI slide in the main deck. The measurement is GitHub-only; this slide is from vendor documentation, so say 'the docs say', not 'I measured'. Point at the CircleCI line: the platform that solved the config layer still runs a mutable image. GitLab CI, Jenkins, and CircleCI configuration examples are backup slides for Q&A."
       },
       {
         "type": "slide",
-        "speakerNotes": "Forty-five seconds. The measurement is GitHub-only; this slide is from vendor documentation, so say 'the docs say', not 'I measured'. Point at the CircleCI line: the platform that solved the config layer still runs a mutable image. The next two slides show the configuration on GitLab, Jenkins, and CircleCI."
+        "speakerNotes": "0:17. A fixed SHA answers 'which content?', not 'whose commit?'. The lockfile is one available answer for actions, not the premise of this section."
       },
       {
         "type": "slide",
-        "speakerNotes": "One minute. Vendor documentation, not measurement: say 'GitLab documents'. The ~latest form works only for published catalog components. GitLab impostor commits come up again at the end of Part 2."
+        "speakerNotes": "Quote GitHub's own docs; this is documented behavior, not a discovery. Read the prior-work line: Chainguard published this in 2023, and zizmor detects it. Add Truffle Security only after task 31 verifies it. The contribution is showing what the one sentence means in practice."
       },
       {
         "type": "slide",
-        "speakerNotes": "One minute. Jenkins: read the trusted-library quote; it is the strongest line on the slide. CircleCI: credit immutable orb versions before pointing at @volatile and the image tag. Vendor documentation, October 2026; re-verify in March 2027."
-      },
-      {
-        "type": "slide",
-        "speakerNotes": "0:21. A fixed SHA answers 'which content?', not 'whose commit?'. The lockfile is one available answer for actions, not the premise of this section."
-      },
-      {
-        "type": "slide",
-        "speakerNotes": "Quote GitHub's own docs; this is documented behavior, not a discovery. The contribution is showing what the one sentence means in practice."
-      },
-      {
-        "type": "slide",
-        "speakerNotes": "Live only if the network cooperates; cut to the recording without apologizing. Prefer the pre-commit variant: one demo carries both halves of the talk."
+        "speakerNotes": "Present from the recording; it is the plan, not a fallback. Run live only if it reproduced reliably in rehearsal and the network cooperates. Prefer the pre-commit variant: one walk-through carries both halves of the talk."
       },
       {
         "type": "slide",
@@ -124,7 +112,7 @@
       },
       {
         "type": "slide",
-        "speakerNotes": "Say the limitation out loud. A lockfile can verify action origin at run time, but it does not cover pre-commit revs or cross-repo checkout refs. Audit those separately. This brings the provenance demo back to the measured surface without implying that no other provenance checker exists."
+        "speakerNotes": "Say the limitation out loud. A lockfile can verify action origin at run time, but it does not cover pre-commit revs or cross-repo checkout refs. Audit those separately. This brings the provenance walk-through back to the measured surface without implying that no other provenance checker exists. Optional 20-second aside, only if task 33 confirms it: StepSecurity reports that the malicious Trivy v0.69.4 release workflow pinned actions/checkout to an impostor commit SHA."
       },
       {
         "type": "slide",
@@ -132,7 +120,7 @@
       },
       {
         "type": "slide",
-        "speakerNotes": "0:30. Shift from what is exposed to what it costs to fix."
+        "speakerNotes": "0:27. Shift from what is exposed to what it costs to fix."
       },
       {
         "type": "slide",
@@ -140,11 +128,15 @@
       },
       {
         "type": "slide",
+        "speakerNotes": "Moved from Part 1 on 2026-10-29. Neutral framing. ratchet is near-complete on GitHub Actions; say so. The disclosure is on the slide; read it. Settle the zizmor image cells before the talk (task 21)."
+      },
+      {
+        "type": "slide",
         "speakerNotes": "Replace <digest> only with a digest resolved during rehearsal; never invent one."
       },
       {
         "type": "slide",
-        "speakerNotes": "Anticipates the 'digest pins miss security patches' question. The answer is pin plus automated updates, with a deliberate cooldown."
+        "speakerNotes": "Anticipates the 'digest pins miss security patches' question. The answer is pin plus automated updates, with a deliberate cooldown. Read the tj-actions line: a SHA pin does not help if the update that wrote it chose the malicious commit. That is why review cost and the cooldown matter."
       },
       {
         "type": "slide",
@@ -156,7 +148,7 @@
       },
       {
         "type": "slide",
-        "speakerNotes": "Callback to the motivation: the detectors I knew could report the problem, but the task needed a bulk fixer. These are complementary layers, not competitors."
+        "speakerNotes": "0:36. Callback to the motivation: the detectors I knew could report the problem, but the task needed a bulk fixer. These are complementary layers, not competitors."
       },
       {
         "type": "slide",
@@ -164,7 +156,7 @@
       },
       {
         "type": "slide",
-        "speakerNotes": "0:41. The slide people photograph. Leave it up for a beat."
+        "speakerNotes": "0:38. The slide people photograph. Leave it up for a beat."
       },
       {
         "type": "slide",
@@ -176,11 +168,19 @@
       },
       {
         "type": "slide",
-        "speakerNotes": "0:45 in the full draft; trim to 0:40 for five minutes of questions. One backup slide follows."
+        "speakerNotes": "0:40. Five minutes of questions on the handheld mic. Backup slides follow: the pre-commit denominator, GitLab CI, and Jenkins with CircleCI."
       },
       {
         "type": "slide",
         "speakerNotes": "Backup for 'Your pre-commit number has a small denominator'."
+      },
+      {
+        "type": "slide",
+        "speakerNotes": "Backup for 'Is this only GitHub?'. Vendor documentation, not measurement: say 'GitLab documents'. The ~latest form works only for published catalog components. GitLab impostor commits are on Part 2's 'beyond GitHub' slide."
+      },
+      {
+        "type": "slide",
+        "speakerNotes": "Backup for 'Is this only GitHub?'. Jenkins: read the trusted-library quote; it is the strongest line on the slide. CircleCI: credit immutable orb versions before pointing at @volatile and the image tag. Vendor documentation, October 2026; re-verify in March 2027."
       }
     ]
   }

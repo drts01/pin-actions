@@ -243,17 +243,25 @@ def _(mo):
     mo.vstack(
         [
             mo.md("# This is not hypothetical"),
-            mo.callout(
-                mo.md(
-                    """
-                    **Pending fact-check (task 9).**
-                    Add one incident in which a moved tag shipped malicious code to consumers:
-                    timeline, CVE identifier, and whether SHA-pinned consumers were affected,
-                    each cited to a primary source.
-                    Do not present incident details from memory.
-                    """
-                ),
-                kind="warn",
+            mo.md(
+                """
+                | Date | Incident | Lesson |
+                | --- | --- | --- |
+                | 2025-03-11 | `reviewdog/action-setup@v1` | Embedded tags bypass your own pins |
+                | 2025-03-14 | `tj-actions/changed-files` | A SHA pin helps only if the update chose a good SHA |
+                | 2026-03-19 | Trivy actions and images | Action tags, image tags, and a transitive tag |
+
+                Images pulled by digest were unaffected.
+                Older `trivy-action` commits pinned by SHA still loaded `setup-trivy` by tag.
+                """
+            ),
+            mo.md(
+                """
+                <small>
+                Sources: reviewdog CVE-2025-30154; tj-actions CVE-2025-30066, GHSA-mrrh-fwg8-r2c3,
+                CISA 2025-03-18; Trivy CVE-2026-33634, GHSA-69fq-xp46-6x23.
+                </small>
+                """
             ),
         ],
         gap=2,
@@ -372,6 +380,9 @@ def _(mo):
                 """
                 Your SHA fixes the action's files.
                 It does not fix what those files fetch.
+
+                Trivy, March 2026: older `trivy-action` commits pinned by SHA
+                still fetched `setup-trivy` by tag, and ran the compromised version.
 
                 The lockfile covers transitive **actions**.
                 Nothing in your repository covers the base image.
@@ -512,6 +523,7 @@ def _(mo, pct, s):
 
         That does **not** mean they are clean. The scanner does not count:
 
+        - transitive references inside pinned actions: composite `uses:` and Docker action base images
         - Docker container action definitions (`runs.image` in an `action.yml`)
         - `runs-on:` runner images
         - history: only the default-branch snapshot
@@ -547,32 +559,6 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md("""
-    # Who covers what
-
-    | Mutable reference | Lockfile (preview) | ratchet | pinact | Updatecli | pin-github-action | zizmor | pinref |
-    | --- | :-: | :-: | :-: | :-: | :-: | :-: | :-: |
-    | Action ref | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-    | Reusable workflow ref | ✅ | ✅ | ✅ | ❌ | ❌ | ⚠️ | ✅ |
-    | Cross-repo checkout ref | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-    | `docker://` step image | ❌ | ✅ | ❌ | ✅ | ❌ | ⚠️ | ✅ |
-    | Job container image | ❌ | ✅ | ❌ | ✅ | ❌ | ⚠️ | ✅ |
-    | Service container image | ❌ | ✅ | ❌ | ❌ | ❌ | ⚠️ | ✅ |
-    | Pre-commit revision | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-    | Provenance of the SHA | ✅ run time | ❌ | ❌ | ❌ | ❌ | ⚠️ after commit | ✅ write time |
-
-    ✅ pins or verifies &nbsp; ⚠️ reports only &nbsp; ❌ not covered
-
-    Disclosure: I maintain pinref.
-    `ratchet` also covers five other CI systems; pinref covers GitHub Actions only.
-    `zizmor`'s provenance check also reads pre-commit revisions; it does not flag a mutable `rev:`.
-    Based on documentation and source review, October 2026.
-    """)
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md("""
     # Not a GitHub problem
 
     | Platform | Container image by tag | Shared code by branch or tag |
@@ -594,80 +580,6 @@ def _(mo):
 
     Measured on GitHub only; other platforms from vendor documentation, October 2026.
     """)
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md("""
-    # GitLab CI: the same three gaps
-
-    ```yaml
-    image: node:20                       # job image by tag
-    services:
-      - postgres:16                      # service image by tag
-    include:
-      - project: example/ci-templates
-        ref: main                        # a branch; omitted, it is the project's HEAD
-        file: /templates/build.yml
-      - component: gitlab.com/example/components/lint@~latest   # newest catalog release
-    ```
-
-    Pinned forms GitLab documents: `node:20@sha256:<digest>`, `ref: <commit SHA>`, `lint@<commit SHA>`.
-
-    GitLab's component docs suggest partial versions so you "automatically receive minor or patch updates";
-    its security guidance says to "Pin CI/CD components to a specific commit SHA (preferred)".
-
-    Sources: GitLab Docs, *CI/CD YAML syntax reference* and *CI/CD components*, October 2026.
-    """)
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.hstack(
-        [
-            mo.md(
-                """
-                # Jenkins
-
-                ```groovy
-                @Library('my-shared-library@master') _
-                pipeline {
-                  agent {
-                    docker { image 'node:20' }
-                  }
-                  stages { /* ... */ }
-                }
-                ```
-
-                Library versions: "branches, tags, and commit hashes all work".
-                A *trusted* library runs outside the Groovy sandbox:
-                "anyone able to push commits to this SCM repository could obtain unlimited access to Jenkins."
-                """
-            ),
-            mo.md(
-                """
-                # CircleCI
-
-                ```yaml
-                orbs:
-                  aws-cli: circleci/aws-cli@4      # every 4.x.y release
-                  slack: circleci/slack@volatile   # last published version
-                jobs:
-                  test:
-                    docker:
-                      - image: cimg/ruby:2.7       # executor image by tag
-                ```
-
-                A full orb version is immutable.
-                The image inside it is not.
-                """
-            ),
-        ],
-        widths=[1, 1],
-        gap=2,
-    )
     return
 
 
@@ -700,6 +612,9 @@ def _(mo):
     > [Secure use reference](https://docs.github.com/en/actions/reference/security/secure-use)
 
     One sentence. It tells you to verify, and not how.
+
+    Prior work: Chainguard, "What the fork? Imposter commits in GitHub Actions and CI/CD" (2023-03-08);
+    `zizmor`'s `impostor-commit` audit.
     """)
     return
 
@@ -710,7 +625,7 @@ def _(mo):
         [
             mo.md(
                 """
-                # Demo: a commit that exists only in my fork
+                # Walk-through: a commit that exists only in my fork
 
                 1. Fork the upstream repository and push a commit that prints a marker to the job log
                 2. Ask the **upstream** repository's API for that SHA: it answers 200
@@ -724,9 +639,10 @@ def _(mo):
             mo.callout(
                 mo.md(
                     """
-                    **Pending reproduction (tasks 6, 7, 12).**
+                    **Pending reproduction and recording (tasks 6, 7, 12).**
+                    Present from the recording; run live only if it reproduced reliably in rehearsal.
                     Prefer the pre-commit variant if it reproduces; fall back to an action.
-                    Show only tool behavior observed in testing. Play the recording if the network fails.
+                    Show only tool behavior observed in testing.
                     """
                 ),
                 kind="warn",
@@ -881,6 +797,32 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md("""
+    # Who covers what
+
+    | Mutable reference | Lockfile (preview) | ratchet | pinact | Updatecli | pin-github-action | zizmor | pinref |
+    | --- | :-: | :-: | :-: | :-: | :-: | :-: | :-: |
+    | Action ref | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+    | Reusable workflow ref | ✅ | ✅ | ✅ | ❌ | ❌ | ⚠️ | ✅ |
+    | Cross-repo checkout ref | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+    | `docker://` step image | ❌ | ✅ | ❌ | ✅ | ❌ | ⚠️ | ✅ |
+    | Job container image | ❌ | ✅ | ❌ | ✅ | ❌ | ⚠️ | ✅ |
+    | Service container image | ❌ | ✅ | ❌ | ❌ | ❌ | ⚠️ | ✅ |
+    | Pre-commit revision | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+    | Provenance of the SHA | ✅ run time | ❌ | ❌ | ❌ | ❌ | ⚠️ after commit | ✅ write time |
+
+    ✅ pins or verifies &nbsp; ⚠️ reports only &nbsp; ❌ not covered
+
+    Disclosure: I maintain pinref.
+    `ratchet` also covers five other CI systems; pinref covers GitHub Actions only.
+    `zizmor`'s provenance check also reads pre-commit revisions; it does not flag a mutable `rev:`.
+    Based on documentation and source review, October 2026.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md("""
     # Pin images to digests, and keep the original tag readable
 
     ```yaml
@@ -912,6 +854,9 @@ def _(mo):
     | Digest + updates + release cooldown | Patch latency equal to the cooldown window |
 
     Pair digest pins with Renovate or Dependabot digest updates, and choose the cooldown deliberately.
+
+    An updater writes a malicious SHA as readily as a good one:
+    some `tj-actions/changed-files` users ran the malicious commit after an automated update (issue #2463).
     """)
     return
 
@@ -1096,6 +1041,10 @@ def _(mo):
     - [zizmor](https://github.com/zizmorcore/zizmor) &nbsp; [ratchet](https://github.com/sethvargo/ratchet)
       &nbsp; [pinact](https://github.com/suzuki-shunsuke/pinact) &nbsp; [Updatecli](https://github.com/updatecli/updatecli)
     - [pinref](https://github.com/drts01/pinref) (disclosure: I maintain it)
+    - [Chainguard: What the fork?](https://www.chainguard.dev/unchained/what-the-fork-imposter-commits-in-github-actions-and-ci-cd)
+    - Incidents: [CVE-2025-30154](https://www.cve.org/CVERecord?id=CVE-2025-30154) (reviewdog),
+      [GHSA-mrrh-fwg8-r2c3](https://github.com/advisories/GHSA-mrrh-fwg8-r2c3) (tj-actions),
+      [GHSA-69fq-xp46-6x23](https://github.com/advisories/GHSA-69fq-xp46-6x23) (Trivy)
     """)
     return
 
@@ -1125,6 +1074,80 @@ def _(ci, mo, s):
 
     Reported as supporting evidence with its own denominator, not as the headline.
     """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md("""
+    # Backup: GitLab CI has the same three gaps
+
+    ```yaml
+    image: node:20                       # job image by tag
+    services:
+      - postgres:16                      # service image by tag
+    include:
+      - project: example/ci-templates
+        ref: main                        # a branch; omitted, it is the project's HEAD
+        file: /templates/build.yml
+      - component: gitlab.com/example/components/lint@~latest   # newest catalog release
+    ```
+
+    Pinned forms GitLab documents: `node:20@sha256:<digest>`, `ref: <commit SHA>`, `lint@<commit SHA>`.
+
+    GitLab's component docs suggest partial versions so you "automatically receive minor or patch updates";
+    its security guidance says to "Pin CI/CD components to a specific commit SHA (preferred)".
+
+    Sources: GitLab Docs, *CI/CD YAML syntax reference* and *CI/CD components*, October 2026.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.hstack(
+        [
+            mo.md(
+                """
+                # Backup: Jenkins
+
+                ```groovy
+                @Library('my-shared-library@master') _
+                pipeline {
+                  agent {
+                    docker { image 'node:20' }
+                  }
+                  stages { /* ... */ }
+                }
+                ```
+
+                Library versions: "branches, tags, and commit hashes all work".
+                A *trusted* library runs outside the Groovy sandbox:
+                "anyone able to push commits to this SCM repository could obtain unlimited access to Jenkins."
+                """
+            ),
+            mo.md(
+                """
+                # Backup: CircleCI
+
+                ```yaml
+                orbs:
+                  aws-cli: circleci/aws-cli@4      # every 4.x.y release
+                  slack: circleci/slack@volatile   # last published version
+                jobs:
+                  test:
+                    docker:
+                      - image: cimg/ruby:2.7       # executor image by tag
+                ```
+
+                A full orb version is immutable.
+                The image inside it is not.
+                """
+            ),
+        ],
+        widths=[1, 1],
+        gap=2,
+    )
     return
 
 

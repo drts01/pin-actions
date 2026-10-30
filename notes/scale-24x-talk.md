@@ -160,11 +160,19 @@ Revised again 2026-10-29 for the deadline:
   it is newer and exercises three of the talk's claims at once — action tags, image tags vs. digests,
   and a transitive tag inside a SHA-pinned action.
   `tj-actions` and `reviewdog` (CVE-2025-30154) stay in the deck on Part 0's timeline slide.
+- Reordered `scale-24x-slides.py` to this outline
+  (task 32):
+  the coverage table moved to Part 3, and the GitLab CI and Jenkins/CircleCI configuration slides moved to backup.
+  Speaker-note timestamps now follow the 40-minute plan.
+- Wired the incidents into the deck: the Trivy transitive tag on the transitive-references slide,
+  the `tj-actions` Renovate lesson on the cost slide, and advisories on the resources slide.
+- Added the Chainguard and `zizmor` prior-work credit to Part 2's first slide, as the proposal promises.
+- Renamed the Part 2 demo slide to a walk-through and made the recording the primary path.
 
 ## Outline — 40 minutes plus 5 of questions
 
 Timings match the proposal's session plan as of 2026-10-29: 7, 10, 10, 9, and 4 minutes, then 5 of questions.
-The slide draft still follows the earlier 45-minute order; reorder it (task 32) and cut it to 40 (task 23).
+The slide draft follows this order since 2026-10-29 (task 32) but still runs about 45 minutes; cut it to 40 (task 23).
 
 ### 0:00–0:03 — Cold open, no title slide
 
@@ -503,7 +511,7 @@ The full scan finished on 2026-10-21.
 | 29  | Rerun the scan in March 2027 and update every figure in the deck and abstract                   | Talk         | Todo — promised in the reviewer message; choose the method first (see Open Questions)                                              |
 | 30  | Confirm that naming The Walt Disney Studios, a former employer, is acceptable in the CFP bio    | Nov 1        | **Done** 2026-10-29 — omitted from the bio; the community speaking record fits better                                              |
 | 31  | Read Truffle Security's 2024 Cross Fork Object Reference (FOR) post at the source               | Part 2       | Todo — page unreachable 2026-10-29; cite it only after reading it, or drop it                                                      |
-| 32  | Reorder `scale-24x-slides.py` to match the 2026-10-29 outline                                   | Talk         | Todo — coverage table to Part 3; GitLab, Jenkins, and CircleCI configuration slides to backup                                      |
+| 32  | Reorder `scale-24x-slides.py` to match the 2026-10-29 outline                                   | Talk         | **Done** 2026-10-29 — coverage table in Part 3; GitLab, Jenkins, and CircleCI slides in backup                                     |
 | 33  | Confirm the impostor `actions/checkout` SHA in the malicious Trivy v0.69.4 release workflow     | Part 2       | Todo — optional Part 2 aside; verify the SHA is fork-only before citing StepSecurity's claim                                       |
 
 The scan half of task 4 is done; publish its artifacts with the talk and slides in a dedicated repository.
@@ -537,7 +545,6 @@ As of 2026-10-29; the CFP closes 2026-11-01.
 
 **P1 — before the slides are final (target February 2027).**
 
-- Task 32: reorder the deck to the 2026-10-29 outline.
 - Task 23: time a rehearsal and cut to 40 minutes using the Cut List.
 - Task 6: reproduce the impostor walk-through and record it; decide on a live run only after it reproduces reliably.
 - Tasks 7 and 12: test each tool against the impostor SHA, and try the pre-commit variant of the demo.
@@ -955,6 +962,14 @@ For action references, once it is available to you, do exactly that — the talk
 It is in public preview, so most of the room cannot adopt it yet, and it does not cover container images,
 cross-repo `with.ref`, pre-commit revisions, or `runs-on:`.
 Part 1 measures precisely that surface.
+
+**"If SHA pins did not save `tj-actions` and Trivy users, why pin?"**
+They protected users whose pin named a known-good commit with no tag-based dependencies inside.
+The exceptions prove the talk's two other points.
+Some `tj-actions` users had an updater write the malicious SHA
+(issue #2463), which is why review cost and cooldowns matter.
+Older `trivy-action` SHAs fetched `setup-trivy` by tag, which is the transitive undercount.
+Trivy images pinned by digest were unaffected.
 
 **"Isn't the fork-network behavior already documented by GitHub?"**
 Yes, and the talk quotes both the behavior and the one-line warning from GitHub's own docs.
